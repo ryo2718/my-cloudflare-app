@@ -89,19 +89,51 @@ export function StrategyCard({
           fontSize: '11px',
           lineHeight: 1.4,
           fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
-          minHeight: '30px',
         }}
       >
-        {showAllin && (
-          <div style={{ color: STRATEGY_TEXT_COLORS.allin }}>AI: {fmt(allinRate ?? 0)}%</div>
+        {/* 行スロットは値が 0 でも visibility:hidden で常に占有させる。
+              これでカード間で AI/R/C 行の縦位置が常に揃う (4bet ↔ AI 0% ↔ AI 50% など)。
+              4bet (useAllin=true) ⇒ 3行スロット、Open/3bet ⇒ 2行スロット。 */}
+        {useAllin && (
+          <StatLine
+            color={STRATEGY_TEXT_COLORS.allin}
+            label="AI"
+            value={allinRate ?? 0}
+            visible={showAllin}
+            fmt={fmt}
+          />
         )}
-        {showRaise && (
-          <div style={{ color: STRATEGY_TEXT_COLORS.raise }}>R: {fmt(raiseRate)}%</div>
-        )}
-        {showCall && (
-          <div style={{ color: STRATEGY_TEXT_COLORS.call }}>C: {fmt(callRate)}%</div>
-        )}
+        <StatLine
+          color={STRATEGY_TEXT_COLORS.raise}
+          label="R"
+          value={raiseRate}
+          visible={showRaise}
+          fmt={fmt}
+        />
+        <StatLine
+          color={STRATEGY_TEXT_COLORS.call}
+          label="C"
+          value={callRate}
+          visible={showCall}
+          fmt={fmt}
+        />
       </div>
+    </div>
+  );
+}
+
+interface StatLineProps {
+  color: string;
+  label: string;
+  value: number;
+  visible: boolean;
+  fmt: (v: number) => string;
+}
+
+function StatLine({ color, label, value, visible, fmt }: StatLineProps) {
+  return (
+    <div style={{ color, visibility: visible ? 'visible' : 'hidden' }}>
+      {label}: {fmt(value)}%
     </div>
   );
 }
