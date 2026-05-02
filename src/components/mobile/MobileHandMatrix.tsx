@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { Action, Strategy } from '../../types/strategy';
 import { RANKS, getHandName } from '../../utils/hands';
 import { HandPopup } from './HandPopup';
@@ -18,7 +18,6 @@ const MOBILE_COLOR_MAP: Record<string, string> = {
 
 const POPUP_W = 110;
 const POPUP_H = 140;
-const PRESS_DELAY_MS = 300;
 const VIEWPORT_PADDING = 4;
 
 interface PinnedState {
@@ -29,67 +28,52 @@ interface PinnedState {
 
 /**
  * モバイル版 HandMatrix。
- * - 13×13 セル + 黒グリッド線 (PC版と同レイアウト)
- * - 色は MOBILE_COLOR_MAP で薄めに上書き
- * - 各セル: 300ms の長押しで HandPopup を pin 表示
- *   - 指を離しても popup は閉じない (pinned)
- *   - 別のセルを長押し → そのセルに pin が切替
- *   - セル外 (Breadcrumb / ボタン / Aggregate / 余白等) をタップ → close
- *   - セルへのタップ (短押し) は no-op (pin 維持)
- *   - touchmove で timer をキャンセル → スクロール優先
- *   - PC でも mouseDown/Up で動作確認可
+ *  - タップで HandPopup を pin 表示 (黄色枠 + 拡大)
+ *  - 同ハンド再タップ → 閉じる
+ *  - 別ハンドタップ → 切替
+ *  - セル外 (data-hand-cell が無い要素) をタップ → 閉じる
+ *  - 長押しロジックは持たない (普通の click のみ)
  */
 export function MobileHandMatrix({ strategy, actions }: Props) {
   const [pinned, setPinned] = useState<PinnedState | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lighterActions = useMemo<Action[]>(
     () => actions.map((a) => ({ ...a, color: MOBILE_COLOR_MAP[a.id] ?? a.color })),
     [actions],
   );
 
-  const startPress = (hand: string, freqs: number[], el: HTMLElement) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      let left = cx - POPUP_W / 2;
-      let top = cy - POPUP_H / 2;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      if (left < VIEWPORT_PADDING) left = VIEWPORT_PADDING;
-      if (left + POPUP_W > vw - VIEWPORT_PADDING) left = vw - POPUP_W - VIEWPORT_PADDING;
-      if (top < VIEWPORT_PADDING) top = VIEWPORT_PADDING;
-      if (top + POPUP_H > vh - VIEWPORT_PADDING) top = vh - POPUP_H - VIEWPORT_PADDING;
-      setPinned({ hand, freqs, position: { top, left, width: POPUP_W, height: POPUP_H } });
-      timerRef.current = null;
-    }, PRESS_DELAY_MS);
-  };
-
-  const cancelPendingTimer = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const handleTap = (hand: string, freqs: number[], el: HTMLElement) => {
+    // 同じハンド再タップ → 閉じる
+    if (pinned?.hand === hand) {
+      setPinned(null);
+      return;
     }
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let left = cx - POPUP_W / 2;
+    let top = cy - POPUP_H / 2;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (left < VIEWPORT_PADDING) left = VIEWPORT_PADDING;
+    if (left + POPUP_W > vw - VIEWPORT_PADDING) left = vw - POPUP_W - VIEWPORT_PADDING;
+    if (top < VIEWPORT_PADDING) top = VIEWPORT_PADDING;
+    if (top + POPUP_H > vh - VIEWPORT_PADDING) top = vh - POPUP_H - VIEWPORT_PADDING;
+    setPinned({ hand, freqs, position: { top, left, width: POPUP_W, height: POPUP_H } });
   };
 
-  // touchend / mouseup ではタイマーキャンセルだけ。pin は維持して「指を離しても表示し続ける」。
-  const handleReleaseOnly = () => cancelPendingTimer();
-
-  // popup 表示中、popup の拡大エリア「以外」を次タップしたら close (= 元の状態に戻す)。
-  // popup 自体は pointer-events:'none' なので touch/mouse は必ず背後の要素に届き、ここに来る。
-  // → ハンドセルへのタップも close 対象になる (= 「拡大したとこ以外」の通り)。
-  // 長押しで別セルに切替する場合、まず close → 300ms 後に新セル pin、という挙動になる。
+  // popup 表示中、セル以外をタップで close。セル onClick は stopPropagation するので
+  // セル内タップはここに来ない (= toggle/switch ロジックは onClick 側で完結)。
   useEffect(() => {
     if (!pinned) return;
-    const onOutside = () => setPinned(null);
-    document.addEventListener('touchstart', onOutside);
-    document.addEventListener('mousedown', onOutside);
-    return () => {
-      document.removeEventListener('touchstart', onOutside);
-      document.removeEventListener('mousedown', onOutside);
+    const onOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.closest('[data-hand-cell]')) {
+        setPinned(null);
+      }
     };
+    document.addEventListener('click', onOutside);
+    return () => document.removeEventListener('click', onOutside);
   }, [pinned]);
 
   return (
@@ -110,9 +94,7 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
                   hand={hand}
                   frequencies={freqs}
                   actions={lighterActions}
-                  onPressStart={(el) => startPress(hand, freqs, el)}
-                  onPressEnd={handleReleaseOnly}
-                  onPressMove={cancelPendingTimer}
+                  onTap={(el) => handleTap(hand, freqs, el)}
                 />
               );
             }),
@@ -135,13 +117,10 @@ interface CellProps {
   hand: string;
   frequencies: number[];
   actions: Action[];
-  onPressStart: (el: HTMLElement) => void;
-  onPressEnd: () => void;
-  /** スクロール開始時に長押しタイマーをキャンセル (popup未表示時のみ) */
-  onPressMove: () => void;
+  onTap: (el: HTMLElement) => void;
 }
 
-function Cell({ hand, frequencies, actions, onPressStart, onPressEnd, onPressMove }: CellProps) {
+function Cell({ hand, frequencies, actions, onTap }: CellProps) {
   let cumulative = 0;
   const stops: string[] = [];
   frequencies.forEach((freq, i) => {
@@ -156,15 +135,12 @@ function Cell({ hand, frequencies, actions, onPressStart, onPressEnd, onPressMov
 
   return (
     <div
-      data-mobile-cell="true"
+      data-hand-cell="true"
       style={cellStyle(background)}
-      onTouchStart={(e) => onPressStart(e.currentTarget)}
-      onTouchEnd={onPressEnd}
-      onTouchCancel={onPressEnd}
-      onTouchMove={onPressMove}
-      onMouseDown={(e) => onPressStart(e.currentTarget)}
-      onMouseUp={onPressEnd}
-      onMouseLeave={onPressEnd}
+      onClick={(e) => {
+        e.stopPropagation();
+        onTap(e.currentTarget);
+      }}
     >
       {hand}
     </div>
@@ -184,6 +160,7 @@ function cellStyle(background: string): CSSProperties {
     textShadow:
       '0 1px 2px rgba(0,0,0,0.65), 0 0 1px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.45)',
     border: '1px solid #000000',
+    cursor: 'pointer',
     userSelect: 'none',
     WebkitUserSelect: 'none',
     WebkitTouchCallout: 'none',

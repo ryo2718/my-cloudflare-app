@@ -77,8 +77,9 @@ function Panel({
 }: PanelProps) {
   const isTappable = (pos: Position): boolean => {
     if (kind === 'opener') {
+      // OPENER は常に切替可能 (BB だけ不可)。Stage 4+ でも切替可、tap 時に Responder と
+      // historyPaths が MobileApp 側でリセットされる。
       if (pos === 'BB') return false;
-      if (locked && pos !== selectedPos) return false;
       return true;
     }
     // responder panel
