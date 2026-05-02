@@ -3,6 +3,7 @@ import { Breadcrumb, type BreadcrumbItem } from './components/Breadcrumb';
 import { DualRangeView } from './components/DualRangeView';
 import { EvRankDisplay } from './components/EvRankDisplay';
 import { HandInput } from './components/HandInput';
+import { MobileApp } from './components/mobile/MobileApp';
 import { OpenStrategyTable } from './components/OpenStrategyTable';
 import { ScenarioSelector } from './components/ScenarioSelector';
 import { ThreebetStrategyTable } from './components/ThreebetStrategyTable';
@@ -19,6 +20,7 @@ import {
 } from './data/scenarios';
 import { loadAllOpenNodes } from './hooks/useOpenEvaluation';
 import { loadAll3betNodes } from './hooks/use3betEvaluation';
+import { useViewportMode } from './hooks/useViewportMode';
 import { useStrategy } from './hooks/useStrategy';
 import { THEME } from './styles/theme';
 import type { Hand, Position } from './types/strategy';
@@ -52,6 +54,9 @@ export default function App() {
     loadAllOpenNodes().catch(() => { /* silent */ });
     loadAll3betNodes().catch(() => { /* silent */ });
   }, []);
+
+  // PC / Mobile レイアウトの切替 (Phase 1)
+  const { mode: viewportMode, toggle: toggleViewport } = useViewportMode();
 
   const [opener, setOpener] = useState<OpenerPosition>(INITIAL_OPENER);
   const [responder, setResponder] = useState<Position>(INITIAL_RESPONDER);
@@ -198,7 +203,7 @@ export default function App() {
       }}
     >
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        <header style={{ marginBottom: '1.25rem' }}>
+        <header style={{ marginBottom: '1.25rem', position: 'relative' }}>
           <div
             style={{
               fontSize: '0.7rem',
@@ -223,8 +228,33 @@ export default function App() {
           <div style={{ fontSize: '0.78rem', color: THEME.textSecondary, marginTop: '0.2rem' }}>
             6max · 100bb · 2 ranges side by side
           </div>
+          {/* レイアウト切替ボタン: 現在の表示と「逆」のラベルを出す */}
+          <button
+            type="button"
+            onClick={toggleViewport}
+            title="PC版/モバイル版を切替"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              background: 'transparent',
+              border: '1px solid #b8a888',
+              borderRadius: '4px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              color: '#6b5a48',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            {viewportMode === 'pc' ? 'モバイル版' : 'PC版'}
+          </button>
         </header>
 
+        {viewportMode === 'mobile' ? (
+          <MobileApp />
+        ) : (
+        <>
         <div style={{ marginBottom: '0.9rem' }}>
           <ScenarioSelector
             opener={opener}
@@ -281,6 +311,8 @@ export default function App() {
         >
           Schema v{left.data?.schema_version ?? '—'} · GTO Wizard data
         </footer>
+        </>
+        )}
       </div>
     </div>
   );
