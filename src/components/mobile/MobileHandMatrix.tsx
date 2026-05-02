@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Action, Strategy } from '../../types/strategy';
 import { RANKS, getHandName } from '../../utils/hands';
 import { HandPopup } from './HandPopup';
@@ -21,7 +21,7 @@ const POPUP_H = 140;
 const PRESS_DELAY_MS = 300;
 const VIEWPORT_PADDING = 4;
 
-interface PressState {
+interface PinnedState {
   hand: string;
   freqs: number[];
   position: { top: number; left: number; width: number; height: number };
@@ -31,13 +31,16 @@ interface PressState {
  * モバイル版 HandMatrix。
  * - 13×13 セル + 黒グリッド線 (PC版と同レイアウト)
  * - 色は MOBILE_COLOR_MAP で薄めに上書き
- * - 各セル: 300ms の長押しで HandPopup を表示、release で閉じる
+ * - 各セル: 300ms の長押しで HandPopup を pin 表示
+ *   - 指を離しても popup は閉じない (pinned)
+ *   - 別のセルを長押し → そのセルに pin が切替
+ *   - セル外 (Breadcrumb / ボタン / Aggregate / 余白等) をタップ → close
+ *   - セルへのタップ (短押し) は no-op (pin 維持)
  *   - touchmove で timer をキャンセル → スクロール優先
  *   - PC でも mouseDown/Up で動作確認可
- *   - tap だけでは何も起きない (将来機能用)
  */
 export function MobileHandMatrix({ strategy, actions }: Props) {
-  const [pressed, setPressed] = useState<PressState | null>(null);
+  const [pinned, setPinned] = useState<PinnedState | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lighterActions = useMemo<Action[]>(
@@ -55,12 +58,11 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
       let top = cy - POPUP_H / 2;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // 画面端でクランプ (= 逆方向に拡大した形になる)
       if (left < VIEWPORT_PADDING) left = VIEWPORT_PADDING;
       if (left + POPUP_W > vw - VIEWPORT_PADDING) left = vw - POPUP_W - VIEWPORT_PADDING;
       if (top < VIEWPORT_PADDING) top = VIEWPORT_PADDING;
       if (top + POPUP_H > vh - VIEWPORT_PADDING) top = vh - POPUP_H - VIEWPORT_PADDING;
-      setPressed({ hand, freqs, position: { top, left, width: POPUP_W, height: POPUP_H } });
+      setPinned({ hand, freqs, position: { top, left, width: POPUP_W, height: POPUP_H } });
       timerRef.current = null;
     }, PRESS_DELAY_MS);
   };
@@ -72,10 +74,24 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
     }
   };
 
-  const endPress = () => {
-    cancelPendingTimer();
-    setPressed(null);
-  };
+  // touchend / mouseup ではタイマーキャンセルだけ。pin は維持して「指を離しても表示し続ける」。
+  const handleReleaseOnly = () => cancelPendingTimer();
+
+  // 外部クリックで close。ただしハンドセル上のタップは no-op (pin 維持、長押しなら別セルに切替)。
+  useEffect(() => {
+    if (!pinned) return;
+    const onOutside = (e: TouchEvent | MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-mobile-cell="true"]')) return;
+      setPinned(null);
+    };
+    document.addEventListener('touchstart', onOutside);
+    document.addEventListener('mousedown', onOutside);
+    return () => {
+      document.removeEventListener('touchstart', onOutside);
+      document.removeEventListener('mousedown', onOutside);
+    };
+  }, [pinned]);
 
   return (
     <>
@@ -96,7 +112,7 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
                   frequencies={freqs}
                   actions={lighterActions}
                   onPressStart={(el) => startPress(hand, freqs, el)}
-                  onPressEnd={endPress}
+                  onPressEnd={handleReleaseOnly}
                   onPressMove={cancelPendingTimer}
                 />
               );
@@ -104,12 +120,12 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
           )}
         </div>
       </div>
-      {pressed && (
+      {pinned && (
         <HandPopup
-          hand={pressed.hand}
-          freqs={pressed.freqs}
+          hand={pinned.hand}
+          freqs={pinned.freqs}
           actions={lighterActions}
-          position={pressed.position}
+          position={pinned.position}
         />
       )}
     </>
@@ -141,6 +157,7 @@ function Cell({ hand, frequencies, actions, onPressStart, onPressEnd, onPressMov
 
   return (
     <div
+      data-mobile-cell="true"
       style={cellStyle(background)}
       onTouchStart={(e) => onPressStart(e.currentTarget)}
       onTouchEnd={onPressEnd}

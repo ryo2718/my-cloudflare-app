@@ -9,13 +9,12 @@ interface Props {
 }
 
 /**
- * 長押し時に表示する拡大ポップアップ。
- * - 黄色 3px 枠 (選択ハイライト)
- * - 上部: ハンド名 (白太字)
- * - 中央 (約60%): 元セルと同じ縦割りグラデーション
- * - 下部 (約40%): All-in / Raise / Call / Fold の頻度一覧
- *
- * pointer-events:'none' なので長押し中の操作 (onTouchEnd 等) を遮らない。
+ * 長押し pin 表示の拡大ポップアップ。
+ *  - 黄色 3px 枠
+ *  - 全体の背景 = 元セルと同じ縦割りグラデーション (黒背景は使わない)
+ *  - 上部にハンド名 (白太字 + 黒halo の textShadow で薄色背景でも可読)
+ *  - 下部にアクション一覧 (白文字 + 同 textShadow)
+ *  - pointer-events:'none' なので外側タップ判定をブロックしない
  */
 export function HandPopup({ hand, freqs, actions, position }: Props) {
   // 元セルと同じ縦割りグラデーション (linear-gradient to top + 累積 stops)
@@ -28,9 +27,9 @@ export function HandPopup({ hand, freqs, actions, position }: Props) {
     const end = cumulative * 100;
     stops.push(`${actions[i].color} ${start}%, ${actions[i].color} ${end}%`);
   });
-  const barBg = stops.length > 0 ? `linear-gradient(to top, ${stops.join(', ')})` : '#9ca3af';
+  const cellBg = stops.length > 0 ? `linear-gradient(to top, ${stops.join(', ')})` : '#9ca3af';
 
-  // アクション一覧を spec の表示順 (All-in → Raise → Call → Fold) で並び替え
+  // アクション一覧を spec 表示順 (All-in → Raise → Call → Fold) で並べ替え
   const ORDER = ['allin', 'raise', 'call', 'fold'] as const;
   const rows = ORDER.map((id) => {
     const idx = actions.findIndex((a) => a.id === id);
@@ -50,16 +49,16 @@ export function HandPopup({ hand, freqs, actions, position }: Props) {
         border: '3px solid #fbbf24',
         borderRadius: '6px',
         zIndex: 1000,
-        background: '#1f2937',
+        background: cellBg, // ← 黒背景なし、セルと同じグラデーションのまま
         pointerEvents: 'none',
         overflow: 'hidden',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
       }}
     >
       <div style={headerStyle}>{hand}</div>
-      <div style={{ flex: 60, background: barBg }} />
+      <div style={{ flex: 1 }} />
       <div style={listStyle}>
         {rows.map((r) => (
           <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
@@ -75,26 +74,28 @@ export function HandPopup({ hand, freqs, actions, position }: Props) {
   );
 }
 
+// 共通: 白文字 + 強い黒halo で、薄色背景上でも可読
+const TEXT_SHADOW =
+  '0 1px 2px rgba(0,0,0,0.85), 0 0 1px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.6)';
+
 const headerStyle: CSSProperties = {
-  background: 'rgba(0, 0, 0, 0.65)',
   color: '#ffffff',
   padding: '4px 6px',
   fontSize: '15px',
   fontWeight: 700,
   textAlign: 'center',
   fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
-  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+  textShadow: TEXT_SHADOW,
   letterSpacing: '0.02em',
 };
 
 const listStyle: CSSProperties = {
-  flex: 40,
-  background: 'rgba(0, 0, 0, 0.75)',
   color: '#ffffff',
-  padding: '4px 6px',
+  padding: '4px 6px 6px',
   fontSize: '10px',
   fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'space-around',
+  gap: '2px',
+  textShadow: TEXT_SHADOW,
 };
