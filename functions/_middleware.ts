@@ -13,7 +13,11 @@ interface Env {
   AUTH_SECRET: string;   // 署名鍵
 }
 
+// Cloudflare Pages は `.html` 拡張子を内部的に剥がす ("extensionless URL" 機能):
+//   /login.html を要求しても middleware からは url.pathname === '/login' に見える。
+// そのため拡張子付き / 拡張子無し 両方を許可しないとリダイレクトループする。
 const PUBLIC_PATHS = new Set<string>([
+  '/login',
   '/login.html',
   '/api/login',
   '/api/logout',

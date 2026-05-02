@@ -1,3 +1,9 @@
-# SPA fallback — どの URL でも index.html を返してクライアントで解決させる。
-# 現状ルーティング無し (URL hash も未使用) のため必須ではないが、将来 router 導入時に備え。
-/*    /index.html   200
+# SPA fallback は意図的に削除済み:
+#   `/* /index.html 200` を入れると Cloudflare Pages が
+#   "Infinite loop detected in this rule and has been ignored" 警告を出す。
+#   現アプリは router 不使用 (App.tsx 内部 state のみ) なので fallback 自体不要。
+#   /login.html 等の存在パスは Cloudflare がそのまま配信する。
+#   存在しないパスは 404 (これが正しい挙動)。
+#
+# 将来 react-router 等を入れる場合は、特定のサブパスだけ fallback する形を推奨:
+#   /app/*  /index.html  200
