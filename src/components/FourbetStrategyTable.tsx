@@ -63,13 +63,14 @@ export function FourbetStrategyTable({ hand }: Props) {
                 position={e.position}
                 raiseRate={e.raiseRate}
                 callRate={e.callRate}
+                allinRate={e.allinRate}
                 foldRate={e.foldRate}
               />
             ))}
           </div>
           <Legend />
           <p style={noteStyle}>
-            ※ play率 = raise + call。R = raise率、C = call率。
+            ※ play率 = AI + raise + call。AI = all-in 率 (紫)、R = raise率、C = call率。
           </p>
         </>
       )}

@@ -1,6 +1,8 @@
 import {
   buildGradient,
+  buildGradientWithAllin,
   classifyByPlayRate,
+  classifyByPlayRateWithAllin,
   getSymbolStyle,
   STRATEGY_TEXT_COLORS,
 } from '../utils/strategySymbol';
@@ -9,23 +11,37 @@ interface Props {
   position: string;
   raiseRate: number;
   callRate: number;
-  /** 省略時は 100 - raise - call で計算 */
+  /** 省略時は 100 - raise - call (- allin) で計算 */
   foldRate?: number;
+  /** 指定時は 4色グラデ + AI 表示 + play率に allin を含む (4bet 用)。
+   *   未指定 = Open / 3bet 互換挙動。 */
+  allinRate?: number;
 }
 
 /**
- * Open / 3bet 共通の戦略表示カード。
- * - 背景: raise(赤)/call(緑)/fold(青) の3色 135度グラデーション
- * - 中央: ◎ ○ △ ✕ の play率記号
- * - 下: R: / C: の数値 (0% は非表示)
+ * Open / 3bet / 4bet 共通の戦略表示カード。
+ * - allinRate 未指定: 3色グラデ (R/C/F) + symbol は raise+call で分類
+ * - allinRate 指定:   4色グラデ (AI/R/C/F) + symbol は raise+call+allin で分類 + AI 行表示
  */
-export function StrategyCard({ position, raiseRate, callRate, foldRate }: Props) {
-  const symbol = classifyByPlayRate(raiseRate, callRate);
+export function StrategyCard({
+  position,
+  raiseRate,
+  callRate,
+  foldRate,
+  allinRate,
+}: Props) {
+  const useAllin = allinRate !== undefined;
+  const symbol = useAllin
+    ? classifyByPlayRateWithAllin(raiseRate, callRate, allinRate ?? 0)
+    : classifyByPlayRate(raiseRate, callRate);
   const style = getSymbolStyle(symbol);
-  const background = buildGradient(raiseRate, callRate, foldRate);
+  const background = useAllin
+    ? buildGradientWithAllin(raiseRate, callRate, allinRate ?? 0, foldRate)
+    : buildGradient(raiseRate, callRate, foldRate);
 
   const showRaise = raiseRate > 0;
   const showCall = callRate > 0;
+  const showAllin = useAllin && (allinRate ?? 0) > 0;
 
   // 表示は四捨五入の整数 (小数1桁は読みづらい)
   const fmt = (v: number) => Math.round(v).toString();
@@ -76,6 +92,9 @@ export function StrategyCard({ position, raiseRate, callRate, foldRate }: Props)
           minHeight: '30px',
         }}
       >
+        {showAllin && (
+          <div style={{ color: STRATEGY_TEXT_COLORS.allin }}>AI: {fmt(allinRate ?? 0)}%</div>
+        )}
         {showRaise && (
           <div style={{ color: STRATEGY_TEXT_COLORS.raise }}>R: {fmt(raiseRate)}%</div>
         )}

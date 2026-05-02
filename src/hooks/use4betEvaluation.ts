@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { classifyByPlayRate, type StrategySymbol } from '../utils/strategySymbol';
+import { classifyByPlayRateWithAllin, type StrategySymbol } from '../utils/strategySymbol';
 
 /** 4bet シーンでの "vs ポジション" — 元の opener に対し 3bet を打ったプレイヤー */
 export type VsPosition = 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
@@ -82,8 +82,9 @@ export interface FourbetEvaluation {
   position: Position;
   raiseRate: number;
   callRate: number;
+  allinRate: number;
   foldRate: number;
-  /** raise + call。allin は含まない (3bet 戦略と同ルール) */
+  /** raise + call + allin (4bet では jam も play 扱い) */
   playRate: number;
   symbol: StrategySymbol;
 }
@@ -120,15 +121,17 @@ export function use4betEvaluation(
         const handData = node?.hands[hand];
         const raise = handData?.raise ?? 0;
         const call = handData?.call ?? 0;
-        const fold = handData?.fold ?? Math.max(0, 100 - raise - call);
-        const playRate = raise + call;
+        const allin = handData?.allin ?? 0;
+        const fold = handData?.fold ?? Math.max(0, 100 - raise - call - allin);
+        const playRate = raise + call + allin;
         return {
           position: hero,
           raiseRate: raise,
           callRate: call,
+          allinRate: allin,
           foldRate: fold,
           playRate,
-          symbol: classifyByPlayRate(raise, call),
+          symbol: classifyByPlayRateWithAllin(raise, call, allin),
         };
       });
     };
