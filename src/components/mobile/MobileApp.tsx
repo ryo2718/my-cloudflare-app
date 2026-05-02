@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { MobileTab, Position, PositionSelection } from '../../types/mobile';
+import { Breadcrumb } from './Breadcrumb';
 import { PositionPicker } from './PositionPicker';
 import { RangeDisplay } from './RangeDisplay';
 import { SolutionLabel } from './SolutionLabel';
@@ -35,6 +36,10 @@ export function MobileApp() {
     }
   };
 
+  // Breadcrumb 操作
+  const handleResetAll = () => setSelection({ opener: null, responder: null });
+  const handleResetResponder = () => setSelection({ ...selection, responder: null });
+
   return (
     <div style={{ padding: '0.5rem 0' }}>
       <TabSwitcher active={tab} onChange={setTab} />
@@ -43,6 +48,11 @@ export function MobileApp() {
         <>
           <SolutionLabel label={SOLUTION_LABEL} />
           <PositionPicker selection={selection} onTap={handlePositionTap} />
+          <Breadcrumb
+            selection={selection}
+            onReset={handleResetAll}
+            onResetResponder={handleResetResponder}
+          />
           <RangeDisplay selection={selection} />
         </>
       )}
