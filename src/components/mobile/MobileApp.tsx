@@ -5,6 +5,7 @@ import {
   type OpenerPosition,
 } from '../../data/scenarios';
 import {
+  canSelectAsResponder,
   createInitialState,
   type MobileState,
   type MobileTab,
@@ -52,8 +53,8 @@ export function MobileApp() {
 
   /** RESPONDER パネルでタップ — opener 維持、responder 切替で history を 2 段にリセット */
   const handleResponderTap = (pos: Position) => {
-    if (!state.opener) return;
-    if (pos === state.opener) return;
+    // ガード: opener より前の席 (例: opener=HJ, pos=UTG) は存在しないノード参照になるため拒否。
+    if (!canSelectAsResponder(state.opener, pos)) return;
     if (state.responder === pos) return;
     setState({
       opener: state.opener,

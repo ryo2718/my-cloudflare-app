@@ -1,7 +1,12 @@
 import type { CSSProperties } from 'react';
 import { NODE_META } from '../../data/nodeMeta';
 import { classifyAction } from '../../data/scenarios';
-import { POSITION_ORDER, type MobileState, type Position } from '../../types/mobile';
+import {
+  POSITION_ORDER,
+  canSelectAsResponder,
+  type MobileState,
+  type Position,
+} from '../../types/mobile';
 import { ActionTooltip } from './ActionTooltip';
 
 interface Props {
@@ -82,9 +87,10 @@ function Panel({
       if (pos === 'BB') return false;
       return true;
     }
-    // responder panel
-    if (otherSelectedPos === null) return false; // opener 未選択
-    if (pos === otherSelectedPos) return false;
+    // responder panel — opener より「後ろの席」のみ tap 可。
+    //   opener が null / 同じ pos / opener より前の pos は不可。
+    //   存在しないノード (例: opener=HJ で responder=UTG → hjr_utg) を踏まないためのガード。
+    if (!canSelectAsResponder(otherSelectedPos, pos)) return false;
     if (locked && pos !== selectedPos) return false;
     return true;
   };
