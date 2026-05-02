@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { AggregateReport } from '../AggregateReport';
-import { HandMatrix } from '../HandMatrix';
 import { getNodeScenario } from '../../data/scenarios';
 import { useStrategy } from '../../hooks/useStrategy';
 import { heroFromPath, type Position } from '../../types/mobile';
+import { MobileHandMatrix } from './MobileHandMatrix';
 
 interface Props {
   /** 表示する preflop node_path。null/空文字なら placeholder */
@@ -73,12 +73,7 @@ export function RangeDisplay({ nodePath, opener }: Props) {
       ) : data ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
-            <HandMatrix
-              strategy={data.strategy}
-              actions={data.actions}
-              hoveredHand={null}
-              onHover={noopHover}
-            />
+            <MobileHandMatrix strategy={data.strategy} actions={data.actions} />
           </div>
           <AggregateReport strategy={data.strategy} actions={data.actions} />
         </>
@@ -102,6 +97,3 @@ function Placeholder({ children, color }: { children: React.ReactNode; color?: s
   );
 }
 
-const noopHover = (_hand: string | null) => {
-  /* mobile: hover無効 */
-};
