@@ -77,14 +77,13 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
   // touchend / mouseup ではタイマーキャンセルだけ。pin は維持して「指を離しても表示し続ける」。
   const handleReleaseOnly = () => cancelPendingTimer();
 
-  // 外部クリックで close。ただしハンドセル上のタップは no-op (pin 維持、長押しなら別セルに切替)。
+  // popup 表示中、popup の拡大エリア「以外」を次タップしたら close (= 元の状態に戻す)。
+  // popup 自体は pointer-events:'none' なので touch/mouse は必ず背後の要素に届き、ここに来る。
+  // → ハンドセルへのタップも close 対象になる (= 「拡大したとこ以外」の通り)。
+  // 長押しで別セルに切替する場合、まず close → 300ms 後に新セル pin、という挙動になる。
   useEffect(() => {
     if (!pinned) return;
-    const onOutside = (e: TouchEvent | MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('[data-mobile-cell="true"]')) return;
-      setPinned(null);
-    };
+    const onOutside = () => setPinned(null);
     document.addEventListener('touchstart', onOutside);
     document.addEventListener('mousedown', onOutside);
     return () => {
