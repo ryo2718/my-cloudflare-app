@@ -147,18 +147,6 @@
       "call": 0,
       "fold": 100
     },
-    "K8s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "K7s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
     "AQo": {
       "allin": 0,
       "raise": 0,
@@ -170,24 +158,6 @@
       "raise": 0,
       "call": 100,
       "fold": 0
-    },
-    "AJo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "KJo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "QJo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
     },
     "JJ": {
       "allin": 0,

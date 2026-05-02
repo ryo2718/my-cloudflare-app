@@ -107,28 +107,7 @@
       "check": 0,
       "fold": 0
     },
-    "AKs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
     "AQs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
-    "AJs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
-    "ATs": {
       "allin": 0,
       "raise": 0,
       "call": 100,
@@ -205,27 +184,6 @@
       "check": 0,
       "fold": 0
     },
-    "KQs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
-    "KJs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
-    "KTs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
     "K9s": {
       "allin": 0,
       "raise": 0,
@@ -276,13 +234,6 @@
       "fold": 100
     },
     "QQ": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "check": 0,
-      "fold": 0
-    },
-    "QJs": {
       "allin": 0,
       "raise": 0,
       "call": 100,

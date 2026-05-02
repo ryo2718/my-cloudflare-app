@@ -75,30 +75,6 @@
     "fold": "fold"
   },
   "hands": {
-    "22": {
-      "allin": 0,
-      "raise": 0,
-      "call": 29,
-      "fold": 71
-    },
-    "33": {
-      "allin": 0,
-      "raise": 0,
-      "call": 23.5,
-      "fold": 76.5
-    },
-    "44": {
-      "allin": 0,
-      "raise": 0,
-      "call": 22.5,
-      "fold": 77.5
-    },
-    "55": {
-      "allin": 0,
-      "raise": 0,
-      "call": 25.5,
-      "fold": 74.5
-    },
     "66": {
       "allin": 0,
       "raise": 0,
@@ -165,18 +141,6 @@
       "call": 100,
       "fold": 0
     },
-    "A7s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "fold": 0
-    },
-    "A6s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "fold": 0
-    },
     "A5s": {
       "allin": 0,
       "raise": 0,
@@ -194,12 +158,6 @@
       "raise": 0,
       "call": 100,
       "fold": 0
-    },
-    "A2s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 13,
-      "fold": 87
     },
     "AKo": {
       "allin": 0,
@@ -237,29 +195,11 @@
       "call": 100,
       "fold": 0
     },
-    "K8s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 96,
-      "fold": 4
-    },
-    "K7s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 41,
-      "fold": 59
-    },
     "K6s": {
       "allin": 0,
       "raise": 0,
       "call": 40.5,
       "fold": 59.5
-    },
-    "K5s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 30,
-      "fold": 70
     },
     "AQo": {
       "allin": 0,
@@ -291,12 +231,6 @@
       "call": 100,
       "fold": 0
     },
-    "Q9s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "fold": 0
-    },
     "AJo": {
       "allin": 0,
       "raise": 0,
@@ -308,12 +242,6 @@
       "raise": 0,
       "call": 80,
       "fold": 20
-    },
-    "QJo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 46.5,
-      "fold": 53.5
     },
     "JJ": {
       "allin": 0,
@@ -333,24 +261,6 @@
       "call": 72.5,
       "fold": 27.5
     },
-    "ATo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 97,
-      "fold": 3
-    },
-    "KTo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 10.5,
-      "fold": 89.5
-    },
-    "QTo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 12,
-      "fold": 88
-    },
     "TT": {
       "allin": 0,
       "raise": 0,
@@ -362,12 +272,6 @@
       "raise": 0,
       "call": 100,
       "fold": 0
-    },
-    "T8s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 2,
-      "fold": 98
     },
     "98s": {
       "allin": 0,

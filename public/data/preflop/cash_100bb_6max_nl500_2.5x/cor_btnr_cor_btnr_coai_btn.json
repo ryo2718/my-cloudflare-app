@@ -75,24 +75,6 @@
     "fold": "fold"
   },
   "hands": {
-    "22": {
-      "allin": 0,
-      "raise": 0,
-      "call": 29,
-      "fold": 71
-    },
-    "33": {
-      "allin": 0,
-      "raise": 0,
-      "call": 23.5,
-      "fold": 76.5
-    },
-    "44": {
-      "allin": 0,
-      "raise": 0,
-      "call": 22.5,
-      "fold": 77.5
-    },
     "55": {
       "allin": 0,
       "raise": 0,
@@ -195,12 +177,6 @@
       "call": 100,
       "fold": 0
     },
-    "A2s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 13,
-      "fold": 87
-    },
     "AKo": {
       "allin": 0,
       "raise": 0,
@@ -254,12 +230,6 @@
       "raise": 0,
       "call": 40.5,
       "fold": 59.5
-    },
-    "K5s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 30,
-      "fold": 70
     },
     "AQo": {
       "allin": 0,
@@ -344,12 +314,6 @@
       "raise": 0,
       "call": 10.5,
       "fold": 89.5
-    },
-    "QTo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 12,
-      "fold": 88
     },
     "TT": {
       "allin": 0,

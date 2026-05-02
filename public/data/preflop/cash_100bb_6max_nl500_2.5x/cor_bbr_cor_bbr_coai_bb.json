@@ -75,30 +75,6 @@
     "fold": "fold"
   },
   "hands": {
-    "22": {
-      "allin": 0,
-      "raise": 0,
-      "call": 29,
-      "fold": 71
-    },
-    "33": {
-      "allin": 0,
-      "raise": 0,
-      "call": 23.5,
-      "fold": 76.5
-    },
-    "44": {
-      "allin": 0,
-      "raise": 0,
-      "call": 22.5,
-      "fold": 77.5
-    },
-    "55": {
-      "allin": 0,
-      "raise": 0,
-      "call": 25.5,
-      "fold": 74.5
-    },
     "66": {
       "allin": 0,
       "raise": 0,
@@ -362,12 +338,6 @@
       "raise": 0,
       "call": 100,
       "fold": 0
-    },
-    "T8s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 2,
-      "fold": 98
     },
     "98s": {
       "allin": 0,
