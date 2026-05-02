@@ -67,12 +67,16 @@ export function MobileApp() {
   /** Breadcrumb Home — 完全リセット */
   const handleReset = () => setState(createInitialState());
 
-  /** Breadcrumb 中間タップ — index までで切り詰め。i=0 (RFI root) なら responder もクリア */
-  const handleTruncate = (index: number) => {
+  /**
+   * Breadcrumb 過去セグメント押下 — historyPaths を newLength に切り詰め。
+   *   newLength=1 → opener のみ残し、responder クリア (PositionPicker 再表示)
+   *   newLength≥2 → opener+responder 維持、action history のみ縮小
+   * (Home は handleReset で別経路、ここに 0 は来ない)
+   */
+  const handleTruncate = (newLength: number) => {
     setState((prev) => {
-      const newPaths = prev.historyPaths.slice(0, index + 1);
-      // i=0 (RFI root に戻る) なら responder クリア (PositionPicker 再表示状態)
-      const newResponder = index === 0 ? null : prev.responder;
+      const newPaths = prev.historyPaths.slice(0, newLength);
+      const newResponder = newLength <= 1 ? null : prev.responder;
       return { ...prev, responder: newResponder, historyPaths: newPaths };
     });
   };
