@@ -32,3 +32,54 @@ export function canSelectAsResponder(
   if (candidate === opener) return false;
   return POSITION_ORDER.indexOf(candidate) > POSITION_ORDER.indexOf(opener);
 }
+
+// ---------------------------------------------------------------------------
+// GameState (Phase 3+) — アクション履歴ベースのモバイル状態。
+// historyPaths は preflop ノード path の累積。最後の要素が現在地。
+// ---------------------------------------------------------------------------
+
+export interface MobileState {
+  opener: Position | null;
+  responder: Position | null;
+  /** preflop node_path のスタック。 末尾が現在表示中のノード。
+   *   length 0 → 未選択
+   *   length 1 → opener のみ ("utg")
+   *   length 2 → responder まで ("utg", "utgr_btn")
+   *   length 3+ → action button で深掘りした状態 */
+  historyPaths: string[];
+}
+
+export function createInitialState(): MobileState {
+  return { opener: null, responder: null, historyPaths: [] };
+}
+
+/** path の末尾セグメントから hero を抽出 ("utgr_btn" → "BTN") */
+export function heroFromPath(path: string): Position {
+  const seg = path.split('_').pop() ?? '';
+  return seg.toUpperCase() as Position;
+}
+
+/** opener/responder のうち、currentHero でない方を返す */
+export function oppositeHero(
+  currentHero: Position,
+  opener: Position,
+  responder: Position,
+): Position {
+  return currentHero === opener ? responder : opener;
+}
+
+/** path 中の raise 段数 (suffix='r' の数) を数える。次の raise の段数 = +1 */
+export function countRaises(path: string): number {
+  return path.split('_').filter((s) => s.endsWith('r')).length;
+}
+
+/** raise 段数 → 次の raise の表示名 */
+export function nextRaiseLabel(path: string): string {
+  const next = countRaises(path) + 1;
+  if (next === 1) return 'open';
+  if (next === 2) return '3bet';
+  if (next === 3) return '4bet';
+  if (next === 4) return '5bet';
+  return '6bet';
+}
+
