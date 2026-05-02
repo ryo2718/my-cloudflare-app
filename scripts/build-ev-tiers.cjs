@@ -2,22 +2,40 @@
 // Pre-compute EV ranks (top-pct + tier) for each of the 169 hands.
 // Output: src/data/evRanking.ts (TypeScript module, statically importable)
 //
-// Source: public/data/ev_ranking/utg_open_ev_100bb.json
+// Source: public/data/ev_ranking/ave_ev_100bb.json
+//   schema: { scenario, position, action, stack_bb, ev_unit, hands: { "AA": 9.046, ... } }
+//   = 5 ポジション (UTG/HJ/CO/BTN/SB) の平均 open EV (bb)
 // Run: node scripts/build-ev-tiers.cjs (re-run when source EV data changes)
 
 const fs = require('fs');
 const path = require('path');
 
-const SRC = path.resolve(__dirname, '../public/data/ev_ranking/utg_open_ev_100bb.json');
+const SRC = path.resolve(__dirname, '../public/data/ev_ranking/ave_ev_100bb.json');
 const OUT = path.resolve(__dirname, '../src/data/evRanking.ts');
 
-const data = JSON.parse(fs.readFileSync(SRC, 'utf8'));
+const raw = JSON.parse(fs.readFileSync(SRC, 'utf8'));
+// 新スキーマ: hands ラッパ + ev は plain number。
+// 旧スキーマ ({ "AA": {ev, combo}, ... }) もフォールバックで受ける。
+const handsMap = raw.hands ?? raw;
+
+function combosFor(hand) {
+  if (hand.length === 2) return 6;            // pair
+  if (hand.endsWith('s')) return 4;           // suited
+  if (hand.endsWith('o')) return 12;          // offsuit
+  return 0;
+}
+
+function evOf(val) {
+  return typeof val === 'number' ? val : val.ev;
+}
 
 // Combo 展開して EV 降順ソート (= 個別の手札の組み合わせ単位で順位付け)
 const expanded = [];
-for (const [hand, val] of Object.entries(data)) {
-  for (let i = 0; i < val.combo; i++) {
-    expanded.push({ hand, ev: val.ev });
+for (const [hand, val] of Object.entries(handsMap)) {
+  const ev = evOf(val);
+  const combo = combosFor(hand);
+  for (let i = 0; i < combo; i++) {
+    expanded.push({ hand, ev });
   }
 }
 expanded.sort((a, b) => b.ev - a.ev);
@@ -25,15 +43,17 @@ const TOTAL_COMBOS = expanded.length;
 
 // 各ハンドの「最後の combo の位置 (= top-pct の保守的な下端)」
 const handRanks = {};
-for (const [hand, val] of Object.entries(data)) {
+for (const [hand, val] of Object.entries(handsMap)) {
+  const ev = evOf(val);
+  const combo = combosFor(hand);
   let lastIdx = -1;
   for (let i = expanded.length - 1; i >= 0; i--) {
     if (expanded[i].hand === hand) { lastIdx = i; break; }
   }
   const topPct = ((lastIdx + 1) / TOTAL_COMBOS) * 100;
   handRanks[hand] = {
-    ev: val.ev,
-    combo: val.combo,
+    ev,
+    combo,
     topPct: Number(topPct.toFixed(2)),
   };
 }
@@ -64,7 +84,7 @@ for (const r of Object.values(handRanks)) {
 
 const lines = [
   '// AUTO-GENERATED. Do not edit by hand.',
-  '// Source: public/data/ev_ranking/utg_open_ev_100bb.json',
+  '// Source: public/data/ev_ranking/ave_ev_100bb.json (5-position averaged open EV)',
   '// Regenerate with:  node scripts/build-ev-tiers.cjs',
   '',
   "export type EvTier =",
