@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { EvRankDisplay } from '../EvRankDisplay';
+import { FourbetStrategyTable } from '../FourbetStrategyTable';
 import { OpenStrategyTable } from '../OpenStrategyTable';
 import { ThreebetStrategyTable } from '../ThreebetStrategyTable';
 import type { Hand } from '../../types/strategy';
@@ -8,7 +9,7 @@ import { MobileHandInput } from './MobileHandInput';
 /**
  * モバイル版 Hand Eval タブ。
  * 入力だけ MobileHandInput (7+6 行レイアウト、スートボタン廃止)。
- * 評価系 (EvRankDisplay / OpenStrategyTable / ThreebetStrategyTable) は PC側を再利用。
+ * 評価系 (EvRankDisplay / OpenStrategyTable / ThreebetStrategyTable / FourbetStrategyTable) は PC側を再利用。
  */
 export function MobileEvalTab() {
   const [hand, setHand] = useState<Hand | null>(null);
@@ -18,6 +19,7 @@ export function MobileEvalTab() {
       <EvRankDisplay hand={hand} />
       <OpenStrategyTable hand={hand} />
       <ThreebetStrategyTable hand={hand} />
+      <FourbetStrategyTable hand={hand} />
     </div>
   );
 }

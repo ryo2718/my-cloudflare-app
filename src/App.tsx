@@ -6,6 +6,7 @@ import { HandInput } from './components/HandInput';
 import { MobileApp } from './components/mobile/MobileApp';
 import { OpenStrategyTable } from './components/OpenStrategyTable';
 import { ScenarioSelector } from './components/ScenarioSelector';
+import { FourbetStrategyTable } from './components/FourbetStrategyTable';
 import { ThreebetStrategyTable } from './components/ThreebetStrategyTable';
 import {
   computeAllinNodePath,
@@ -20,6 +21,7 @@ import {
 } from './data/scenarios';
 import { loadAllOpenNodes } from './hooks/useOpenEvaluation';
 import { loadAll3betNodes } from './hooks/use3betEvaluation';
+import { loadAll4betNodes } from './hooks/use4betEvaluation';
 import { useViewportMode } from './hooks/useViewportMode';
 import { useStrategy } from './hooks/useStrategy';
 import { THEME } from './styles/theme';
@@ -53,6 +55,7 @@ export default function App() {
   useEffect(() => {
     loadAllOpenNodes().catch(() => { /* silent */ });
     loadAll3betNodes().catch(() => { /* silent */ });
+    loadAll4betNodes().catch(() => { /* silent */ });
   }, []);
 
   // PC / Mobile レイアウトの切替 (Phase 1)
@@ -366,6 +369,8 @@ function OpenStrategyTestArea() {
         <OpenStrategyTable hand={hand} />
         {/* 下段2: 3bet戦略 (vs ポジション別タブ、フル幅) */}
         <ThreebetStrategyTable hand={hand} />
+        {/* 下段3: 4bet戦略 (vs ポジション別タブ、フル幅) */}
+        <FourbetStrategyTable hand={hand} />
       </div>
     </details>
   );
