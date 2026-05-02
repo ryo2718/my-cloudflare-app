@@ -215,19 +215,24 @@ export default function App() {
           >
             Preflop Strategy Viewer
           </div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: '1.6rem',
-              fontWeight: 700,
-              color: THEME.textPrimary,
-            }}
-          >
-            Open Range × Response
-          </h1>
-          <div style={{ fontSize: '0.78rem', color: THEME.textSecondary, marginTop: '0.2rem' }}>
-            6max · 100bb · 2 ranges side by side
-          </div>
+          {/* h1 副題 + 仕様 1行 はモバイル時に隠す (eyebrow "Preflop Strategy Viewer" のみ表示) */}
+          {viewportMode === 'pc' && (
+            <>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: '1.6rem',
+                  fontWeight: 700,
+                  color: THEME.textPrimary,
+                }}
+              >
+                Open Range × Response
+              </h1>
+              <div style={{ fontSize: '0.78rem', color: THEME.textSecondary, marginTop: '0.2rem' }}>
+                6max · 100bb · 2 ranges side by side
+              </div>
+            </>
+          )}
           {/* レイアウト切替ボタン: 現在の表示と「逆」のラベルを出す */}
           <button
             type="button"

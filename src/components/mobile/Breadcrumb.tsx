@@ -54,7 +54,7 @@ export function Breadcrumb({ historyPaths, opener, onReset, onTruncate }: Props)
     ? { bg: '#eff6ff', border: '#93c5fd', text: '#1e40af' }
     : { bg: '#fef2f2', border: '#fca5a5', text: '#b91c1c' };
 
-  const segments: Segment[] = [{ label: 'Home', isCurrent: false, onClick: onReset }];
+  const segments: Segment[] = [{ label: 'HOME', isCurrent: false, onClick: onReset }];
 
   // 過去 (1..N-1): historyPaths[k] の lastAction が k 番目の遷移
   for (let k = 1; k <= N - 1; k++) {

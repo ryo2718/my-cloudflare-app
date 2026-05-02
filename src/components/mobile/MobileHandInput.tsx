@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import {
   isInvalidInput,
   parseHandInput,
@@ -24,7 +24,6 @@ const RANKS_BOTTOM = ['7', '6', '5', '4', '3', '2'] as const;
  */
 export function MobileHandInput({ onChange, value }: Props) {
   const [text, setText] = useState<string>(value ?? '');
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (value !== undefined) setText(value);
@@ -35,44 +34,37 @@ export function MobileHandInput({ onChange, value }: Props) {
     onChange?.(parseHandInput(next));
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => updateText(e.target.value);
-
-  const handleAppend = (c: string) => {
-    updateText(text + c);
-    inputRef.current?.focus();
-  };
-  const handleBackspace = () => {
-    updateText(text.slice(0, -1));
-    inputRef.current?.focus();
-  };
-  const handleClear = () => {
-    updateText('');
-    inputRef.current?.focus();
-  };
+  // 入力欄は表示専用 (div) — OS キーボードを抑制し、オンスクリーンキーボードのみで操作。
+  // input ref / handleInputChange は不要 (focus 不要)。
+  const handleAppend = (c: string) => updateText(text + c);
+  const handleBackspace = () => updateText(text.slice(0, -1));
+  const handleClear = () => updateText('');
 
   const notation = parseHandInput(text);
   const showError = isInvalidInput(text);
+  const PLACEHOLDER = '例: AKs / AKo / AA';
 
   return (
     <div style={containerStyle}>
       <div style={labelStyle}>Hand Input</div>
 
-      <input
-        ref={inputRef}
-        type="text"
-        value={text}
-        onChange={handleInputChange}
-        placeholder="例: AKs / AKo / AA"
-        spellCheck={false}
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        inputMode="text"
+      {/* 表示専用 (タップしても OS キーボードが出ない) */}
+      <div
+        role="textbox"
+        aria-readonly="true"
         style={{
           ...inputStyle,
           borderColor: showError ? '#ef4444' : '#d6cfc1',
+          color: text ? '#3d2f1f' : '#b0a18e',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          minHeight: '1.4em',
+          cursor: 'default',
         }}
-      />
+      >
+        {text || PLACEHOLDER}
+      </div>
 
       <NotationFeedback notation={notation} showError={showError} />
 

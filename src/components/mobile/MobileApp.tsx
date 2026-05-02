@@ -18,7 +18,7 @@ import { RangeDisplay } from './RangeDisplay';
 import { SolutionLabel } from './SolutionLabel';
 import { TabSwitcher } from './TabSwitcher';
 
-const SOLUTION_LABEL = 'Cash 100bb 6max NL500 2.5x';
+const SOLUTION_LABEL = 'cash 100bb 6max NL500 2.5x';
 
 /**
  * モバイル版アプリ — Phase 2C+3+4 統合。
