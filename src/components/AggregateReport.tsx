@@ -6,9 +6,12 @@ import { getCombos } from '../utils/hands';
 interface Props {
   strategy: Strategy;
   actions: Action[];
+  /** action.id → 上書き色。指定が無いキーは action.color にフォールバック。 */
+  colorOverride?: Record<string, string>;
 }
 
-export function AggregateReport({ strategy, actions }: Props) {
+export function AggregateReport({ strategy, actions, colorOverride }: Props) {
+  const colorFor = (action: Action) => colorOverride?.[action.id] ?? action.color;
   const totalEntries = Object.keys(strategy).length;
 
   const aggregates = useMemo(() => {
@@ -86,7 +89,7 @@ export function AggregateReport({ strategy, actions }: Props) {
               key={i}
               style={{
                 width: `${pct}%`,
-                background: actions[i].color,
+                background: colorFor(actions[i]),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -109,7 +112,7 @@ export function AggregateReport({ strategy, actions }: Props) {
               style={{
                 width: '0.75rem',
                 height: '0.75rem',
-                background: action.color,
+                background: colorFor(action),
                 borderRadius: '0.125rem',
               }}
             />

@@ -5,6 +5,14 @@ import { useStrategy } from '../../hooks/useStrategy';
 import { heroFromPath, type Position } from '../../types/mobile';
 import { MobileHandMatrix } from './MobileHandMatrix';
 
+// レンジ表セルと同じ薄い色 (PC AggregateReport の鮮やか色とは別系統)。
+const MOBILE_AGGREGATE_COLORS: Record<string, string> = {
+  fold: '#60a5fa',
+  call: '#4ade80',
+  raise: '#f87171',
+  allin: '#c084fc',
+};
+
 interface Props {
   /** 表示する preflop node_path。null/空文字なら placeholder */
   nodePath: string | null;
@@ -75,7 +83,11 @@ export function RangeDisplay({ nodePath, opener }: Props) {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
             <MobileHandMatrix strategy={data.strategy} actions={data.actions} />
           </div>
-          <AggregateReport strategy={data.strategy} actions={data.actions} />
+          <AggregateReport
+            strategy={data.strategy}
+            actions={data.actions}
+            colorOverride={MOBILE_AGGREGATE_COLORS}
+          />
         </>
       ) : null}
     </div>
