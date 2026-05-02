@@ -1,0 +1,243 @@
+{
+  "game_info": {
+    "scenario": "BTN vs SB",
+    "node_path": "btnr_sbr_btnr_sbai_btn",
+    "step": 5,
+    "hero_position": "BTN",
+    "active_positions": [
+      "BTN",
+      "SB"
+    ],
+    "folded_positions": [
+      "UTG",
+      "HJ",
+      "CO",
+      "BB"
+    ],
+    "action_history": [
+      {
+        "position": "UTG",
+        "action": "Fold"
+      },
+      {
+        "position": "HJ",
+        "action": "Fold"
+      },
+      {
+        "position": "CO",
+        "action": "Fold"
+      },
+      {
+        "position": "BTN",
+        "action": "Raise 2.5"
+      },
+      {
+        "position": "SB",
+        "action": "Raise 12"
+      },
+      {
+        "position": "BB",
+        "action": "Fold"
+      },
+      {
+        "position": "BTN",
+        "action": "Raise 26"
+      },
+      {
+        "position": "SB",
+        "action": "Allin 100"
+      }
+    ],
+    "is_leaf": true,
+    "available_actions_at_this_node": [
+      "Call",
+      "Fold"
+    ],
+    "solution": {
+      "game_type": "Cash",
+      "stack": "100bb",
+      "players": "6max",
+      "rake": "NL500",
+      "type": "Classic",
+      "opening_size": "2.5x",
+      "bet_sizes": "General",
+      "postflop_bet_sizes": "Multi Size"
+    }
+  },
+  "actions_legend": {
+    "allin": "all-in",
+    "raise": "raise (all sizes combined)",
+    "call": "call",
+    "fold": "fold"
+  },
+  "hands": {
+    "55": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "66": {
+      "allin": 0,
+      "raise": 0,
+      "call": 66.7,
+      "fold": 33.3
+    },
+    "77": {
+      "allin": 0,
+      "raise": 0,
+      "call": 72,
+      "fold": 28
+    },
+    "88": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "99": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AA": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AKs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AQs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "A9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "A8s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "A7s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "A4s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AKo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "KK": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AQo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 21.4,
+      "fold": 78.6
+    },
+    "KQo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "QQ": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "Q9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AJo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "KJo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "JJ": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "J9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "ATo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "TT": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "T9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "T8s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "98s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "54s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    }
+  }
+}

@@ -1,0 +1,49 @@
+# --- Logs ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Build artifacts ---
+node_modules
+dist
+dist-ssr
+.vite
+*.tsbuildinfo
+
+# --- Environment / secrets ---
+*.local
+.env
+.env.*
+!.env.example
+
+# --- Editor / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Claude Code project state (machine-local) ---
+.claude/
+
+# --- Local backups (not deployed, not tracked) ---
+# 主バックアップは public/ の外 (/backups/) に配置されているのでビルドにも含まれない。
+# 詳細は backups/README.md を参照。
+/backups/
+
+# 万一 public/ 配下に再配置されてしまった場合の防御 (Vite が dist/ にコピーするのを
+# 防ぐため、必ず public/ の外に置くこと):
+public/data/preflop/*/before_sparse_*/
+public/data/preflop/*/before_swap_*/
+public/data/preflop/*/before_final_batch_*/
+public/data/preflop/*/B_filled/
+public/data/preflop/*/original_backup/
+public/data/preflop/*/repaired/

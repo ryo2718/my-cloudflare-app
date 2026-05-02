@@ -1,0 +1,98 @@
+{
+  "game_info": {
+    "scenario": "UTG vs CO",
+    "node_path": "utgr_cor_utgr_cor_utgai_co",
+    "step": 6,
+    "hero_position": "CO",
+    "active_positions": [
+      "UTG",
+      "CO"
+    ],
+    "folded_positions": [
+      "HJ",
+      "BTN",
+      "SB",
+      "BB"
+    ],
+    "action_history": [
+      {
+        "position": "UTG",
+        "action": "Raise 2.5"
+      },
+      {
+        "position": "HJ",
+        "action": "Fold"
+      },
+      {
+        "position": "CO",
+        "action": "Raise 7.5"
+      },
+      {
+        "position": "BTN",
+        "action": "Fold"
+      },
+      {
+        "position": "SB",
+        "action": "Fold"
+      },
+      {
+        "position": "BB",
+        "action": "Fold"
+      },
+      {
+        "position": "UTG",
+        "action": "Raise 20"
+      },
+      {
+        "position": "CO",
+        "action": "Raise 33"
+      },
+      {
+        "position": "UTG",
+        "action": "Allin 100"
+      }
+    ],
+    "is_leaf": true,
+    "available_actions_at_this_node": [
+      "Call",
+      "Fold"
+    ],
+    "solution": {
+      "game_type": "Cash",
+      "stack": "100bb",
+      "players": "6max",
+      "rake": "NL500",
+      "type": "Classic",
+      "opening_size": "2.5x",
+      "bet_sizes": "General",
+      "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "game_type": "Cash",
+      "max_players": 6,
+      "depth": 100,
+      "rake_structure": "NL500",
+      "open_size": "2.5x"
+    }
+  },
+  "actions_legend": {
+    "allin": "all-in",
+    "raise": "raise (all sizes combined)",
+    "call": "call",
+    "fold": "fold"
+  },
+  "hands": {
+    "AA": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AKs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    }
+  }
+}

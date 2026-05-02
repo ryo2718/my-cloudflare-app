@@ -1,0 +1,13 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/data/preflop/*
+  Cache-Control: public, max-age=86400, immutable
+
+/data/ev_ranking/*
+  Cache-Control: public, max-age=86400, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -1,0 +1,226 @@
+{
+  "game_info": {
+    "scenario": "HJ vs BTN",
+    "node_path": "hjr_btnr_hjr_btnr_hj",
+    "step": 5,
+    "hero_position": "HJ",
+    "active_positions": [
+      "HJ",
+      "BTN"
+    ],
+    "folded_positions": [
+      "UTG",
+      "CO",
+      "SB",
+      "BB"
+    ],
+    "action_history": [
+      {
+        "position": "UTG",
+        "action": "Fold"
+      },
+      {
+        "position": "HJ",
+        "action": "Raise 2.5"
+      },
+      {
+        "position": "CO",
+        "action": "Fold"
+      },
+      {
+        "position": "BTN",
+        "action": "Raise 7.5"
+      },
+      {
+        "position": "SB",
+        "action": "Fold"
+      },
+      {
+        "position": "BB",
+        "action": "Fold"
+      },
+      {
+        "position": "HJ",
+        "action": "Raise 20"
+      },
+      {
+        "position": "BTN",
+        "action": "Raise 32"
+      }
+    ],
+    "is_leaf": false,
+    "available_actions_at_this_node": [
+      "Allin",
+      "Call",
+      "Fold"
+    ],
+    "solution": {
+      "game_type": "Cash",
+      "stack": "100bb",
+      "players": "6max",
+      "rake": "NL500",
+      "type": "Classic",
+      "opening_size": "2.5x",
+      "bet_sizes": "General",
+      "postflop_bet_sizes": "Multi Size"
+    }
+  },
+  "actions_legend": {
+    "allin": "all-in",
+    "raise": "raise (all sizes combined)",
+    "call": "call",
+    "fold": "fold"
+  },
+  "hands": {
+    "77": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "88": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "99": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AA": {
+      "allin": 84.5,
+      "raise": 0,
+      "call": 15.5,
+      "fold": 0
+    },
+    "AKs": {
+      "allin": 100,
+      "raise": 0,
+      "call": 0,
+      "fold": 0
+    },
+    "AQs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AJs": {
+      "allin": 61.5,
+      "raise": 0,
+      "call": 38.5,
+      "fold": 0
+    },
+    "ATs": {
+      "allin": 55,
+      "raise": 0,
+      "call": 45,
+      "fold": 0
+    },
+    "A8s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "A5s": {
+      "allin": 85.6,
+      "raise": 0,
+      "call": 14.4,
+      "fold": 0
+    },
+    "A4s": {
+      "allin": 18,
+      "raise": 0,
+      "call": 82,
+      "fold": 0
+    },
+    "AKo": {
+      "allin": 15.1,
+      "raise": 0,
+      "call": 84.9,
+      "fold": 0
+    },
+    "KK": {
+      "allin": 86,
+      "raise": 0,
+      "call": 14,
+      "fold": 0
+    },
+    "KQs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 23,
+      "fold": 77
+    },
+    "KJs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 23,
+      "fold": 77
+    },
+    "KTs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 30.5,
+      "fold": 69.5
+    },
+    "K6s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AQo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 10,
+      "fold": 90
+    },
+    "QQ": {
+      "allin": 68,
+      "raise": 0,
+      "call": 32,
+      "fold": 0
+    },
+    "QJs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "QTs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "JJ": {
+      "allin": 11,
+      "raise": 0,
+      "call": 89,
+      "fold": 0
+    },
+    "JTs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "TT": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "T9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    }
+  }
+}

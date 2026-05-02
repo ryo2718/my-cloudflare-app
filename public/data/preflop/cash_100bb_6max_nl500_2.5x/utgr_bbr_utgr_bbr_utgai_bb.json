@@ -1,0 +1,146 @@
+{
+  "game_info": {
+    "scenario": "UTG vs BB",
+    "node_path": "utgr_bbr_utgr_bbr_utgai_bb",
+    "step": 6,
+    "hero_position": "BB",
+    "active_positions": [
+      "UTG",
+      "BB"
+    ],
+    "folded_positions": [
+      "HJ",
+      "CO",
+      "BTN",
+      "SB"
+    ],
+    "action_history": [
+      {
+        "position": "UTG",
+        "action": "Raise 2.5"
+      },
+      {
+        "position": "HJ",
+        "action": "Fold"
+      },
+      {
+        "position": "CO",
+        "action": "Fold"
+      },
+      {
+        "position": "BTN",
+        "action": "Fold"
+      },
+      {
+        "position": "SB",
+        "action": "Fold"
+      },
+      {
+        "position": "BB",
+        "action": "Raise 12"
+      },
+      {
+        "position": "UTG",
+        "action": "Raise 22"
+      },
+      {
+        "position": "BB",
+        "action": "Raise 34"
+      },
+      {
+        "position": "UTG",
+        "action": "Allin 100"
+      }
+    ],
+    "is_leaf": true,
+    "available_actions_at_this_node": [
+      "Call",
+      "Fold"
+    ],
+    "solution": {
+      "game_type": "Cash",
+      "stack": "100bb",
+      "players": "6max",
+      "rake": "NL500",
+      "type": "Classic",
+      "opening_size": "2.5x",
+      "bet_sizes": "General",
+      "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "game_type": "Cash",
+      "max_players": 6,
+      "depth": 100,
+      "rake_structure": "NL500",
+      "open_size": "2.5x"
+    }
+  },
+  "actions_legend": {
+    "allin": "all-in",
+    "raise": "raise (all sizes combined)",
+    "call": "call",
+    "fold": "fold"
+  },
+  "hands": {
+    "AA": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AKs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "AQs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AJs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "ATs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "A9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "A5s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AKo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 11.4,
+      "fold": 88.6
+    },
+    "KK": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "QQ": {
+      "allin": 0,
+      "raise": 0,
+      "call": 96.8,
+      "fold": 3.2
+    }
+  }
+}

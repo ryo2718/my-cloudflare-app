@@ -1,0 +1,3 @@
+# SPA fallback — どの URL でも index.html を返してクライアントで解決させる。
+# 現状ルーティング無し (URL hash も未使用) のため必須ではないが、将来 router 導入時に備え。
+/*    /index.html   200

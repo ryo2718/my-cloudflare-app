@@ -1,0 +1,192 @@
+{
+  "game_info": {
+    "scenario": "SB vs BB",
+    "node_path": "sbc_bbr_sbr_bbr_sbai_bb",
+    "step": 6,
+    "hero_position": "BB",
+    "active_positions": [
+      "SB",
+      "BB"
+    ],
+    "folded_positions": [
+      "UTG",
+      "HJ",
+      "CO",
+      "BTN"
+    ],
+    "action_history": [
+      {
+        "position": "UTG",
+        "action": "Fold"
+      },
+      {
+        "position": "HJ",
+        "action": "Fold"
+      },
+      {
+        "position": "CO",
+        "action": "Fold"
+      },
+      {
+        "position": "BTN",
+        "action": "Fold"
+      },
+      {
+        "position": "SB",
+        "action": "Call"
+      },
+      {
+        "position": "BB",
+        "action": "Raise 5"
+      },
+      {
+        "position": "SB",
+        "action": "Raise 18"
+      },
+      {
+        "position": "BB",
+        "action": "Raise 31"
+      },
+      {
+        "position": "SB",
+        "action": "Allin"
+      }
+    ],
+    "is_leaf": true,
+    "available_actions_at_this_node": [
+      "Call",
+      "Fold"
+    ],
+    "solution": {
+      "game_type": "Cash",
+      "stack": "100bb",
+      "players": "6max",
+      "rake": "NL500",
+      "type": "Classic",
+      "opening_size": "2.5x",
+      "bet_sizes": "General",
+      "postflop_bet_sizes": "Multi Size"
+    }
+  },
+  "actions_legend": {
+    "allin": "all-in",
+    "raise": "raise (all sizes combined)",
+    "call": "call (limp at N1, flat call elsewhere)",
+    "check": "check (BB only, after SB limp)",
+    "fold": "fold"
+  },
+  "hands": {
+    "88": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "99": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "AA": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "AKs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "A9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "A8s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "AKo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "KK": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "K9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "AQo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 40,
+      "check": 0,
+      "fold": 60
+    },
+    "KQo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "QQ": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    },
+    "AJo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "ATo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "KTo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "check": 0,
+      "fold": 100
+    },
+    "TT": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "check": 0,
+      "fold": 0
+    }
+  }
+}

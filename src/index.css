@@ -1,0 +1,26 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  /* Beige & cream theme — keep in sync with THEME.bg / THEME.textPrimary in src/styles/theme.ts */
+  background: #faf6f0;
+  color: #3d2f1f;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* Hand Evaluator 試作エリア: 上段の2カラム → 狭幅で縦並びに崩す */
+@media (max-width: 768px) {
+  .hand-evaluator-top-row {
+    grid-template-columns: 1fr !important;
+  }
+}
