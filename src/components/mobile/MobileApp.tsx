@@ -12,67 +12,68 @@ import {
 } from '../../types/mobile';
 import { ActionButtons } from './ActionButtons';
 import { Breadcrumb } from './Breadcrumb';
+import { DualPositionPicker } from './DualPositionPicker';
 import { MobileEvalTab } from './MobileEvalTab';
-import { PositionPicker } from './PositionPicker';
 import { RangeDisplay } from './RangeDisplay';
+import { ResetButton } from './ResetButton';
 import { SolutionLabel } from './SolutionLabel';
 import { TabSwitcher } from './TabSwitcher';
 
 const SOLUTION_LABEL = 'cash 100bb 6max NL500 2.5x';
 
 /**
- * モバイル版アプリ — Phase 2C+3+4 統合。
- * GameState (opener/responder/historyPaths) を中央管理し、
- *   - Stage 1 (未選択):       PositionPicker のみ
- *   - Stage 2 (opener):       PositionPicker + Breadcrumb (青) + RangeDisplay
- *   - Stage 3 (responder):    PositionPicker + Breadcrumb (赤) + RangeDisplay + ActionButtons
- *   - Stage 4+ (action click): Breadcrumb + RangeDisplay + ActionButtons (PositionPicker 隠す)
+ * モバイル版アプリ — 大幅 UI 改修版。
+ *
+ * 新レイアウト (上から):
+ *   1. SolutionLabel (タップ無効)
+ *   2. DualPositionPicker (OPENER + RESPONDER の 2 セット)
+ *   3. Breadcrumb (アクター色)
+ *   4. ActionButtons (★レンジの上に移動)
+ *   5. RangeDisplay (matrix + aggregate)
+ *   6. ResetButton (画面下)
+ *
+ * Stage 4+ (action 1回以上押下) では DualPositionPicker の選択済み以外がグレーアウト。
+ * 直前のアクションは actor のボタン上に吹き出し表示。
  */
 export function MobileApp() {
   const [tab, setTab] = useState<MobileTab>('range');
   const [state, setState] = useState<MobileState>(createInitialState);
 
-  /** PositionPicker タップ — Phase 2A の選択ロジックを GameState 上で再現 */
-  const handlePositionTap = (pos: Position) => {
-    if (!state.opener) {
-      setState({
-        opener: pos,
-        responder: null,
-        historyPaths: [initialLeftNodePath(pos as OpenerPosition)],
-      });
-    } else if (!state.responder) {
-      setState({
-        opener: state.opener,
-        responder: pos,
-        historyPaths: [
-          initialLeftNodePath(state.opener as OpenerPosition),
-          initialRightNodePath(state.opener as OpenerPosition, pos),
-        ],
-      });
-    } else {
-      // 既に2つ選択済み → リセットして新 opener
-      setState({
-        opener: pos,
-        responder: null,
-        historyPaths: [initialLeftNodePath(pos as OpenerPosition)],
-      });
-    }
+  /** OPENER パネルでタップ — 別 opener へ切替 (responder/history を破棄) */
+  const handleOpenerTap = (pos: Position) => {
+    if (pos === 'BB') return; // 安全策
+    if (state.opener === pos) return; // 同じ → no-op
+    setState({
+      opener: pos,
+      responder: null,
+      historyPaths: [initialLeftNodePath(pos as OpenerPosition)],
+    });
   };
 
-  /** ActionButton 押下 — historyPaths に新 path を追加 */
+  /** RESPONDER パネルでタップ — opener 維持、responder 切替で history を 2 段にリセット */
+  const handleResponderTap = (pos: Position) => {
+    if (!state.opener) return;
+    if (pos === state.opener) return;
+    if (state.responder === pos) return;
+    setState({
+      opener: state.opener,
+      responder: pos,
+      historyPaths: [
+        initialLeftNodePath(state.opener as OpenerPosition),
+        initialRightNodePath(state.opener as OpenerPosition, pos),
+      ],
+    });
+  };
+
+  /** ActionButton — historyPaths に新 path を追加 */
   const handleAdvance = (newPath: string) => {
     setState((prev) => ({ ...prev, historyPaths: [...prev.historyPaths, newPath] }));
   };
 
-  /** Breadcrumb Home — 完全リセット */
+  /** Breadcrumb HOME / 画面下 ResetButton — 完全リセット */
   const handleReset = () => setState(createInitialState());
 
-  /**
-   * Breadcrumb 過去セグメント押下 — historyPaths を newLength に切り詰め。
-   *   newLength=1 → opener のみ残し、responder クリア (PositionPicker 再表示)
-   *   newLength≥2 → opener+responder 維持、action history のみ縮小
-   * (Home は handleReset で別経路、ここに 0 は来ない)
-   */
+  /** Breadcrumb 過去 segment — historyPaths を newLength に切り詰め */
   const handleTruncate = (newLength: number) => {
     setState((prev) => {
       const newPaths = prev.historyPaths.slice(0, newLength);
@@ -80,9 +81,6 @@ export function MobileApp() {
       return { ...prev, responder: newResponder, historyPaths: newPaths };
     });
   };
-
-  // Stage 4+ では PositionPicker を隠す (操作概念が変わるため)
-  const showPicker = state.historyPaths.length <= 2;
 
   // 現在表示中の path
   const currentPath: string | null =
@@ -96,12 +94,11 @@ export function MobileApp() {
         <>
           <SolutionLabel label={SOLUTION_LABEL} />
 
-          {showPicker && (
-            <PositionPicker
-              selection={{ opener: state.opener, responder: state.responder }}
-              onTap={handlePositionTap}
-            />
-          )}
+          <DualPositionPicker
+            state={state}
+            onTapOpener={handleOpenerTap}
+            onTapResponder={handleResponderTap}
+          />
 
           <Breadcrumb
             historyPaths={state.historyPaths}
@@ -110,8 +107,7 @@ export function MobileApp() {
             onTruncate={handleTruncate}
           />
 
-          <RangeDisplay nodePath={currentPath} opener={state.opener} />
-
+          {/* ★ ActionButtons は RangeDisplay の「上」に配置 */}
           {state.opener && state.responder && currentPath && state.historyPaths.length >= 2 && (
             <ActionButtons
               currentPath={currentPath}
@@ -120,6 +116,10 @@ export function MobileApp() {
               onAdvance={handleAdvance}
             />
           )}
+
+          <RangeDisplay nodePath={currentPath} opener={state.opener} />
+
+          <ResetButton onReset={handleReset} />
         </>
       )}
 
