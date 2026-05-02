@@ -17,9 +17,9 @@ export const TIER_CONFIG: Record<EvTier, TierConfig> = {
   premium: {
     name: 'プレミアム',
     subtitle: '最強',
-    color: '#d4af37', // 金
-    textColor: '#1a1300',
-    borderColor: '#b7950b',
+    color: '#fde047',       // 明るいレモン金
+    textColor: '#422006',   // 暗い茶 (高コントラスト)
+    borderColor: '#facc15', // 一段濃い黄 (枠を視認可)
   },
   elite: {
     name: 'エリート',

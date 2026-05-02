@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  classifyRaiseRate,
   OPEN_POSITIONS,
   type OpenEvaluation,
   type OpenPosition,
 } from '../utils/openEvaluation';
+import { classifyByPlayRate } from '../utils/strategySymbol';
 import type { Hand } from '../types/strategy';
 
 interface RawHandData {
@@ -80,9 +80,19 @@ export function useOpenEvaluation(hand: Hand | null): {
     const compute = (): OpenEvaluation[] =>
       OPEN_POSITIONS.map((pos) => {
         const node = cache[pos];
-        // RFI (depth=1) は sparse 後も169ハンド全部含むはず。万が一ハンドキー欠落なら raise=0 扱い。
-        const raise = node?.hands[hand]?.raise ?? 0;
-        return { position: pos, raiseRate: raise, symbol: classifyRaiseRate(raise) };
+        // RFI (depth=1) は sparse 後も169ハンド全部含むはず。万が一ハンドキー欠落なら全0扱い。
+        const handData = node?.hands[hand];
+        const raise = handData?.raise ?? 0;
+        const call = handData?.call ?? 0;
+        const fold = handData?.fold ?? Math.max(0, 100 - raise - call);
+        // play率 (raise + call) で判定 — SB は call も含む必要あり (バグ修正)
+        return {
+          position: pos,
+          raiseRate: raise,
+          callRate: call,
+          foldRate: fold,
+          symbol: classifyByPlayRate(raise, call),
+        };
       });
 
     // キャッシュ完備 → 同期的にセット (loading にならない)

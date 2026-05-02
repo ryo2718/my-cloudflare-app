@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { classifyByPlayRate, type StrategySymbol } from '../utils/strategySymbol';
 
 export type VsPosition = 'UTG' | 'HJ' | 'CO' | 'BTN' | 'SB';
 export type Position = 'UTG' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
@@ -72,22 +73,16 @@ export function loadAll3betNodes(): Promise<void> {
   return inflight;
 }
 
-export type Symbol = '◎' | '○' | '🔼' | '❌';
+export type Symbol = StrategySymbol;
 
 export interface ThreebetEvaluation {
   position: Position;
   raiseRate: number;
   callRate: number;
+  foldRate: number;
   /** raise + call。allin は含まない (ユーザー指示通り) */
   playRate: number;
-  symbol: Symbol;
-}
-
-function classifyPlayRate(rate: number): Symbol {
-  if (rate >= 90) return '◎';
-  if (rate >= 30) return '○';
-  if (rate >= 10) return '🔼';
-  return '❌';
+  symbol: StrategySymbol;
 }
 
 /**
@@ -124,13 +119,15 @@ export function use3betEvaluation(
         const handData = node?.hands[hand];
         const raise = handData?.raise ?? 0;
         const call = handData?.call ?? 0;
+        const fold = handData?.fold ?? Math.max(0, 100 - raise - call);
         const playRate = raise + call;
         return {
           position: hero,
           raiseRate: raise,
           callRate: call,
+          foldRate: fold,
           playRate,
-          symbol: classifyPlayRate(playRate),
+          symbol: classifyByPlayRate(raise, call),
         };
       });
     };

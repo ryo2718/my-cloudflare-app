@@ -1,11 +1,10 @@
 import { useState, type CSSProperties } from 'react';
 import {
   use3betEvaluation,
-  type Symbol as EvalSymbol,
-  type ThreebetEvaluation,
   type VsPosition,
 } from '../hooks/use3betEvaluation';
 import { THEME } from '../styles/theme';
+import { StrategyCard } from './StrategyCard';
 
 interface Props {
   hand: string | null;
@@ -15,9 +14,8 @@ const VS_POSITIONS: ReadonlyArray<VsPosition> = ['UTG', 'HJ', 'CO', 'BTN', 'SB']
 
 /**
  * 3bet 戦略を vs ポジション別タブで表示。
- * - hand=null: プレースホルダ
- * - 各タブ: その vs ポジションに対する hero ポジション群 (5/4/3/2/1 カード)
- * - 各カード: ◎○🔼❌記号 + R(raise%) + C(call%)
+ * - StrategyCard を使った3色グラデ表示
+ * - hero ポジション数は 5/4/3/2/1 で可変
  */
 export function ThreebetStrategyTable({ hand }: Props) {
   const [activeVs, setActiveVs] = useState<VsPosition>('UTG');
@@ -60,16 +58,16 @@ export function ThreebetStrategyTable({ hand }: Props) {
         <>
           <div style={getGridStyle(evaluations.length)}>
             {evaluations.map((e) => (
-              <EvalCard key={e.position} evaluation={e} />
+              <StrategyCard
+                key={e.position}
+                position={e.position}
+                raiseRate={e.raiseRate}
+                callRate={e.callRate}
+                foldRate={e.foldRate}
+              />
             ))}
           </div>
-
-          <div style={legendStyle}>
-            <LegendItem color="#22c55e" symbol="◎" text="play 90%+" />
-            <LegendItem color="#f97316" symbol="○" text="30-90%" />
-            <LegendItem color="#3b82f6" symbol="🔼" text="10-30%" />
-            <LegendItem color="#ef4444" symbol="❌" text="0-10%" />
-          </div>
+          <Legend />
           <p style={noteStyle}>
             ※ play率 = raise + call。R = raise率、C = call率。
           </p>
@@ -79,69 +77,23 @@ export function ThreebetStrategyTable({ hand }: Props) {
   );
 }
 
-function LegendItem({ color, symbol, text }: { color: string; symbol: string; text: string }) {
+function Legend() {
+  const items: ReadonlyArray<{ symbol: string; color: string; text: string }> = [
+    { symbol: '◎', color: '#ef4444', text: 'play 90%+' },
+    { symbol: '○', color: '#ea580c', text: '30-90%' },
+    { symbol: '△', color: '#a16207', text: '10-30%' },
+    { symbol: '✕', color: '#3b82f6', text: '0-10%' },
+  ];
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-      <span style={{ color, fontSize: '0.95rem', lineHeight: 1 }}>{symbol}</span>
-      {text}
-    </span>
-  );
-}
-
-function EvalCard({ evaluation }: { evaluation: ThreebetEvaluation }) {
-  const c = getSymbolStyle(evaluation.symbol);
-  return (
-    <div
-      style={{
-        border: `2px solid ${c.border}`,
-        background: c.background,
-        borderRadius: '0.375rem',
-        padding: '0.6rem 0.4rem',
-        textAlign: 'center',
-      }}
-    >
-      <div
-        style={{
-          fontSize: '11px',
-          color: c.label,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          fontWeight: 500,
-          marginBottom: '0.4rem',
-        }}
-      >
-        {evaluation.position}
-      </div>
-      <div style={{ fontSize: '24px', lineHeight: 1, color: c.symbol, margin: '0.4rem 0' }}>
-        {evaluation.symbol}
-      </div>
-      <div
-        style={{
-          fontSize: '10px',
-          color: c.value,
-          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-          lineHeight: 1.4,
-        }}
-      >
-        <div>R: {evaluation.raiseRate.toFixed(0)}%</div>
-        <div>C: {evaluation.callRate.toFixed(0)}%</div>
-      </div>
+    <div style={legendStyle}>
+      {items.map((it) => (
+        <span key={it.symbol} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+          <span style={{ color: it.color, fontSize: '0.95rem', lineHeight: 1 }}>{it.symbol}</span>
+          {it.text}
+        </span>
+      ))}
     </div>
   );
-}
-
-// OpenStrategyTable と同じカラーパレット (ダークテーマ向け)。
-// 既存ファイルを触らないため、ここで再定義 (将来統合する場合は shared util に移す)。
-interface SymbolStyle {
-  border: string; background: string; symbol: string; label: string; value: string;
-}
-function getSymbolStyle(symbol: EvalSymbol): SymbolStyle {
-  switch (symbol) {
-    case '◎': return { border: '#16a34a', background: 'rgba(22, 163, 74, 0.12)',  symbol: '#22c55e', label: '#4ade80', value: '#86efac' };
-    case '○': return { border: '#ea580c', background: 'rgba(234, 88, 12, 0.12)',  symbol: '#f97316', label: '#fb923c', value: '#fdba74' };
-    case '🔼': return { border: '#2563eb', background: 'rgba(37, 99, 235, 0.12)',  symbol: '#3b82f6', label: '#60a5fa', value: '#93c5fd' };
-    case '❌': return { border: '#ef4444', background: 'rgba(239, 68, 68, 0.12)',  symbol: '#ef4444', label: '#f87171', value: '#fca5a5' };
-  }
 }
 
 function getGridStyle(count: number): CSSProperties {
