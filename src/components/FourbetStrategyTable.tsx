@@ -68,31 +68,8 @@ export function FourbetStrategyTable({ hand }: Props) {
               />
             ))}
           </div>
-          <Legend />
-          <p style={noteStyle}>
-            ※ play率 = AI + raise + call。AI = all-in 率 (紫)、R = raise率、C = call率。
-          </p>
         </>
       )}
-    </div>
-  );
-}
-
-function Legend() {
-  const items: ReadonlyArray<{ symbol: string; color: string; text: string }> = [
-    { symbol: '◎', color: '#ef4444', text: 'play 90%+' },
-    { symbol: '○', color: '#ea580c', text: '30-90%' },
-    { symbol: '△', color: '#a16207', text: '10-30%' },
-    { symbol: '✕', color: '#3b82f6', text: '0-10%' },
-  ];
-  return (
-    <div style={legendStyle}>
-      {items.map((it) => (
-        <span key={it.symbol} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ color: it.color, fontSize: '0.95rem', lineHeight: 1 }}>{it.symbol}</span>
-          {it.text}
-        </span>
-      ))}
     </div>
   );
 }
@@ -146,22 +123,3 @@ const messageStyle: CSSProperties = {
   padding: '1rem',
 };
 
-const legendStyle: CSSProperties = {
-  display: 'flex',
-  gap: '1rem',
-  justifyContent: 'center',
-  fontSize: '11px',
-  color: THEME.textMuted,
-  paddingTop: '0.75rem',
-  borderTop: `1px solid ${THEME.border}`,
-  marginTop: '0.75rem',
-  flexWrap: 'wrap',
-};
-
-const noteStyle: CSSProperties = {
-  margin: '0.5rem 0 0',
-  fontSize: '0.7rem',
-  color: THEME.textMuted,
-  textAlign: 'center',
-  fontStyle: 'italic',
-};

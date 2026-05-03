@@ -55,28 +55,8 @@ export function OpenStrategyTable({ hand }: Props) {
               );
             })}
           </div>
-          <Legend />
         </>
       )}
-    </div>
-  );
-}
-
-function Legend() {
-  const items: ReadonlyArray<{ symbol: string; color: string; text: string }> = [
-    { symbol: '◎', color: '#ef4444', text: 'play 90%+' },
-    { symbol: '○', color: '#ea580c', text: '30-90%' },
-    { symbol: '△', color: '#a16207', text: '10-30%' },
-    { symbol: '✕', color: '#3b82f6', text: '0-10%' },
-  ];
-  return (
-    <div style={legendStyle}>
-      {items.map((it) => (
-        <span key={it.symbol} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ color: it.color, fontSize: '0.95rem', lineHeight: 1 }}>{it.symbol}</span>
-          {it.text}
-        </span>
-      ))}
     </div>
   );
 }
@@ -110,13 +90,3 @@ const messageStyle: CSSProperties = {
   padding: '1rem',
 };
 
-const legendStyle: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: '1rem',
-  justifyContent: 'center',
-  fontSize: '11px',
-  color: THEME.textMuted,
-  paddingTop: '0.75rem',
-  borderTop: `1px solid ${THEME.border}`,
-};

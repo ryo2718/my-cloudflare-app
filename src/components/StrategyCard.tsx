@@ -89,9 +89,14 @@ export function StrategyCard({
           fontSize: '11px',
           lineHeight: 1.4,
           fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+          // 行スロット数で固定高さ。useAllin=true なら 3行、false なら 2行。
+          // visibility:hidden では稀に高さが 0 になる環境があるため明示固定。
+          minHeight: useAllin ? '46px' : '31px',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {/* 行スロットは値が 0 でも visibility:hidden で常に占有させる。
+        {/* 行スロットは値が 0 でも常に占有 (visibility:hidden)。
               これでカード間で AI/R/C 行の縦位置が常に揃う (4bet ↔ AI 0% ↔ AI 50% など)。
               4bet (useAllin=true) ⇒ 3行スロット、Open/3bet ⇒ 2行スロット。 */}
         {useAllin && (
