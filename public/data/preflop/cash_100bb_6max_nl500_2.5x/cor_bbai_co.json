@@ -54,11 +54,15 @@
       "opening_size": "2.5x",
       "bet_sizes": "General",
       "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "bb_allin_size": "Allin 100",
+      "hands_out_of_range_set_to_fold100": 98
     }
   },
   "actions_legend": {
     "allin": "all-in",
-    "raise": "raise (all sizes combined)",
+    "raise": "raise (Raise 2.5 remapped to call if applicable)",
     "call": "call",
     "fold": "fold"
   },
@@ -120,14 +124,14 @@
     "AKs": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 40.5,
+      "fold": 59.5
     },
     "AQs": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 0,
+      "fold": 100
     },
     "AJs": {
       "allin": 0,
@@ -342,8 +346,8 @@
     "JJ": {
       "allin": 0,
       "raise": 0,
-      "call": 0,
-      "fold": 100
+      "call": 46,
+      "fold": 54
     },
     "JTs": {
       "allin": 0,
