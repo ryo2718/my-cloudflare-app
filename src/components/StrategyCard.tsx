@@ -20,8 +20,12 @@ interface Props {
 
 /**
  * Open / 3bet / 4bet 共通の戦略表示カード。
- * - allinRate 未指定: 3色グラデ (R/C/F) + symbol は raise+call で分類
- * - allinRate 指定:   4色グラデ (AI/R/C/F) + symbol は raise+call+allin で分類 + AI 行表示
+ * - allinRate 未指定: 3色グラデ (R/C/F) + symbol は raise+call で分類 + 2行スロット
+ * - allinRate 指定:   4色グラデ (AI/R/C/F) + symbol は raise+call+allin で分類 + 3行スロット
+ *
+ * 内部レイアウトは CSS Grid。各行 (位置 / symbol / AI / R / C) を明示的にスロット化し、
+ * AI 有無に関わらずカード間で行の Y 座標が必ず揃う。空行も非破壊空白 ( ) で
+ * 必ず描画してブラウザ依存 (visibility:hidden の解釈差) を排除。
  */
 export function StrategyCard({
   position,
@@ -43,8 +47,10 @@ export function StrategyCard({
   const showCall = callRate > 0;
   const showAllin = useAllin && (allinRate ?? 0) > 0;
 
-  // 表示は四捨五入の整数 (小数1桁は読みづらい)
   const fmt = (v: number) => Math.round(v).toString();
+
+  // grid-template-rows: auto (位置) / 1fr (symbol が伸びる) / auto×N (stats)
+  const gridRows = useAllin ? 'auto 1fr auto auto auto' : 'auto 1fr auto auto';
 
   return (
     <div
@@ -54,10 +60,10 @@ export function StrategyCard({
         borderRadius: '0.5rem',
         padding: '0.75rem 0.5rem',
         textAlign: 'center',
-        minHeight: '110px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
+        display: 'grid',
+        gridTemplateRows: gridRows,
+        rowGap: '0.25rem',
+        minHeight: useAllin ? '140px' : '120px',
       }}
     >
       <div
@@ -77,52 +83,37 @@ export function StrategyCard({
           fontSize: '28px',
           lineHeight: 1,
           color: style.symbolColor,
-          margin: '0.5rem 0',
           fontWeight: 500,
+          alignSelf: 'center',
         }}
       >
         {symbol}
       </div>
 
-      <div
-        style={{
-          fontSize: '11px',
-          lineHeight: 1.4,
-          fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
-          // 行スロット数で固定高さ。useAllin=true なら 3行、false なら 2行。
-          // visibility:hidden では稀に高さが 0 になる環境があるため明示固定。
-          minHeight: useAllin ? '46px' : '31px',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* 行スロットは値が 0 でも常に占有 (visibility:hidden)。
-              これでカード間で AI/R/C 行の縦位置が常に揃う (4bet ↔ AI 0% ↔ AI 50% など)。
-              4bet (useAllin=true) ⇒ 3行スロット、Open/3bet ⇒ 2行スロット。 */}
-        {useAllin && (
-          <StatLine
-            color={STRATEGY_TEXT_COLORS.allin}
-            label="AI"
-            value={allinRate ?? 0}
-            visible={showAllin}
-            fmt={fmt}
-          />
-        )}
+      {/* stats 行 — 各行は grid 上の独立スロット。空行も &nbsp; で描画して必ず lineHeight ぶんを確保。 */}
+      {useAllin && (
         <StatLine
-          color={STRATEGY_TEXT_COLORS.raise}
-          label="R"
-          value={raiseRate}
-          visible={showRaise}
+          color={STRATEGY_TEXT_COLORS.allin}
+          label="AI"
+          value={allinRate ?? 0}
+          visible={showAllin}
           fmt={fmt}
         />
-        <StatLine
-          color={STRATEGY_TEXT_COLORS.call}
-          label="C"
-          value={callRate}
-          visible={showCall}
-          fmt={fmt}
-        />
-      </div>
+      )}
+      <StatLine
+        color={STRATEGY_TEXT_COLORS.raise}
+        label="R"
+        value={raiseRate}
+        visible={showRaise}
+        fmt={fmt}
+      />
+      <StatLine
+        color={STRATEGY_TEXT_COLORS.call}
+        label="C"
+        value={callRate}
+        visible={showCall}
+        fmt={fmt}
+      />
     </div>
   );
 }
@@ -136,9 +127,17 @@ interface StatLineProps {
 }
 
 function StatLine({ color, label, value, visible, fmt }: StatLineProps) {
+  // 不可視時も ' ' (NBSP) を入れて行高を必ず確保 — visibility:hidden 依存を回避。
   return (
-    <div style={{ color, visibility: visible ? 'visible' : 'hidden' }}>
-      {label}: {fmt(value)}%
+    <div
+      style={{
+        color,
+        fontSize: '11px',
+        lineHeight: 1.4,
+        fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+      }}
+    >
+      {visible ? `${label}: ${fmt(value)}%` : ' '}
     </div>
   );
 }
