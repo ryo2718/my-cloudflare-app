@@ -2,7 +2,7 @@
   "game_info": {
     "scenario": "HJ vs SB",
     "node_path": "hjr_sbr_hjr_sbr_hj",
-    "step": 5,
+    "step": 8,
     "hero_position": "HJ",
     "active_positions": [
       "HJ",
@@ -33,7 +33,7 @@
       },
       {
         "position": "SB",
-        "action": "Raise 12"
+        "action": "Raise 10"
       },
       {
         "position": "BB",
@@ -45,15 +45,16 @@
       },
       {
         "position": "SB",
-        "action": "Raise 42"
+        "action": "Raise 40"
       }
     ],
-    "is_leaf": false,
+    "is_leaf": true,
     "available_actions_at_this_node": [
       "Allin",
       "Call",
       "Fold"
     ],
+    "note": "5-bet階層確認済み: Raiseオプションなし、Allin/Call/Foldのみ。ノードは存在する。",
     "solution": {
       "game_type": "Cash",
       "stack": "100bb",
@@ -63,15 +64,27 @@
       "opening_size": "2.5x",
       "bet_sizes": "General",
       "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "sb_3bet_size": "Raise 10",
+      "hj_4bet_size": "Raise 22",
+      "sb_5bet_size": "Raise 40",
+      "hands_out_of_range_set_to_fold100": 141
     }
   },
   "actions_legend": {
-    "allin": "all-in",
-    "raise": "raise (all sizes combined)",
-    "call": "call",
+    "allin": "all-in (Allin 100 = 6bet allin)",
+    "raise": "raise (unused)",
+    "call": "call (call SB 5bet)",
     "fold": "fold"
   },
   "hands": {
+    "66": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
     "77": {
       "allin": 0,
       "raise": 0,
@@ -79,21 +92,21 @@
       "fold": 0
     },
     "88": {
-      "allin": 11.8,
+      "allin": 0,
       "raise": 0,
-      "call": 88.2,
-      "fold": 0
+      "call": 70.5,
+      "fold": 29.5
     },
     "99": {
-      "allin": 30.7,
+      "allin": 0,
       "raise": 0,
-      "call": 69.3,
-      "fold": 0
+      "call": 45.7,
+      "fold": 54.3
     },
     "AA": {
-      "allin": 48.9,
+      "allin": 59,
       "raise": 0,
-      "call": 51.1,
+      "call": 41,
       "fold": 0
     },
     "AKs": {
@@ -109,16 +122,10 @@
       "fold": 0
     },
     "ATs": {
-      "allin": 16.1,
-      "raise": 0,
-      "call": 83.9,
-      "fold": 0
-    },
-    "A9s": {
       "allin": 0,
       "raise": 0,
-      "call": 0,
-      "fold": 100
+      "call": 100,
+      "fold": 0
     },
     "A8s": {
       "allin": 0,
@@ -126,41 +133,47 @@
       "call": 0,
       "fold": 100
     },
-    "A7s": {
-      "allin": 0,
+    "A5s": {
+      "allin": 33.5,
       "raise": 0,
-      "call": 10,
-      "fold": 90
+      "call": 27.1,
+      "fold": 39.4
     },
     "A4s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 7.9,
+      "fold": 92.1
+    },
+    "A3s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AKo": {
+      "allin": 54.8,
+      "raise": 0,
+      "call": 45.2,
+      "fold": 0
+    },
+    "KK": {
+      "allin": 100,
+      "raise": 0,
+      "call": 0,
+      "fold": 0
+    },
+    "KQs": {
       "allin": 0,
       "raise": 0,
       "call": 100,
       "fold": 0
     },
-    "A3s": {
-      "allin": 0,
-      "raise": 0,
-      "call": 44.2,
-      "fold": 55.8
-    },
-    "AKo": {
-      "allin": 65,
-      "raise": 0,
-      "call": 35,
-      "fold": 0
-    },
-    "KK": {
-      "allin": 97,
-      "raise": 0,
-      "call": 3,
-      "fold": 0
-    },
     "KJs": {
       "allin": 0,
       "raise": 0,
-      "call": 25.3,
-      "fold": 74.7
+      "call": 0,
+      "fold": 100
     },
     "KTs": {
       "allin": 0,
@@ -180,11 +193,17 @@
       "call": 0,
       "fold": 100
     },
+    "K5s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
     "AQo": {
       "allin": 0,
       "raise": 0,
-      "call": 21.8,
-      "fold": 78.2
+      "call": 15.6,
+      "fold": 84.4
     },
     "KQo": {
       "allin": 0,
@@ -192,11 +211,11 @@
       "call": 0,
       "fold": 100
     },
-    "QJs": {
-      "allin": 0,
+    "QQ": {
+      "allin": 100,
       "raise": 0,
       "call": 0,
-      "fold": 100
+      "fold": 0
     },
     "AJo": {
       "allin": 0,
@@ -204,23 +223,29 @@
       "call": 0,
       "fold": 100
     },
-    "JJ": {
-      "allin": 48.1,
-      "raise": 0,
-      "call": 51.9,
-      "fold": 0
-    },
-    "J9s": {
+    "KJo": {
       "allin": 0,
       "raise": 0,
       "call": 0,
       "fold": 100
     },
-    "TT": {
-      "allin": 10.5,
+    "JJ": {
+      "allin": 31.5,
       "raise": 0,
-      "call": 73.3,
-      "fold": 16.2
+      "call": 68.5,
+      "fold": 0
+    },
+    "JTs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
+    },
+    "TT": {
+      "allin": 0,
+      "raise": 0,
+      "call": 69.7,
+      "fold": 30.3
     }
   }
 }

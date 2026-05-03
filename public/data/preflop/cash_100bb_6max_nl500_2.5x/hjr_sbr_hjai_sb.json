@@ -2,7 +2,7 @@
   "game_info": {
     "scenario": "HJ vs SB",
     "node_path": "hjr_sbr_hjai_sb",
-    "step": 4,
+    "step": 5,
     "hero_position": "SB",
     "active_positions": [
       "HJ",
@@ -33,7 +33,7 @@
       },
       {
         "position": "SB",
-        "action": "Raise 12"
+        "action": "Raise 10"
       },
       {
         "position": "BB",
@@ -41,7 +41,7 @@
       },
       {
         "position": "HJ",
-        "action": "Allin"
+        "action": "Allin 100"
       }
     ],
     "is_leaf": true,
@@ -58,11 +58,16 @@
       "opening_size": "2.5x",
       "bet_sizes": "General",
       "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "sb_3bet_size": "Raise 10",
+      "hj_4bet_allin_size": "Allin 100",
+      "hands_out_of_range_set_to_fold100": 132
     }
   },
   "actions_legend": {
     "allin": "all-in",
-    "raise": "raise (all sizes combined)",
+    "raise": "raise (Raise 2.5 remapped to call if applicable)",
     "call": "call",
     "fold": "fold"
   },
@@ -214,8 +219,8 @@
     "QQ": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 62,
+      "fold": 38
     },
     "QJs": {
       "allin": 0,
@@ -241,17 +246,23 @@
       "call": 0,
       "fold": 100
     },
+    "J9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
     "TT": {
       "allin": 0,
       "raise": 0,
-      "call": 81.1,
-      "fold": 18.9
+      "call": 100,
+      "fold": 0
     },
     "T9s": {
       "allin": 0,
       "raise": 0,
-      "call": 81.07143,
-      "fold": 18.928571
+      "call": 0,
+      "fold": 100
     },
     "98s": {
       "allin": 0,

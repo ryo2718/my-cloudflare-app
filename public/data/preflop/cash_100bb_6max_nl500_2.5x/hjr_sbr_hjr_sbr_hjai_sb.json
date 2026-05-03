@@ -2,7 +2,7 @@
   "game_info": {
     "scenario": "HJ vs SB",
     "node_path": "hjr_sbr_hjr_sbr_hjai_sb",
-    "step": 6,
+    "step": 9,
     "hero_position": "SB",
     "active_positions": [
       "HJ",
@@ -33,7 +33,7 @@
       },
       {
         "position": "SB",
-        "action": "Raise 12"
+        "action": "Raise 10"
       },
       {
         "position": "BB",
@@ -45,11 +45,11 @@
       },
       {
         "position": "SB",
-        "action": "Raise 42"
+        "action": "Raise 40"
       },
       {
         "position": "HJ",
-        "action": "Allin"
+        "action": "Allin 100"
       }
     ],
     "is_leaf": true,
@@ -57,6 +57,7 @@
       "Call",
       "Fold"
     ],
+    "note": "6-bet階層: SB 5bet R40後にHJ Allin 100に対するSBの応答。ノードは存在する。",
     "solution": {
       "game_type": "Cash",
       "stack": "100bb",
@@ -66,12 +67,19 @@
       "opening_size": "2.5x",
       "bet_sizes": "General",
       "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "sb_3bet_size": "Raise 10",
+      "hj_4bet_size": "Raise 22",
+      "sb_5bet_size": "Raise 40",
+      "hj_6bet_allin_size": "Allin 100",
+      "hands_out_of_range_set_to_fold100": 157
     }
   },
   "actions_legend": {
     "allin": "all-in",
-    "raise": "raise (all sizes combined)",
-    "call": "call",
+    "raise": "raise (unused)",
+    "call": "call (call HJ allin)",
     "fold": "fold"
   },
   "hands": {
@@ -87,19 +95,13 @@
       "call": 100,
       "fold": 0
     },
-    "ATs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 94.8,
-      "fold": 5.2
-    },
-    "A9s": {
+    "AJs": {
       "allin": 0,
       "raise": 0,
       "call": 0,
       "fold": 100
     },
-    "A8s": {
+    "ATs": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -129,19 +131,7 @@
       "call": 100,
       "fold": 0
     },
-    "KJs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
     "KTs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "K9s": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -153,13 +143,13 @@
       "call": 0,
       "fold": 100
     },
-    "QQ": {
+    "JJ": {
       "allin": 0,
       "raise": 0,
       "call": 100,
       "fold": 0
     },
-    "JJ": {
+    "TT": {
       "allin": 0,
       "raise": 0,
       "call": 100,

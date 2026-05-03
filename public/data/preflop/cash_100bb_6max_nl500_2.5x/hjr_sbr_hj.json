@@ -2,7 +2,7 @@
   "game_info": {
     "scenario": "HJ vs SB",
     "node_path": "hjr_sbr_hj",
-    "step": 3,
+    "step": 4,
     "hero_position": "HJ",
     "active_positions": [
       "HJ",
@@ -33,7 +33,7 @@
       },
       {
         "position": "SB",
-        "action": "Raise 12"
+        "action": "Raise 10"
       },
       {
         "position": "BB",
@@ -56,11 +56,17 @@
       "opening_size": "2.5x",
       "bet_sizes": "General",
       "postflop_bet_sizes": "Multi Size"
+    },
+    "cash_settings": {
+      "sb_3bet_size": "Raise 10",
+      "hj_4bet_size": "Raise 22",
+      "hj_allin_size": "Allin 100",
+      "hands_out_of_range_set_to_fold100": 110
     }
   },
   "actions_legend": {
-    "allin": "all-in",
-    "raise": "raise (all sizes combined)",
+    "allin": "all-in (Allin 100)",
+    "raise": "4bet (Raise 22)",
     "call": "call",
     "fold": "fold"
   },
@@ -80,49 +86,49 @@
     "44": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 80.5,
+      "fold": 19.5
     },
     "55": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 39,
+      "fold": 61
     },
     "66": {
       "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "fold": 0
+      "raise": 3,
+      "call": 51.5,
+      "fold": 45.5
     },
     "77": {
       "allin": 0,
-      "raise": 4.5,
-      "call": 95.5,
-      "fold": 0
+      "raise": 3.5,
+      "call": 47.3,
+      "fold": 49.3
     },
     "88": {
       "allin": 0,
-      "raise": 8.5,
-      "call": 91.5,
-      "fold": 0
+      "raise": 10.4,
+      "call": 68.2,
+      "fold": 21.4
     },
     "99": {
       "allin": 0,
-      "raise": 10,
-      "call": 90,
+      "raise": 14,
+      "call": 86,
       "fold": 0
     },
     "AA": {
       "allin": 0,
-      "raise": 80.5,
-      "call": 19.5,
+      "raise": 99.5,
+      "call": 0.5,
       "fold": 0
     },
     "AKs": {
       "allin": 0,
-      "raise": 32.5,
-      "call": 67.5,
+      "raise": 79.5,
+      "call": 20.5,
       "fold": 0
     },
     "AQs": {
@@ -133,57 +139,57 @@
     },
     "AJs": {
       "allin": 0,
-      "raise": 4,
-      "call": 96,
+      "raise": 8,
+      "call": 92,
       "fold": 0
     },
     "ATs": {
       "allin": 0,
-      "raise": 18,
-      "call": 82,
+      "raise": 6,
+      "call": 94,
       "fold": 0
     },
     "A9s": {
       "allin": 0,
-      "raise": 7.5,
+      "raise": 0,
       "call": 10,
-      "fold": 82.5
+      "fold": 90
     },
     "A8s": {
       "allin": 0,
-      "raise": 12.5,
-      "call": 65,
-      "fold": 22.5
+      "raise": 5,
+      "call": 0,
+      "fold": 95
     },
     "A7s": {
       "allin": 0,
-      "raise": 7,
-      "call": 44.5,
-      "fold": 48.5
+      "raise": 0,
+      "call": 0,
+      "fold": 100
     },
     "A6s": {
       "allin": 0,
       "raise": 0,
-      "call": 31,
-      "fold": 69
+      "call": 0,
+      "fold": 100
     },
     "A5s": {
       "allin": 0,
-      "raise": 0,
-      "call": 100,
+      "raise": 17,
+      "call": 83,
       "fold": 0
     },
     "A4s": {
       "allin": 0,
-      "raise": 7.5,
-      "call": 92.5,
+      "raise": 29,
+      "call": 71,
       "fold": 0
     },
     "A3s": {
       "allin": 0,
-      "raise": 12,
-      "call": 40,
-      "fold": 48
+      "raise": 16,
+      "call": 26,
+      "fold": 58
     },
     "A2s": {
       "allin": 0,
@@ -192,40 +198,40 @@
       "fold": 100
     },
     "AKo": {
-      "allin": 0,
-      "raise": 10,
-      "call": 90,
+      "allin": 10.5,
+      "raise": 13.5,
+      "call": 76,
       "fold": 0
     },
     "KK": {
-      "allin": 0,
-      "raise": 46.5,
-      "call": 53.5,
+      "allin": 9,
+      "raise": 61,
+      "call": 30,
       "fold": 0
     },
     "KQs": {
       "allin": 0,
-      "raise": 0,
-      "call": 100,
+      "raise": 3.5,
+      "call": 96.5,
       "fold": 0
     },
     "KJs": {
       "allin": 0,
-      "raise": 15,
-      "call": 85,
+      "raise": 6.5,
+      "call": 93.5,
       "fold": 0
     },
     "KTs": {
       "allin": 0,
-      "raise": 32,
-      "call": 68,
+      "raise": 24,
+      "call": 76,
       "fold": 0
     },
     "K9s": {
       "allin": 0,
-      "raise": 14.5,
+      "raise": 17,
       "call": 0,
-      "fold": 85.5
+      "fold": 83
     },
     "K8s": {
       "allin": 0,
@@ -241,38 +247,38 @@
     },
     "K6s": {
       "allin": 0,
-      "raise": 6,
-      "call": 41.5,
-      "fold": 52.5
+      "raise": 23.5,
+      "call": 14.5,
+      "fold": 62
     },
     "K5s": {
       "allin": 0,
-      "raise": 0,
+      "raise": 8,
       "call": 0,
-      "fold": 100
+      "fold": 92
     },
     "AQo": {
       "allin": 0,
-      "raise": 17,
-      "call": 83,
-      "fold": 0
+      "raise": 36.7,
+      "call": 38.7,
+      "fold": 24.6
     },
     "KQo": {
       "allin": 0,
-      "raise": 6,
+      "raise": 1,
       "call": 0,
-      "fold": 94
+      "fold": 99
     },
     "QQ": {
       "allin": 0,
-      "raise": 0,
-      "call": 100,
+      "raise": 7.5,
+      "call": 92.5,
       "fold": 0
     },
     "QJs": {
       "allin": 0,
-      "raise": 1,
-      "call": 99,
+      "raise": 0,
+      "call": 100,
       "fold": 0
     },
     "QTs": {
@@ -295,15 +301,15 @@
     },
     "AJo": {
       "allin": 0,
-      "raise": 13.5,
+      "raise": 7,
       "call": 0,
-      "fold": 86.5
+      "fold": 93
     },
     "KJo": {
       "allin": 0,
-      "raise": 0,
+      "raise": 9.5,
       "call": 0,
-      "fold": 100
+      "fold": 90.5
     },
     "QJo": {
       "allin": 0,
@@ -313,21 +319,21 @@
     },
     "JJ": {
       "allin": 0,
-      "raise": 16,
-      "call": 84,
+      "raise": 20,
+      "call": 80,
       "fold": 0
     },
     "JTs": {
       "allin": 0,
-      "raise": 0,
-      "call": 100,
+      "raise": 5,
+      "call": 95,
       "fold": 0
     },
     "J9s": {
       "allin": 0,
-      "raise": 1,
-      "call": 87.1,
-      "fold": 11.9
+      "raise": 0,
+      "call": 25.5,
+      "fold": 74.5
     },
     "ATo": {
       "allin": 0,
@@ -355,21 +361,21 @@
     },
     "TT": {
       "allin": 0,
-      "raise": 10.5,
-      "call": 89.5,
+      "raise": 7.5,
+      "call": 92.5,
       "fold": 0
     },
     "T9s": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 59,
+      "fold": 41
     },
     "T8s": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 0,
+      "fold": 100
     },
     "A9o": {
       "allin": 0,
@@ -380,8 +386,8 @@
     "98s": {
       "allin": 0,
       "raise": 0,
-      "call": 100,
-      "fold": 0
+      "call": 37.5,
+      "fold": 62.5
     },
     "87s": {
       "allin": 0,
