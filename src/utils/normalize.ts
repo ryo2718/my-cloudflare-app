@@ -160,10 +160,11 @@ export function normalize(raw: RawStrategyFile, scenarioId: string): StrategyDat
   const strategy: Record<string, number[]> = {};
   for (const [hand, h] of handEntries) {
     // limp pot の BB は fold ではなく check を使う (例: sbc_bb)。
-    // 表示上は「非攻撃アクション」という意味で fold と合算 (sum 100% 維持)。
+    // 表示上は「ポット維持」アクションとして call スロットに合算 (sum 100% 維持、配色も緑)。
+    // fold (= ポット降りる) と混同しない。
     strategy[hand] = [
-      ((h.fold ?? 0) + (h.check ?? 0)) / 100,
-      (h.call ?? 0) / 100,
+      (h.fold ?? 0) / 100,
+      ((h.call ?? 0) + (h.check ?? 0)) / 100,
       (h.raise ?? 0) / 100,
       (h.allin ?? 0) / 100,
     ];
