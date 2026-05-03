@@ -38,8 +38,14 @@ export function canSelectAsResponder(
 // historyPaths は preflop ノード path の累積。最後の要素が現在地。
 // ---------------------------------------------------------------------------
 
+/** opener が SB の時のみ意味を持つ — open (Raise 2.5x) か limp (Call 1bb) か。
+ *  非 SB opener の場合は常に 'open'。 */
+export type OpenerAction = 'open' | 'limp';
+
 export interface MobileState {
   opener: Position | null;
+  /** SB の最初のアクション。default 'open'、SB が limp する経路を選んだ時だけ 'limp'。 */
+  openerAction: OpenerAction;
   responder: Position | null;
   /** preflop node_path のスタック。 末尾が現在表示中のノード。
    *   length 0 → 未選択
@@ -50,7 +56,7 @@ export interface MobileState {
 }
 
 export function createInitialState(): MobileState {
-  return { opener: null, responder: null, historyPaths: [] };
+  return { opener: null, openerAction: 'open', responder: null, historyPaths: [] };
 }
 
 /** path の末尾セグメントから hero を抽出 ("utgr_btn" → "BTN") */
@@ -73,10 +79,16 @@ export function countRaises(path: string): number {
   return path.split('_').filter((s) => s.endsWith('r')).length;
 }
 
-/** raise 段数 → 次の raise の表示名 */
+/** path 内に call(=limp) segment があるか (例: 'sbc_bb' → true) */
+function hasLimpSegment(path: string): boolean {
+  return path.split('_').some((s) => s.endsWith('c') && !s.endsWith('ai'));
+}
+
+/** raise 段数 → 次の raise の表示名。
+ *  limp pot の最初の raise (= iso) は "open" ではなく "raise" と表示する。 */
 export function nextRaiseLabel(path: string): string {
   const next = countRaises(path) + 1;
-  if (next === 1) return 'open';
+  if (next === 1) return hasLimpSegment(path) ? 'raise' : 'open';
   if (next === 2) return '3bet';
   if (next === 3) return '4bet';
   if (next === 4) return '5bet';

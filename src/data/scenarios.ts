@@ -151,8 +151,16 @@ export function initialLeftNodePath(opener: OpenerPosition): string {
   return opener.toLowerCase();
 }
 
-/** vs RFI ノードの初期 node_path (例: opener=UTG, responder=BB → "utgr_bb")。 */
-export function initialRightNodePath(opener: OpenerPosition, responder: Position): string {
+/** vs RFI ノードの初期 node_path (例: opener=UTG, responder=BB → "utgr_bb")。
+ *  opener=SB かつ openerAction='limp' の特殊ケースのみ "sbc_bb" を返す。 */
+export function initialRightNodePath(
+  opener: OpenerPosition,
+  responder: Position,
+  openerAction: 'open' | 'limp' = 'open',
+): string {
+  if (opener === 'SB' && openerAction === 'limp' && responder === 'BB') {
+    return 'sbc_bb';
+  }
   return `${opener.toLowerCase()}r_${responder.toLowerCase()}`;
 }
 

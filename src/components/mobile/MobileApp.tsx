@@ -9,6 +9,7 @@ import {
   createInitialState,
   type MobileState,
   type MobileTab,
+  type OpenerAction,
   type Position,
 } from '../../types/mobile';
 import { ActionButtons } from './ActionButtons';
@@ -40,14 +41,27 @@ export function MobileApp() {
   const [tab, setTab] = useState<MobileTab>('range');
   const [state, setState] = useState<MobileState>(createInitialState);
 
-  /** OPENER パネルでタップ — 別 opener へ切替 (responder/history を破棄) */
+  /** OPENER パネルでタップ — 別 opener へ切替 (responder/history/openerAction を破棄) */
   const handleOpenerTap = (pos: Position) => {
     if (pos === 'BB') return; // 安全策
     if (state.opener === pos) return; // 同じ → no-op
     setState({
       opener: pos,
+      openerAction: 'open', // 切替時は常に open に戻す (limp は SB だけの選択肢)
       responder: null,
       historyPaths: [initialLeftNodePath(pos as OpenerPosition)],
+    });
+  };
+
+  /** SB の open ⇄ limp 切替 (SB 選択時だけ意味を持つ)。switch で responder/history をリセット。 */
+  const handleOpenerActionTap = (action: OpenerAction) => {
+    if (state.opener !== 'SB') return; // SB 以外では no-op
+    if (state.openerAction === action) return;
+    setState({
+      opener: 'SB',
+      openerAction: action,
+      responder: null,
+      historyPaths: [initialLeftNodePath('SB')],
     });
   };
 
@@ -58,10 +72,11 @@ export function MobileApp() {
     if (state.responder === pos) return;
     setState({
       opener: state.opener,
+      openerAction: state.openerAction,
       responder: pos,
       historyPaths: [
         initialLeftNodePath(state.opener as OpenerPosition),
-        initialRightNodePath(state.opener as OpenerPosition, pos),
+        initialRightNodePath(state.opener as OpenerPosition, pos, state.openerAction),
       ],
     });
   };
@@ -98,6 +113,7 @@ export function MobileApp() {
           <DualPositionPicker
             state={state}
             onTapOpener={handleOpenerTap}
+            onTapOpenerAction={handleOpenerActionTap}
             onTapResponder={handleResponderTap}
           />
 

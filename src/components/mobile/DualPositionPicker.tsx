@@ -5,6 +5,7 @@ import {
   POSITION_ORDER,
   canSelectAsResponder,
   type MobileState,
+  type OpenerAction,
   type Position,
 } from '../../types/mobile';
 import { ActionTooltip } from './ActionTooltip';
@@ -12,6 +13,7 @@ import { ActionTooltip } from './ActionTooltip';
 interface Props {
   state: MobileState;
   onTapOpener: (pos: Position) => void;
+  onTapOpenerAction: (action: OpenerAction) => void;
   onTapResponder: (pos: Position) => void;
 }
 
@@ -28,7 +30,12 @@ interface LastAction {
  *  - locked (= historyPaths.length >= 3): 選択済み以外グレー
  *  - 直前のアクション (Stage 4+) は actor のボタン上に吹き出し
  */
-export function DualPositionPicker({ state, onTapOpener, onTapResponder }: Props) {
+export function DualPositionPicker({
+  state,
+  onTapOpener,
+  onTapOpenerAction,
+  onTapResponder,
+}: Props) {
   const lastAction = computeLastAction(state);
   const locked = state.historyPaths.length >= 3;
 
@@ -44,6 +51,13 @@ export function DualPositionPicker({ state, onTapOpener, onTapResponder }: Props
         tooltip={lastAction?.side === 'opener' ? lastAction : null}
         onTap={onTapOpener}
       />
+      {state.opener === 'SB' && (
+        <OpenerActionRow
+          action={state.openerAction}
+          locked={locked}
+          onTap={onTapOpenerAction}
+        />
+      )}
       <Panel
         title="RESPONDER"
         titleColor="#b91c1c"
@@ -55,6 +69,43 @@ export function DualPositionPicker({ state, onTapOpener, onTapResponder }: Props
         onTap={onTapResponder}
       />
     </>
+  );
+}
+
+interface OpenerActionRowProps {
+  action: OpenerAction;
+  locked: boolean;
+  onTap: (action: OpenerAction) => void;
+}
+
+/** SB 専用 — 「Open 2.5x」と「Limp 1bb」のトグル。 */
+function OpenerActionRow({ action, locked, onTap }: OpenerActionRowProps) {
+  const items: ReadonlyArray<{ id: OpenerAction; label: string; sub: string }> = [
+    { id: 'open', label: 'Open', sub: '2.5x' },
+    { id: 'limp', label: 'Limp', sub: '1bb' },
+  ];
+  return (
+    <div style={openerActionPanelStyle}>
+      <div style={openerActionTitleStyle}>SB ACTION</div>
+      <div style={openerActionGridStyle}>
+        {items.map((it) => {
+          const isSelected = action === it.id;
+          const tappable = !locked || isSelected;
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => tappable && onTap(it.id)}
+              disabled={!tappable}
+              style={openerActionButtonStyle(isSelected, tappable)}
+            >
+              {isSelected ? '✓ ' : ''}
+              {it.label} <span style={{ opacity: 0.6, fontSize: '11px' }}>({it.sub})</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -231,3 +282,63 @@ const gridStyle: CSSProperties = {
   gridTemplateColumns: 'repeat(3, 1fr)',
   gap: '6px',
 };
+
+// ---------------------------------------------------------------------------
+// SB Open / Limp トグル用スタイル
+// ---------------------------------------------------------------------------
+const openerActionPanelStyle: CSSProperties = {
+  background: '#fefdf9',
+  border: '1px solid #d6cfc1',
+  borderRadius: '8px',
+  padding: '10px 12px',
+  marginBottom: '0.75rem',
+};
+
+const openerActionTitleStyle: CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 600,
+  letterSpacing: '0.08em',
+  color: '#1e40af',
+  marginBottom: '8px',
+};
+
+const openerActionGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, 1fr)',
+  gap: '6px',
+};
+
+function openerActionButtonStyle(isSelected: boolean, tappable: boolean): CSSProperties {
+  const base: CSSProperties = {
+    padding: '10px 0',
+    borderRadius: '4px',
+    fontSize: '13px',
+    textAlign: 'center',
+    fontFamily: 'inherit',
+    cursor: tappable ? 'pointer' : 'not-allowed',
+    transition: 'background 0.12s, border-color 0.12s, color 0.12s',
+  };
+  if (isSelected) {
+    return {
+      ...base,
+      background: '#eff6ff',
+      border: '1px solid #93c5fd',
+      color: '#1e40af',
+      fontWeight: 500,
+    };
+  }
+  if (!tappable) {
+    return {
+      ...base,
+      background: '#ebe7df',
+      border: '1px solid #d6cfc1',
+      color: '#b0a18e',
+    };
+  }
+  return {
+    ...base,
+    background: '#faf6f0',
+    border: '1px solid #d6cfc1',
+    color: '#3d2f1f',
+  };
+}
