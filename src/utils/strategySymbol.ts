@@ -101,7 +101,7 @@ export function buildGradient(raise: number, call: number, fold?: number): strin
 
 /**
  * 4色グラデ生成 (135度) — allin (紫) 含む 4bet 用。
- * 順序: allin (紫 #7c3aed) → raise (赤 #fee2e2) → call (緑 #d1fae5) → fold (青 #dbeafe)
+ * 順序: allin (紫 #6d28d9) → raise (赤 #fee2e2) → call (緑 #d1fae5) → fold (青 #dbeafe)
  */
 export function buildGradientWithAllin(
   raise: number,
@@ -120,7 +120,7 @@ export function buildGradientWithAllin(
   if (total === 0) return '#dbeafe';
 
   // 単色判定
-  if (a >= 98) return '#7c3aed';
+  if (a >= 98) return '#6d28d9';
   if (r >= 98) return '#fee2e2';
   if (c >= 98) return '#d1fae5';
   if (f >= 98) return '#dbeafe';
@@ -134,9 +134,9 @@ export function buildGradientWithAllin(
   let cursor = 0;
 
   if (a > 0) {
-    stops.push(`#7c3aed 0%`);
+    stops.push(`#6d28d9 0%`);
     cursor = aPct;
-    stops.push(`#7c3aed ${cursor.toFixed(1)}%`);
+    stops.push(`#6d28d9 ${cursor.toFixed(1)}%`);
   }
   if (r > 0) {
     stops.push(`#fee2e2 ${cursor.toFixed(1)}%`);
