@@ -3,6 +3,13 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
+# SPA entry — HTML は毎回 revalidate (新 bundle hash の参照漏れを防止)。
+# /assets/* はハッシュ付きで長期キャッシュ、index.html だけ no-cache にすれば十分。
+/
+  Cache-Control: no-cache, must-revalidate
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
 # 認証エントリポイントは絶対にキャッシュさせない
 /login.html
   Cache-Control: no-store
