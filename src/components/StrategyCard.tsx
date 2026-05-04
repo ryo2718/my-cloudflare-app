@@ -24,7 +24,7 @@ interface Props {
  * - allinRate 指定:   4色グラデ (AI/R/C/F) + symbol は raise+call+allin で分類 + 3行スロット
  *
  * 内部レイアウトは CSS Grid。各行 (位置 / symbol / AI / R / C) を明示的にスロット化し、
- * AI 有無に関わらずカード間で行の Y 座標が必ず揃う。空行も非破壊空白 ( ) で
+ * AI 有無に関わらずカード間で行の Y 座標が必ず揃う。空行も非破壊空白 ( ) で
  * 必ず描画してブラウザ依存 (visibility:hidden の解釈差) を排除。
  */
 export function StrategyCard({
@@ -90,10 +90,14 @@ export function StrategyCard({
         {symbol}
       </div>
 
-      {/* stats 行 — 各行は grid 上の独立スロット。空行も &nbsp; で描画して必ず lineHeight ぶんを確保。 */}
+      {/* stats 行 — grid の独立スロット。空行も NBSP で描画して lineHeight を必ず確保。 */}
       {useAllin && (
+        // AI 行だけ白文字 + 黒 halo: 背景 violet-900 (#4c1d95) が濃いため、
+        // STRATEGY_TEXT_COLORS.allin (violet-600) では埋もれる。
+        // 白 + halo でどの背景上でも可読。R/C は既存コントラスト維持。
         <StatLine
-          color={STRATEGY_TEXT_COLORS.allin}
+          color="#ffffff"
+          textShadow="0 1px 2px rgba(0,0,0,0.85), 0 0 1px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.6)"
           label="AI"
           value={allinRate ?? 0}
           visible={showAllin}
@@ -124,10 +128,12 @@ interface StatLineProps {
   value: number;
   visible: boolean;
   fmt: (v: number) => string;
+  /** AI 用に白文字 + 黒 halo を指定するためのオプション。R/C は未指定で OK。 */
+  textShadow?: string;
 }
 
-function StatLine({ color, label, value, visible, fmt }: StatLineProps) {
-  // 不可視時も ' ' (NBSP) を入れて行高を必ず確保 — visibility:hidden 依存を回避。
+function StatLine({ color, label, value, visible, fmt, textShadow }: StatLineProps) {
+  // 不可視時も NBSP で行高を必ず確保 (visibility:hidden 依存を回避)。
   return (
     <div
       style={{
@@ -135,6 +141,7 @@ function StatLine({ color, label, value, visible, fmt }: StatLineProps) {
         fontSize: '11px',
         lineHeight: 1.4,
         fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+        textShadow,
       }}
     >
       {visible ? `${label}: ${fmt(value)}%` : ' '}
