@@ -217,6 +217,9 @@ export default function App() {
             }}
           >
             Preflop Strategy Viewer
+            <span style={{ marginLeft: '0.5rem', opacity: 0.6, letterSpacing: 'normal' }}>
+              ver 1.0
+            </span>
           </div>
           {/* h1 副題 + 仕様 1行 はモバイル時に隠す (eyebrow "Preflop Strategy Viewer" のみ表示) */}
           {viewportMode === 'pc' && (

@@ -23,7 +23,7 @@ export function SolutionLabel({ label }: Props) {
       }}
     >
       <span style={{ color: '#b45309' }}>{label}</span>
-      <span style={{ color: '#b0a18e' }}>▼</span>
+      <span style={{ color: '#b0a18e', fontSize: '10px' }}>ver 1.0</span>
     </div>
   );
 }
