@@ -30,10 +30,11 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
 
-  // 親側で selectedBoard が null に戻された (= 別所からの解除) ら local cards もクリア
+  // 親側で selectedBoard が null に戻された (= 別所からの解除) ら local cards もクリア。
+  // 既存パターン: prop 変化を internal state に sync する controlled-input 風挙動。
   useEffect(() => {
     if (selectedBoard === null && cards.length > 0) {
-      // 親が外側でリセットした → local も合わせる (variant 切替時など)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCards([]);
       setError(null);
     }

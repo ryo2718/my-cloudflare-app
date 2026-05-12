@@ -1,12 +1,9 @@
 // § 4: ボード概要 (Phase R3 で再設計、OOP/IP 横並び)。
 //
-// 元要件:
-//   　　　　　UTG(original)　　　BB(caller)  (3bpとかなら逆になるこれも判定して)
-//   EV
-//   EQR
-//
-//   大きめにflopカード表示
-//   「」　　　　「」　　　　「」
+// 元要件 (要約):
+//   "UTG(original)  BB(caller)" 横並び (3bp 等で role 逆転)
+//   各列に EV / EQR
+//   大きめ flop カード 3 枚を中央配置
 //
 // 実装:
 //   - 横並び 2 列: OOP (左) / IP (右)、各列に position + role + EV + EQ + EQR

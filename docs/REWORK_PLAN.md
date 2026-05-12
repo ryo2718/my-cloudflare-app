@@ -1,6 +1,12 @@
 # Flop タブ UI 大改修 実装計画書 (Phase R1-R5)
 
-> **STATUS**: 着手前、ユーザー承認待ち。本計画書は実装ゼロ、設計のみ。
+> **STATUS**: **全 Phase R1-R5 完了 ✅** (2026-05-12)
+> - R1: tag `legacy/phase-0-8` + branch `rework/ui-v2` + scaffolding 4 files
+> - R2: §1-3 (Input / Position / Preflop) + variant 自動判定 helper + 23 件 test
+> - R3: §4-5 (BoardSummary 横並び + 5列 table)
+> - R4: §6-7 dual-row + tentative commit + 履歴 + 旧 IPActions stub 削除
+> - R5: 旧 3 components 削除、最終確認 (lint 0 / tsc 0 / 197 tests / build 87.61 KB)
+> 完了時のテスト数: 174 (Phase 0-8 基準) + 23 (R2 helpers) = **197 / 197 PASS**
 
 ## 0. 改修の前提と非目標
 
