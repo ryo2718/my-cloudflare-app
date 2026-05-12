@@ -22,7 +22,6 @@ export interface FlopPreflopPickerProps {
 const BUCKETS: ReadonlyArray<{ id: PreflopBucket; label: string }> = [
   { id: 'limp', label: 'limp' },
   { id: 'srp', label: 'srp' },
-  { id: '2bp', label: '2bp' },
   { id: '3bp', label: '3bp' },
   { id: '4bp', label: '4bp' },
   { id: '5bp', label: '5bp' },

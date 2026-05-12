@@ -12,7 +12,9 @@ import {
   findFlopVariants,
   findFlopVariantFromUI,
   reverseEngineerVariantToUI,
+  type PreflopBucket,
 } from './flopVariants';
+import type { Position } from '../types/strategy';
 
 describe('FLOP_VARIANTS manifest', () => {
   it('contains exactly 45 variants', () => {
@@ -314,10 +316,6 @@ describe('findFlopVariantFromUI', () => {
     expect(findFlopVariantFromUI(['SB', 'BB'], 'limp')).toBe('sbc_bb');
   });
 
-  it('SB + BB + 2bp → sbc_bbr3_sbc (smallest iso size)', () => {
-    expect(findFlopVariantFromUI(['SB', 'BB'], '2bp')).toBe('sbc_bbr3_sbc');
-  });
-
   it('SB + BB + srp → sbr_bbc (open tree)', () => {
     expect(findFlopVariantFromUI(['SB', 'BB'], 'srp')).toBe('sbr_bbc');
   });
@@ -354,11 +352,6 @@ describe('findFlopVariantFromUI', () => {
     expect(findFlopVariantFromUI(['UTG', 'BB'], 'limp')).toBeNull();
     expect(findFlopVariantFromUI(['CO', 'BTN'], 'limp')).toBeNull();
   });
-
-  it('2bp は SB-BB 以外で null', () => {
-    expect(findFlopVariantFromUI(['UTG', 'BB'], '2bp')).toBeNull();
-    expect(findFlopVariantFromUI(['CO', 'BTN'], '2bp')).toBeNull();
-  });
 });
 
 describe('reverseEngineerVariantToUI', () => {
@@ -376,11 +369,16 @@ describe('reverseEngineerVariantToUI', () => {
     });
   });
 
-  it('sbc_bbr3_sbc → (SB, BB) + 2bp', () => {
-    expect(reverseEngineerVariantToUI('sbc_bbr3_sbc')).toEqual({
-      positions: ['SB', 'BB'],
-      bucket: '2bp',
-    });
+  it('sbc_bbr3_sbc (limp-tree SRP) → null (新 UI 表現不可、2bp 廃止後)', () => {
+    expect(reverseEngineerVariantToUI('sbc_bbr3_sbc')).toBeNull();
+  });
+
+  it('sbc_bbr3_sbr14_bbc (limp-tree 3bp) → null (同上)', () => {
+    expect(reverseEngineerVariantToUI('sbc_bbr3_sbr14_bbc')).toBeNull();
+  });
+
+  it('sbc_bbr3_sbr14_bbr27_sbc (limp-tree 4bp) → null', () => {
+    expect(reverseEngineerVariantToUI('sbc_bbr3_sbr14_bbr27_sbc')).toBeNull();
   });
 
   it('sbr_bbc → (SB, BB) + srp (open tree)', () => {
@@ -416,12 +414,81 @@ describe('reverseEngineerVariantToUI', () => {
   });
 
   it('findFlopVariantFromUI と reverseEngineerVariantToUI は逆関数 (sample)', () => {
-    const samples = ['utgr_bbc', 'sbc_bb', 'utgr_bbr_utgc', 'sbr_bbc', 'sbc_bbr3_sbc'];
+    // limp-tree (sbc_*) higher depth は新 UI で表現不可 (reverseEngineer が null) のため除外
+    const samples = ['utgr_bbc', 'sbc_bb', 'utgr_bbr_utgc', 'sbr_bbc', 'btnr_bbc'];
     for (const v of samples) {
       const ui = reverseEngineerVariantToUI(v);
       if (!ui) continue;
       const backToVariant = findFlopVariantFromUI(ui.positions, ui.bucket);
       expect(backToVariant).toBe(v);
     }
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Fix 3: 全 (pair, bucket) mapping の確定 (UI 仕様の lock)
+// ----------------------------------------------------------------------------
+
+describe('UI mapping 完全列挙 (Fix 3 で確定)', () => {
+  const POSITIONS: Position[] = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+  const BUCKETS: PreflopBucket[] = ['limp', 'srp', '3bp', '4bp', '5bp'];
+
+  // 各 pair に対する期待 variant (null = disabled)。
+  // pair の順序は (posA, posB) を渡した時の findFlopVariantFromUI の入力順序 (内部で sort)。
+  // 全 15 pair × 5 bucket = 75 セルを明示的に固定。
+  const EXPECTED: Record<string, Record<PreflopBucket, string | null>> = {
+    'SB-BB':  { limp: 'sbc_bb', srp: 'sbr_bbc',  '3bp': 'sbr_bbr_sbc',          '4bp': 'sbr_bbr_sbr21_bbc',        '5bp': null },
+    'SB-UTG': { limp: null,     srp: 'utgr_sbc', '3bp': 'utgr_sbr_utgc',        '4bp': 'utgr_sbr_utgr21_sbc',      '5bp': 'utgr_sbr_utgr_sbr40_utgc' },
+    'SB-HJ':  { limp: null,     srp: 'hjr_sbc',  '3bp': null,                   '4bp': null,                       '5bp': null },
+    'SB-CO':  { limp: null,     srp: 'cor_sbc',  '3bp': 'cor_sbr_coc',          '4bp': null,                       '5bp': null },
+    'SB-BTN': { limp: null,     srp: 'btnr_sbc', '3bp': 'btnr_sbr_btnc',        '4bp': 'btnr_sbr_btnr26_sbc',      '5bp': null },
+    'BB-UTG': { limp: null,     srp: 'utgr_bbc', '3bp': 'utgr_bbr_utgc',        '4bp': 'utgr_bbr_utgr22_bbc',      '5bp': 'utgr_bbr_utgr_bbr34_utgc' },
+    'BB-HJ':  { limp: null,     srp: 'hjr_bbc',  '3bp': 'hjr_bbr_hjc',          '4bp': 'hjr_bbr_hjr24_bbc',        '5bp': null },
+    'BB-CO':  { limp: null,     srp: 'cor_bbc',  '3bp': 'cor_bbr_coc',          '4bp': 'cor_bbr_cor27_bbc',        '5bp': null },
+    'BB-BTN': { limp: null,     srp: 'btnr_bbc', '3bp': null,                   '4bp': 'btnr_bbr_btnr27_bbc',      '5bp': null },
+    'UTG-HJ': { limp: null,     srp: null,       '3bp': 'utgr_hjr_utgc',        '4bp': 'utgr_hjr_utgr20_hjc',      '5bp': null },
+    'UTG-CO': { limp: null,     srp: null,       '3bp': 'utgr_cor_utgc',        '4bp': 'utgr_cor_utgr20_coc',      '5bp': null },
+    'UTG-BTN':{ limp: null,     srp: 'utgr_btnc','3bp': 'utgr_btnr_utgc',       '4bp': 'utgr_btnr_utgr20_btnc',    '5bp': null },
+    'HJ-CO':  { limp: null,     srp: null,       '3bp': 'hjr_cor_hjc',          '4bp': 'hjr_cor_hjr20_coc',        '5bp': null },
+    'HJ-BTN': { limp: null,     srp: 'hjr_btnc', '3bp': 'hjr_btnr_hjc',         '4bp': 'hjr_btnr_hjr20_btnc',      '5bp': null },
+    'CO-BTN': { limp: null,     srp: 'cor_btnc', '3bp': 'cor_btnr_coc',         '4bp': null,                       '5bp': null },
+  };
+
+  for (let i = 0; i < POSITIONS.length; i++) {
+    for (let j = i + 1; j < POSITIONS.length; j++) {
+      const a = POSITIONS[i];
+      const b = POSITIONS[j];
+      const pairKey = `${a}-${b}`;
+      const expectedPair = EXPECTED[pairKey];
+      if (!expectedPair) continue;
+
+      for (const bucket of BUCKETS) {
+        it(`${pairKey} + ${bucket} → ${expectedPair[bucket] ?? 'null (disabled)'}`, () => {
+          expect(findFlopVariantFromUI([a, b], bucket)).toBe(expectedPair[bucket]);
+        });
+      }
+    }
+  }
+
+  it('UI から到達できる variant 数: 40 / 45 (5 件は limp-tree higher depth)', () => {
+    const reached = new Set<string>();
+    for (let i = 0; i < POSITIONS.length; i++) {
+      for (let j = i + 1; j < POSITIONS.length; j++) {
+        for (const bucket of BUCKETS) {
+          const v = findFlopVariantFromUI([POSITIONS[i], POSITIONS[j]], bucket);
+          if (v !== null) reached.add(v);
+        }
+      }
+    }
+    expect(reached.size).toBe(40);
+    // 残り 5 件は limp-tree higher depth (Fix 2 で意図的に除外)
+    const unreached = [...FLOP_VARIANTS].filter((v) => !reached.has(v)).sort();
+    expect(unreached).toEqual([
+      'sbc_bbr3_sbc',
+      'sbc_bbr3_sbr14_bbc',
+      'sbc_bbr3_sbr14_bbr27_sbc',
+      'sbc_bbr5_sbc',
+      'sbc_bbr5_sbr18_bbc',
+    ]);
   });
 });

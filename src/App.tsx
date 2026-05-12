@@ -196,8 +196,14 @@ export default function App() {
     setActiveTab('flop');
   }, [rightNodePath]);
 
-  // 右ペインから flop に進めるかの判定 (null なら DualRangeView 側でボタン非表示)
-  const rightFlopVariant = getDefaultFlopVariantFromPreflopNode(rightNodePath);
+  // 右ペインから flop に進めるかの判定。reverseEngineer が null になる
+  // (limp-tree 高深度等、新 UI 表現不可) 場合もボタン非表示にする。
+  const rightFlopVariant = useMemo(() => {
+    const v = getDefaultFlopVariantFromPreflopNode(rightNodePath);
+    if (!v) return null;
+    if (!reverseEngineerVariantToUI(v)) return null;
+    return v;
+  }, [rightNodePath]);
 
   // Breadcrumb: index === -1 で Home (完全リセット)、それ以上で当該ノードに巻き戻し。
   const handleBreadcrumbNavigate = useCallback(

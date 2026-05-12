@@ -209,20 +209,18 @@ export function getDefaultFlopVariantFromPreflopNode(
 export type OpenerAction = 'open' | 'limp';
 
 /**
- * UI 側 (FlopPreflopPicker) で扱う 6 buckets。
+ * UI 側 (FlopPreflopPicker) で扱う 5 buckets。
  *
- * Q1 確定 (B 案):
  *  - `limp` = pure limp (SB-BB only、`sbc_bb`)
  *  - `srp`  = standard open-call tree (= `<X>r_<Y>c`)
- *  - `2bp`  = limp + iso family (SB-BB only、`sbc_bbr3_sbc` / `sbc_bbr5_sbc`)
  *  - `3bp`  = standard 3-bet pot (open-tree)
  *  - `4bp`  = standard 4-bet pot
  *  - `5bp`  = standard 5-bet pot (UTG-BB / UTG-SB only)
  *
- * 注: limp-tree の 3bp+ variants (sbc_bbr3_sbr14_bbc 等) は UI 表現から外す
- * (open-tree との一意 mapping を優先)。
+ * 注: limp-tree の SRP/3bp/4bp variants (sbc_bbr3_sbc / sbc_bbr3_sbr14_bbc 等) は
+ * UI 表現から外す (open-tree との一意 mapping を優先、ユーザー仕様で「2bp = srp」)。
  */
-export type PreflopBucket = 'limp' | 'srp' | '2bp' | '3bp' | '4bp' | '5bp';
+export type PreflopBucket = 'limp' | 'srp' | '3bp' | '4bp' | '5bp';
 
 /**
  * `(opener, responder, depth, openerAction)` 4 軸の組合せから対応する variants を全列挙。
@@ -236,7 +234,6 @@ export type PreflopBucket = 'limp' | 'srp' | '2bp' | '3bp' | '4bp' | '5bp';
  *
  * - `limp` → ('limp', 'limp') — pure limp、SB-only
  * - `srp`  → ('SRP', 'open')  — standard open-call
- * - `2bp`  → ('SRP', 'limp')  — limp+iso family、SB-only
  * - `3bp`  → ('3bp', 'open')
  * - `4bp`  → ('4bp', 'open')
  * - `5bp`  → ('5bp', 'open')
@@ -248,7 +245,6 @@ function bucketToDepthAction(bucket: PreflopBucket): {
   switch (bucket) {
     case 'limp': return { depth: 'limp', action: 'limp' };
     case 'srp':  return { depth: 'SRP',  action: 'open' };
-    case '2bp':  return { depth: 'SRP',  action: 'limp' };
     case '3bp':  return { depth: '3bp',  action: 'open' };
     case '4bp':  return { depth: '4bp',  action: 'open' };
     case '5bp':  return { depth: '5bp',  action: 'open' };
@@ -302,9 +298,13 @@ export function reverseEngineerVariantToUI(
   const depth = getPotDepth(variant);
   const isLimpTree = variant.startsWith('sbc_');
 
+  // limp-tree の higher depth variants (sbc_bbr3_sbc / sbc_bbr3_sbr14_bbc 等) は
+  // 新 UI bucket 集合では一意に表現できない (2bp を廃止したため)。null を返して
+  // UI 側で「連携不可」を示す。pure limp (sbc_bb) のみ bucket='limp' で扱える。
+  if (isLimpTree && depth !== 'limp') return null;
+
   let bucket: PreflopBucket;
   if (depth === 'limp') bucket = 'limp';
-  else if (depth === 'SRP' && isLimpTree) bucket = '2bp';
   else if (depth === 'SRP') bucket = 'srp';
   else if (depth === '3bp') bucket = '3bp';
   else if (depth === '4bp') bucket = '4bp';

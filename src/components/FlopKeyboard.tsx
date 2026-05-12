@@ -1,8 +1,9 @@
-// § 1 (FLOP 入力) の grid 部分。13 ランク × 4 スート = 52 セル。
-// SUIT_COLOR で色付け、選択済みは disabled + 視覚的にグレーアウト。
+// § 1 (FLOP 入力) の grid 部分 — 4 行 (♠ ♥ ♦ ♣) × 13 列 (A-2)。
 //
-// Phase R2 改修: 3 slot 表示 + footer (count + Reset) は親 (FlopBoardInput) 側に移動、
-// 本 component は **pure grid** のみ。click → onSelect(card)。
+// Fix 1: 横 1 列に 13 ボタン収まるコンパクトレイアウト。
+// 各ボタンは ~24-30px 幅 / ~30px 高 / 12px font、スマホ 320px 幅でも収まる。
+//
+// Iteration: 外 SUITS / 内 RANKS で、各 row が単一スートになるよう順序固定。
 
 import type { CSSProperties } from 'react';
 import type { Card, Rank, Suit } from '../types/card';
@@ -23,8 +24,8 @@ interface Props {
 export function FlopKeyboard({ selectedCards, onSelect }: Props) {
   return (
     <div style={gridStyle}>
-      {RANKS.map((r) =>
-        SUITS.map((s) => {
+      {SUITS.map((s) =>
+        RANKS.map((r) => {
           const card: Card = { rank: r, suit: s };
           const selected = containsCard(selectedCards, card);
           return (
@@ -69,24 +70,29 @@ function CardCell({
   );
 }
 
+// ----------------------------------------------------------------------------
+// Styles (compact: 13 cols × 4 rows)
+// ----------------------------------------------------------------------------
+
 const gridStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: '4px',
+  gridTemplateColumns: 'repeat(13, 1fr)',
+  gap: '3px',
+  width: '100%',
 };
 
 const cellStyle: CSSProperties = {
   background: THEME.cardElevated,
   border: `1px solid ${THEME.border}`,
-  borderRadius: '0.3rem',
-  padding: '0.35rem 0.3rem',
+  borderRadius: '0.25rem',
+  padding: '2px 0',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '0.15rem',
+  gap: '1px',
   fontFamily: 'inherit',
-  minHeight: '38px',
+  minHeight: '30px',
   userSelect: 'none',
 };
 
@@ -99,12 +105,13 @@ const cellSelectedStyle: CSSProperties = {
 };
 
 const cellRankStyle: CSSProperties = {
-  fontSize: '0.95rem',
+  fontSize: '12px',
   fontWeight: 700,
   color: THEME.textPrimary,
+  lineHeight: 1,
 };
 
 const cellSuitStyle: CSSProperties = {
-  fontSize: '1rem',
+  fontSize: '12px',
   lineHeight: 1,
 };
