@@ -29,11 +29,16 @@ export interface FlopOOPActionsProps {
   actions: ReadonlyArray<FlopAvailableAction>;
   totals: ReadonlyArray<ActionSolution>;
   afterAggression: boolean;
-  /** クリック時に呼ばれる (R3 immediate / R4 tentative の差は親が吸収)。 */
+  /** クリック時に呼ばれる。R4: 上段 (current) なら tentative set、下段 (next) なら commit。 */
   onSelect: (actionCode: string) => void;
   disabled?: boolean;
-  /** ヘッダに「待機中 (OOP の選択待ち)」等の追加表示。任意。 */
+  /** ヘッダに「OOP の選択待ち」等の追加表示。任意。 */
   subtitle?: string;
+  /**
+   * R4: 上段で OOP が tentative 選択中の action code。該当行を highlight + 再 click で取消可。
+   * 下段 (= next actor row) や未選択時は null。
+   */
+  pendingActionCode?: string | null;
 }
 
 export function FlopOOPActions({
@@ -45,6 +50,7 @@ export function FlopOOPActions({
   onSelect,
   disabled = false,
   subtitle,
+  pendingActionCode = null,
 }: FlopOOPActionsProps) {
   const freqByCode = new Map<string, number>();
   for (const t of totals) freqByCode.set(t.action_code, t.frequency);
@@ -84,6 +90,7 @@ export function FlopOOPActions({
                 frequency={freqByCode.get(a.action.code) ?? 0}
                 afterAggression={afterAggression}
                 disabled={disabled}
+                pending={pendingActionCode === a.action.code}
                 onClick={() => onSelect(a.action.code)}
               />
             ))}
@@ -103,18 +110,23 @@ interface ActionRowProps {
   frequency: number;
   afterAggression: boolean;
   disabled: boolean;
+  pending: boolean;
   onClick: () => void;
 }
 
-function ActionRow({ action, frequency, afterAggression, disabled, onClick }: ActionRowProps) {
+function ActionRow({ action, frequency, afterAggression, disabled, pending, onClick }: ActionRowProps) {
   const pct = frequency * 100;
   const symbol = classifyByPlayRate(pct, 0);
   const symStyle = getSymbolStyle(symbol);
   const { actionLabel, sizeLabel } = formatActionAndSize(action, afterAggression);
   const textColor = getActionTextColor(action);
 
+  const rowStyle: CSSProperties = pending
+    ? { background: '#fef3c7' /* amber-100 */, outline: `1px solid ${THEME.accent}` }
+    : {};
+
   return (
-    <tr>
+    <tr style={rowStyle}>
       <td style={{ ...tdStyle, color: symStyle.symbolColor, fontSize: '1.15rem', fontWeight: 500 }}>
         {symbol}
       </td>
@@ -126,9 +138,10 @@ function ActionRow({ action, frequency, afterAggression, disabled, onClick }: Ac
           type="button"
           onClick={onClick}
           disabled={disabled}
-          style={disabled ? execButtonDisabledStyle : execButtonStyle}
+          style={pending ? execButtonPendingStyle : disabled ? execButtonDisabledStyle : execButtonStyle}
+          title={pending ? '再クリックで取消' : undefined}
         >
-          実行
+          {pending ? '取消' : '実行'}
         </button>
       </td>
     </tr>
@@ -268,6 +281,11 @@ const execButtonDisabledStyle: CSSProperties = {
   ...execButtonStyle,
   background: THEME.textFaint,
   cursor: 'not-allowed',
+};
+
+const execButtonPendingStyle: CSSProperties = {
+  ...execButtonStyle,
+  background: '#92400e' /* amber-800 */,
 };
 
 const emptyStyle: CSSProperties = {

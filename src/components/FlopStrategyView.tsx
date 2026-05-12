@@ -1,21 +1,13 @@
-// Flop 戦略タブのコンテナビュー (Phase R2: 新 state model)。
+// Flop 戦略タブのコンテナビュー (Phase R4: dual-row + tentative commit)。
 //
-// 元要件の 7 セクション構成:
-//   § 1: FLOP 入力 (FlopBoardInput, 常時表示)
-//   § 2: Position 選択 (FlopPositionPicker)
-//   § 3: Preflop シナリオ (FlopPreflopPicker)
-//   § 4-7: variant 決定後 (positions + bucket → variant) に表示
-//          R3-R4 で再設計、R2 では既存 §4-7 を仮で利用
-//
-// state (props 経由、App.tsx で lift):
-//   - positions: Position[]   (0-2)
-//   - bucket:    PreflopBucket | null
-//   - chain:     string[]      (確定 chain)
-//   - selectedBoardName: string | null
-//
-// variant は positions + bucket から derive (findFlopVariantFromUI)。
+// 元要件:
+//   § 5: OOP アクション一覧 (current node の actor、tentative pick)
+//   § 6: IP アクション一覧 (OOP 決定後の child node 表示、commit で chain 2 step 進む)
+//   OOP click → pendingAction set → child node fetch → IP options 表示
+//   IP click → commit (chain に 2 step push)、pending clear
+//   OOP の取消: 同 action 再 click
 
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { FlopBoardInput } from './FlopBoardInput';
 import { FlopBoardList } from './FlopBoardList';
 import { FlopBoardSummary } from './FlopBoardSummary';
@@ -27,7 +19,7 @@ import { encodeStep, hasAggressionInChain } from '../data/flopChain';
 import { findFlopVariantFromUI, type PreflopBucket } from '../data/flopVariants';
 import { useFlopNode } from '../hooks/useFlopNode';
 import { THEME } from '../styles/theme';
-import type { FlopActor } from '../types/flop';
+import type { FlopActor, FlopNode } from '../types/flop';
 import type { Position } from '../types/strategy';
 
 export interface FlopStrategyViewProps {
@@ -51,43 +43,90 @@ export function FlopStrategyView({
   onChainChange,
   onSelectBoard,
 }: FlopStrategyViewProps) {
-  // variant を derive (positions + bucket → variant)
+  // Variant を derive (positions + bucket)
   const variant = useMemo(() => {
     if (positions.length < 2 || !bucket) return null;
     return findFlopVariantFromUI(positions as [Position, Position], bucket);
   }, [positions, bucket]);
 
   const chainArr = chain as string[];
-  const { data, loading, error } = useFlopNode(variant, chainArr);
+  const { data: currentData, loading: currentLoading, error: currentError } =
+    useFlopNode(variant, chainArr);
+
+  // Tentative pending: 現 actor (top row) が click したが、まだ commit されてない action code。
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  // tempChain: pendingAction 適用後の chain (= child node の fetch key)。null なら fetch しない。
+  const tempChain = useMemo(() => {
+    if (!pendingAction || !currentData) return null;
+    const actor = currentData._meta.next_actor as FlopActor;
+    const after = hasAggressionInChain(chainArr);
+    const step = encodeStep(actor, pendingAction, after);
+    return [...chainArr, step];
+  }, [pendingAction, currentData, chainArr]);
+
+  // 子ノード fetch (pendingAction 非 null 時のみ)
+  const { data: pendingData, loading: pendingLoading, error: pendingError } =
+    useFlopNode(pendingAction ? variant : null, tempChain ?? []);
 
   const selectedBoard =
-    data && selectedBoardName
-      ? data.solutions.find((s) => s.name === selectedBoardName) ?? null
+    currentData && selectedBoardName
+      ? currentData.solutions.find((s) => s.name === selectedBoardName) ?? null
       : null;
 
+  const displayTotals = selectedBoard
+    ? selectedBoard.action_solutions
+    : currentData?.action_totals ?? [];
+
+  // ----- Breadcrumb handlers -----
   const handleTruncate = (newLength: number) => {
     onChainChange(chain.slice(0, newLength));
+    setPendingAction(null); // chain 変更で pending 解除
   };
 
   const handleReset = () => {
     onChainChange([]);
+    setPendingAction(null);
   };
 
-  const handleSelectAction = (actionCode: string) => {
-    if (!data) return;
-    const actor = data._meta.next_actor as FlopActor;
-    const after = hasAggressionInChain(chainArr);
-    const step = encodeStep(actor, actionCode, after);
-    onChainChange([...chain, step]);
+  // ----- Top row (current actor): tentative click -----
+  const handleTopSelect = (actionCode: string) => {
+    if (pendingAction === actionCode) {
+      setPendingAction(null); // 取消
+    } else {
+      setPendingAction(actionCode);
+    }
   };
 
-  const displayTotals = selectedBoard
-    ? selectedBoard.action_solutions
-    : data?.action_totals ?? [];
+  // ----- Bottom row (next actor): commit -----
+  const handleBottomCommit = (ipActionCode: string) => {
+    if (!currentData || !pendingAction || !pendingData) return;
+    const currentActor = currentData._meta.next_actor as FlopActor;
+    const currentAfter = hasAggressionInChain(chainArr);
+    const topStep = encodeStep(currentActor, pendingAction, currentAfter);
+
+    const newChainAfterTop = [...chainArr, topStep];
+    const nextActor = pendingData._meta.next_actor as FlopActor;
+    const nextAfter = hasAggressionInChain(newChainAfterTop);
+    const bottomStep = encodeStep(nextActor, ipActionCode, nextAfter);
+
+    onChainChange([...newChainAfterTop, bottomStep]);
+    setPendingAction(null);
+  };
+
+  // ----- Actor label resolution -----
+  const actorLabels = useMemo(
+    () => resolveActorLabels(currentData),
+    [currentData],
+  );
+  const pendingActorLabels = useMemo(
+    () => resolveActorLabels(pendingData),
+    [pendingData],
+  );
 
   return (
     <div style={containerStyle}>
-      {/* § 1: Flop 入力 (常時表示) */}
+      {/* § 1: Flop 入力 */}
       <FlopBoardInput
         selectedBoard={selectedBoardName}
         onBoardSelect={onSelectBoard}
@@ -103,72 +142,114 @@ export function FlopStrategyView({
         onChange={onBucketChange}
       />
 
-      {/* § 4-7: variant 決定後 (R3-R4 で再設計予定の既存 components を仮利用) */}
+      {/* § 4-7: variant 決定後 */}
       {variant === null ? (
         <div style={pendingStyle}>
           Position と Preflop シナリオを選択すると戦略が表示されます
         </div>
       ) : (
-        <>
-          <FlopBreadcrumb
-            variant={variant}
-            chain={chainArr}
-            onTruncate={handleTruncate}
-            onReset={handleReset}
-          />
+        <div style={mainAreaStyle}>
+          {currentLoading && <StatusLine kind="loading">Loading flop data…</StatusLine>}
+          {currentError && (
+            <StatusLine kind="error">
+              Error: {currentError.message}
+              <div style={errorHintStyle}>
+                R2 fetch 失敗の可能性 — `.env.local` の `VITE_FLOP_DATA_BASE_URL` と CORS 設定を確認してください。
+              </div>
+            </StatusLine>
+          )}
+          {!currentLoading && !currentError && currentData && actorLabels && (
+            <>
+              {/* § 4: Board Summary (横並び) */}
+              <FlopBoardSummary
+                variant={variant}
+                data={currentData}
+                selectedBoard={selectedBoard}
+              />
 
-          <div style={mainAreaStyle}>
-            {loading && <StatusLine kind="loading">Loading flop data…</StatusLine>}
-            {error && (
-              <StatusLine kind="error">
-                Error: {error.message}
-                <div style={errorHintStyle}>
-                  R2 fetch 失敗の可能性 — `.env.local` の `VITE_FLOP_DATA_BASE_URL` と CORS 設定を確認してください。
-                </div>
-              </StatusLine>
-            )}
-            {!loading && !error && data && variant && (
-              <>
-                <FlopBoardSummary
-                  variant={variant}
-                  data={data}
-                  selectedBoard={selectedBoard}
-                />
-                {(() => {
-                  // 現ノードの actor (= OOP / IP) を判定。chain 偶数 → OOP、奇数 → IP の
-                  // 厳密交代 (flop_tree の制約)。data.players の relative_position と
-                  // _meta.next_actor 一致でも判定可。
-                  const oopPlayer = data.players.find((p) => p.relative_position === 'OOP');
-                  const ipPlayer  = data.players.find((p) => p.relative_position === 'IP');
-                  const nextActorLc = data._meta.next_actor;
-                  const isOopTurn = oopPlayer && oopPlayer.position.toLowerCase() === nextActorLc;
-                  const currentPlayer = isOopTurn ? oopPlayer : ipPlayer;
-                  if (!currentPlayer) return null;
-                  return (
+              {/* § 5: 上段 (current actor) actions table、tentative click */}
+              <FlopOOPActions
+                actor={actorLabels.current}
+                position={actorLabels.currentPos}
+                actions={currentData.game_point.available_actions}
+                totals={displayTotals}
+                afterAggression={hasAggressionInChain(chainArr)}
+                onSelect={handleTopSelect}
+                pendingActionCode={pendingAction}
+              />
+
+              {/* § 6: 下段 (next actor) actions table、pending 時のみ表示 */}
+              {pendingAction && (
+                <>
+                  {pendingLoading && <StatusLine kind="loading">Loading next node…</StatusLine>}
+                  {pendingError && (
+                    <StatusLine kind="error">
+                      子ノード取得失敗: {pendingError.message}
+                    </StatusLine>
+                  )}
+                  {!pendingLoading && !pendingError && pendingData && pendingActorLabels && (
                     <FlopOOPActions
-                      actor={isOopTurn ? 'OOP' : 'IP'}
-                      position={currentPlayer.position}
-                      actions={data.game_point.available_actions}
-                      totals={displayTotals}
-                      afterAggression={hasAggressionInChain(chainArr)}
-                      onSelect={handleSelectAction}
-                      disabled={loading}
+                      actor={pendingActorLabels.current}
+                      position={pendingActorLabels.currentPos}
+                      actions={pendingData.game_point.available_actions}
+                      totals={pendingData.action_totals}
+                      afterAggression={hasAggressionInChain(tempChain ?? [])}
+                      onSelect={handleBottomCommit}
+                      subtitle="↑ の選択を反映した次ノード"
                     />
-                  );
-                })()}
-                <FlopBoardList
-                  solutions={data.solutions}
-                  selectedBoard={selectedBoardName}
-                  onBoardSelect={onSelectBoard}
-                />
-              </>
-            )}
-            {!loading && !error && !data && <StatusLine kind="empty">No data.</StatusLine>}
-          </div>
-        </>
+                  )}
+                </>
+              )}
+              {!pendingAction && (
+                <div style={waitHintStyle}>
+                  上の actions から 1 つクリックすると、相手 (next actor) の応答が表示されます
+                </div>
+              )}
+
+              {/* § 7: 履歴 (Breadcrumb) — 最下部 */}
+              <FlopBreadcrumb
+                variant={variant}
+                chain={chainArr}
+                onTruncate={handleTruncate}
+                onReset={handleReset}
+              />
+
+              {/* (任意) Board 別解 */}
+              <FlopBoardList
+                solutions={currentData.solutions}
+                selectedBoard={selectedBoardName}
+                onBoardSelect={onSelectBoard}
+              />
+            </>
+          )}
+          {!currentLoading && !currentError && !currentData && <StatusLine kind="empty">No data.</StatusLine>}
+        </div>
       )}
     </div>
   );
+}
+
+// ----------------------------------------------------------------------------
+// Actor label resolution
+// ----------------------------------------------------------------------------
+
+interface ActorLabels {
+  current: 'OOP' | 'IP';
+  currentPos: string;
+}
+
+function resolveActorLabels(data: FlopNode | null): ActorLabels | null {
+  if (!data) return null;
+  const oop = data.players.find((p) => p.relative_position === 'OOP');
+  const ip = data.players.find((p) => p.relative_position === 'IP');
+  const nextActorLc = data._meta.next_actor;
+  if (oop && oop.position.toLowerCase() === nextActorLc) {
+    return { current: 'OOP', currentPos: oop.position };
+  }
+  if (ip && ip.position.toLowerCase() === nextActorLc) {
+    return { current: 'IP', currentPos: ip.position };
+  }
+  return null;
 }
 
 // ----------------------------------------------------------------------------
@@ -229,4 +310,14 @@ const pendingStyle: CSSProperties = {
   fontSize: '0.85rem',
   color: THEME.textMuted,
   fontStyle: 'italic',
+};
+
+const waitHintStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  color: THEME.textMuted,
+  fontStyle: 'italic',
+  padding: '0.5rem 1rem',
+  background: THEME.bg,
+  borderRadius: '0.4rem',
+  textAlign: 'center',
 };
