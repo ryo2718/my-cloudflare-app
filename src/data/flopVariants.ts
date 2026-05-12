@@ -209,12 +209,111 @@ export function getDefaultFlopVariantFromPreflopNode(
 export type OpenerAction = 'open' | 'limp';
 
 /**
+ * UI 側 (FlopPreflopPicker) で扱う 6 buckets。
+ *
+ * Q1 確定 (B 案):
+ *  - `limp` = pure limp (SB-BB only、`sbc_bb`)
+ *  - `srp`  = standard open-call tree (= `<X>r_<Y>c`)
+ *  - `2bp`  = limp + iso family (SB-BB only、`sbc_bbr3_sbc` / `sbc_bbr5_sbc`)
+ *  - `3bp`  = standard 3-bet pot (open-tree)
+ *  - `4bp`  = standard 4-bet pot
+ *  - `5bp`  = standard 5-bet pot (UTG-BB / UTG-SB only)
+ *
+ * 注: limp-tree の 3bp+ variants (sbc_bbr3_sbr14_bbc 等) は UI 表現から外す
+ * (open-tree との一意 mapping を優先)。
+ */
+export type PreflopBucket = 'limp' | 'srp' | '2bp' | '3bp' | '4bp' | '5bp';
+
+/**
  * `(opener, responder, depth, openerAction)` 4 軸の組合せから対応する variants を全列挙。
  *
  * 通常は 0 件または 1 件、SB-limp 系の iso サイズ違いなどで複数件返る場合あり
  * (e.g. opener=SB, responder=BB, depth=SRP, action=limp → ['sbc_bbr3_sbc', 'sbc_bbr5_sbc'])。
  * 戻り値はソート済 (alphabetical、サイズが昇順になる傾向)。
  */
+/**
+ * UI 用に PreflopBucket を (PotDepth, OpenerAction) に変換。
+ *
+ * - `limp` → ('limp', 'limp') — pure limp、SB-only
+ * - `srp`  → ('SRP', 'open')  — standard open-call
+ * - `2bp`  → ('SRP', 'limp')  — limp+iso family、SB-only
+ * - `3bp`  → ('3bp', 'open')
+ * - `4bp`  → ('4bp', 'open')
+ * - `5bp`  → ('5bp', 'open')
+ */
+function bucketToDepthAction(bucket: PreflopBucket): {
+  depth: PotDepth;
+  action: OpenerAction;
+} {
+  switch (bucket) {
+    case 'limp': return { depth: 'limp', action: 'limp' };
+    case 'srp':  return { depth: 'SRP',  action: 'open' };
+    case '2bp':  return { depth: 'SRP',  action: 'limp' };
+    case '3bp':  return { depth: '3bp',  action: 'open' };
+    case '4bp':  return { depth: '4bp',  action: 'open' };
+    case '5bp':  return { depth: '5bp',  action: 'open' };
+  }
+}
+
+/** Preflop voluntary action 順 (UTG が最初、BB が最後)。 */
+const PREFLOP_ORDER: ReadonlyArray<Position> = ['UTG', 'HJ', 'MP', 'CO', 'BTN', 'SB', 'BB'];
+
+/**
+ * UI で選択された 2 positions を preflop order でソート (= opener が前)。
+ *
+ * 例: (BB, UTG) → (UTG, BB)、(SB, BB) → (SB, BB)、(BTN, HJ) → (HJ, BTN)
+ */
+function sortByPreflopOrder(positions: [Position, Position]): [Position, Position] {
+  const [a, b] = positions;
+  const ia = PREFLOP_ORDER.indexOf(a);
+  const ib = PREFLOP_ORDER.indexOf(b);
+  return ia <= ib ? [a, b] : [b, a];
+}
+
+/**
+ * UI 入力 (2 positions + bucket) から flop variant を導出。
+ *
+ * 解決:
+ *  1. positions を preflop 順でソート → (opener, responder)
+ *  2. bucket → (depth, action) に変換
+ *  3. findFlopVariants で検索 → 0 件なら null、複数なら smallest sort 順
+ */
+export function findFlopVariantFromUI(
+  positions: [Position, Position],
+  bucket: PreflopBucket,
+): string | null {
+  const [opener, responder] = sortByPreflopOrder(positions);
+  const { depth, action } = bucketToDepthAction(bucket);
+  const matches = findFlopVariants(opener, responder, depth, action);
+  if (matches.length === 0) return null;
+  return matches[0]; // findFlopVariants は既に sort 済
+}
+
+/**
+ * 既存 variant 名から UI 状態 (positions + bucket) を逆引き。
+ * Preflop → Flop 連携 (DualRangeView の「Flop に進む」ボタン) で使用。
+ */
+export function reverseEngineerVariantToUI(
+  variant: string,
+): { positions: [Position, Position]; bucket: PreflopBucket } | null {
+  if (!FLOP_VARIANTS.has(variant)) return null;
+  const opener = getFlopOpener(variant);
+  const responder = getFlopResponder(variant);
+  const depth = getPotDepth(variant);
+  const isLimpTree = variant.startsWith('sbc_');
+
+  let bucket: PreflopBucket;
+  if (depth === 'limp') bucket = 'limp';
+  else if (depth === 'SRP' && isLimpTree) bucket = '2bp';
+  else if (depth === 'SRP') bucket = 'srp';
+  else if (depth === '3bp') bucket = '3bp';
+  else if (depth === '4bp') bucket = '4bp';
+  else if (depth === '5bp') bucket = '5bp';
+  else bucket = 'srp';
+
+  return { positions: [opener, responder], bucket };
+}
+
 export function findFlopVariants(
   opener: Position,
   responder: Position,

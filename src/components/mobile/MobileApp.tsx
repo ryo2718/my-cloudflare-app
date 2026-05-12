@@ -12,6 +12,9 @@ import {
   type OpenerAction,
   type Position,
 } from '../../types/mobile';
+// Flop 関連 props のみ strategy.ts 側の Position 型を別名で import
+// (mobile.ts の Position は MP を含まないため、Flop データの全 6max ポジション + α と互換性を取る)
+import type { Position as StrategyPosition } from '../../types/strategy';
 import { ActionButtons } from './ActionButtons';
 import { Breadcrumb } from './Breadcrumb';
 import { DualPositionPicker } from './DualPositionPicker';
@@ -26,14 +29,16 @@ const SOLUTION_LABEL = 'cash 100bb 6max NL500 2.5x';
 
 interface MobileAppProps {
   /**
-   * Flop タブの state (Phase 7)。App.tsx に lift 済の値をそのまま渡す。
-   * PC ↔ Mobile 切替 (viewportMode.toggle) しても state が維持されるよう
-   * App-level に置く設計。
+   * Flop タブの state (Phase R2 で UI 主導 model に変更)。
+   * App.tsx に lift 済の値をそのまま渡す → MobileFlopView へ伝搬。
+   * PC ↔ Mobile 切替時も state 維持。
    */
-  flopVariant: string;
+  flopPositions: ReadonlyArray<StrategyPosition>;
+  flopBucket: import('../../data/flopVariants').PreflopBucket | null;
   flopChain: string[];
   flopSelectedBoardName: string | null;
-  onSelectFlopVariant: (variant: string) => void;
+  onFlopPositionsChange: (positions: StrategyPosition[]) => void;
+  onFlopBucketChange: (bucket: import('../../data/flopVariants').PreflopBucket | null) => void;
   onFlopChainChange: (chain: string[]) => void;
   onSelectFlopBoard: (name: string | null) => void;
 }
@@ -53,10 +58,12 @@ interface MobileAppProps {
  * 直前のアクションは actor のボタン上に吹き出し表示。
  */
 export function MobileApp({
-  flopVariant,
+  flopPositions,
+  flopBucket,
   flopChain,
   flopSelectedBoardName,
-  onSelectFlopVariant,
+  onFlopPositionsChange,
+  onFlopBucketChange,
   onFlopChainChange,
   onSelectFlopBoard,
 }: MobileAppProps) {
@@ -166,10 +173,12 @@ export function MobileApp({
 
       {tab === 'flop' && (
         <MobileFlopView
-          variant={flopVariant}
+          positions={flopPositions}
+          bucket={flopBucket}
           chain={flopChain}
           selectedBoardName={flopSelectedBoardName}
-          onSelectVariant={onSelectFlopVariant}
+          onPositionsChange={onFlopPositionsChange}
+          onBucketChange={onFlopBucketChange}
           onChainChange={onFlopChainChange}
           onSelectBoard={onSelectFlopBoard}
         />

@@ -1,51 +1,66 @@
-// Flop 戦略タブのコンテナビュー (Phase 6 controlled-props 版)。
+// Flop 戦略タブのコンテナビュー (Phase R2: 新 state model)。
 //
-// state は App.tsx に lift 済 (Phase 6)。本コンポーネントは props として
-// variant / chain / selectedBoardName + 各 setter callback を受け取り、
-// 純粋な表示と内部ハンドラだけを担当する controlled component。
+// 元要件の 7 セクション構成:
+//   § 1: FLOP 入力 (FlopBoardInput, 常時表示)
+//   § 2: Position 選択 (FlopPositionPicker)
+//   § 3: Preflop シナリオ (FlopPreflopPicker)
+//   § 4-7: variant 決定後 (positions + bucket → variant) に表示
+//          R3-R4 で再設計、R2 では既存 §4-7 を仮で利用
 //
-// Phase 6 で preflop → flop 連携 (DualRangeView の「Flop に進む」ボタン) から
-// 同 state を共有して遷移できるようになる。
+// state (props 経由、App.tsx で lift):
+//   - positions: Position[]   (0-2)
+//   - bucket:    PreflopBucket | null
+//   - chain:     string[]      (確定 chain)
+//   - selectedBoardName: string | null
+//
+// variant は positions + bucket から derive (findFlopVariantFromUI)。
 
-import { type CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { FlopActionTotalsCard } from './FlopActionTotalsCard';
 import { FlopBoardInput } from './FlopBoardInput';
 import { FlopBoardList } from './FlopBoardList';
 import { FlopBoardSummary } from './FlopBoardSummary';
 import { FlopBreadcrumb } from './FlopBreadcrumb';
 import { FlopNextActionButtons } from './FlopNextActionButtons';
-import { FlopVariantSelector } from './FlopVariantSelector';
+import { FlopPositionPicker } from './FlopPositionPicker';
+import { FlopPreflopPicker } from './FlopPreflopPicker';
 import { encodeStep, hasAggressionInChain } from '../data/flopChain';
+import { findFlopVariantFromUI, type PreflopBucket } from '../data/flopVariants';
 import { useFlopNode } from '../hooks/useFlopNode';
 import { THEME } from '../styles/theme';
 import type { FlopActor } from '../types/flop';
+import type { Position } from '../types/strategy';
 
 export interface FlopStrategyViewProps {
-  variant: string;
+  positions: ReadonlyArray<Position>;
+  bucket: PreflopBucket | null;
   chain: ReadonlyArray<string>;
   selectedBoardName: string | null;
-  /** Variant 切替時。App.tsx 側で chain と board 選択も reset するのが原則。 */
-  onSelectVariant: (variant: string) => void;
-  /** Chain 全体更新 (truncate / reset / push 全て同じ callback)。 */
+  onPositionsChange: (positions: Position[]) => void;
+  onBucketChange: (bucket: PreflopBucket | null) => void;
   onChainChange: (chain: string[]) => void;
-  /** Board 選択 (null = 解除)。 */
   onSelectBoard: (name: string | null) => void;
 }
 
 export function FlopStrategyView({
-  variant,
+  positions,
+  bucket,
   chain,
   selectedBoardName,
-  onSelectVariant,
+  onPositionsChange,
+  onBucketChange,
   onChainChange,
   onSelectBoard,
 }: FlopStrategyViewProps) {
-  // useFlopNode は array prop を内部で chain.join('|') して dep 化するので
-  // ReadonlyArray<string> も同様に動く (TS は spread でコピー可)。
+  // variant を derive (positions + bucket → variant)
+  const variant = useMemo(() => {
+    if (positions.length < 2 || !bucket) return null;
+    return findFlopVariantFromUI(positions as [Position, Position], bucket);
+  }, [positions, bucket]);
+
   const chainArr = chain as string[];
   const { data, loading, error } = useFlopNode(variant, chainArr);
 
-  // selectedBoardName から対応 BoardSolution を取得 (data がある時のみ)
   const selectedBoard =
     data && selectedBoardName
       ? data.solutions.find((s) => s.name === selectedBoardName) ?? null
@@ -67,57 +82,75 @@ export function FlopStrategyView({
     onChainChange([...chain, step]);
   };
 
-  // 表示用 totals: selected あれば action_solutions、なければ action_totals
   const displayTotals = selectedBoard
     ? selectedBoard.action_solutions
     : data?.action_totals ?? [];
 
   return (
     <div style={containerStyle}>
-      <FlopVariantSelector variant={variant} onVariantChange={onSelectVariant} />
-
-      <FlopBreadcrumb
-        variant={variant}
-        chain={chainArr}
-        onTruncate={handleTruncate}
-        onReset={handleReset}
+      {/* § 1: Flop 入力 (常時表示) */}
+      <FlopBoardInput
+        selectedBoard={selectedBoardName}
+        onBoardSelect={onSelectBoard}
       />
 
-      <div style={mainAreaStyle}>
-        {loading && <StatusLine kind="loading">Loading flop data…</StatusLine>}
-        {error && (
-          <StatusLine kind="error">
-            Error: {error.message}
-            <div style={errorHintStyle}>
-              R2 fetch 失敗の可能性 — `.env.local` の `VITE_FLOP_DATA_BASE_URL` と CORS 設定を確認してください。
-            </div>
-          </StatusLine>
-        )}
-        {!loading && !error && data && (
-          <>
-            <FlopBoardSummary data={data} selectedBoard={selectedBoard} />
-            <FlopActionTotalsCard totals={displayTotals}>
-              <FlopNextActionButtons
-                actions={data.game_point.available_actions}
-                totals={displayTotals}
-                afterAggression={hasAggressionInChain(chainArr)}
-                onSelect={handleSelectAction}
-                disabled={loading}
-              />
-            </FlopActionTotalsCard>
-            <FlopBoardInput
-              selectedBoard={selectedBoardName}
-              onBoardSelect={onSelectBoard}
-            />
-            <FlopBoardList
-              solutions={data.solutions}
-              selectedBoard={selectedBoardName}
-              onBoardSelect={onSelectBoard}
-            />
-          </>
-        )}
-        {!loading && !error && !data && <StatusLine kind="empty">No data.</StatusLine>}
-      </div>
+      {/* § 2: Position 選択 */}
+      <FlopPositionPicker positions={positions} onChange={onPositionsChange} />
+
+      {/* § 3: Preflop シナリオ */}
+      <FlopPreflopPicker
+        bucket={bucket}
+        positions={positions}
+        onChange={onBucketChange}
+      />
+
+      {/* § 4-7: variant 決定後 (R3-R4 で再設計予定の既存 components を仮利用) */}
+      {variant === null ? (
+        <div style={pendingStyle}>
+          Position と Preflop シナリオを選択すると戦略が表示されます
+        </div>
+      ) : (
+        <>
+          <FlopBreadcrumb
+            variant={variant}
+            chain={chainArr}
+            onTruncate={handleTruncate}
+            onReset={handleReset}
+          />
+
+          <div style={mainAreaStyle}>
+            {loading && <StatusLine kind="loading">Loading flop data…</StatusLine>}
+            {error && (
+              <StatusLine kind="error">
+                Error: {error.message}
+                <div style={errorHintStyle}>
+                  R2 fetch 失敗の可能性 — `.env.local` の `VITE_FLOP_DATA_BASE_URL` と CORS 設定を確認してください。
+                </div>
+              </StatusLine>
+            )}
+            {!loading && !error && data && (
+              <>
+                <FlopBoardSummary data={data} selectedBoard={selectedBoard} />
+                <FlopActionTotalsCard totals={displayTotals}>
+                  <FlopNextActionButtons
+                    actions={data.game_point.available_actions}
+                    totals={displayTotals}
+                    afterAggression={hasAggressionInChain(chainArr)}
+                    onSelect={handleSelectAction}
+                    disabled={loading}
+                  />
+                </FlopActionTotalsCard>
+                <FlopBoardList
+                  solutions={data.solutions}
+                  selectedBoard={selectedBoardName}
+                  onBoardSelect={onSelectBoard}
+                />
+              </>
+            )}
+            {!loading && !error && !data && <StatusLine kind="empty">No data.</StatusLine>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -169,4 +202,15 @@ const errorHintStyle: CSSProperties = {
   fontSize: '0.78rem',
   color: THEME.textMuted,
   marginTop: '0.4rem',
+};
+
+const pendingStyle: CSSProperties = {
+  background: THEME.card,
+  border: `1px dashed ${THEME.border}`,
+  borderRadius: '0.5rem',
+  padding: '1.5rem',
+  textAlign: 'center',
+  fontSize: '0.85rem',
+  color: THEME.textMuted,
+  fontStyle: 'italic',
 };

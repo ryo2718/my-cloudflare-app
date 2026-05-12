@@ -21,7 +21,11 @@ import {
   labelForNodePath,
   type OpenerPosition,
 } from './data/scenarios';
-import { getDefaultFlopVariantFromPreflopNode } from './data/flopVariants';
+import {
+  getDefaultFlopVariantFromPreflopNode,
+  reverseEngineerVariantToUI,
+  type PreflopBucket,
+} from './data/flopVariants';
 import { loadAllOpenNodes } from './hooks/useOpenEvaluation';
 import { loadAll3betNodes } from './hooks/use3betEvaluation';
 import { loadAll4betNodes } from './hooks/use4betEvaluation';
@@ -67,10 +71,11 @@ export default function App() {
   // PC のメインタブ切替 (Phase 5)。Mobile は別系統 (MobileApp 内 TabSwitcher)。
   const [activeTab, setActiveTab] = useState<TopTab>('preflop');
 
-  // Flop タブの state (Phase 6 で App.tsx に lift)。
-  // preflop → flop 連携 (DualRangeView の「Flop に進む」ボタン) が同 state を
-  // 上書きするので App 直下に持つ必要がある。Mobile (Phase 7) も同 state を共有予定。
-  const [flopVariant, setFlopVariant] = useState<string>('utgr_bbc');
+  // Flop タブの state (Phase R2 で UI 主導の model に変更)。
+  // - positions + bucket がユーザー入力、variant は FlopStrategyView 内で derive
+  // - Preflop → Flop 連携時は reverseEngineerVariantToUI で逆引きして seed
+  const [flopPositions, setFlopPositions] = useState<Position[]>([]);
+  const [flopBucket, setFlopBucket] = useState<PreflopBucket | null>(null);
   const [flopChain, setFlopChain] = useState<string[]>([]);
   const [flopSelectedBoard, setFlopSelectedBoard] = useState<string | null>(null);
 
@@ -160,22 +165,32 @@ export default function App() {
     [transition],
   );
 
-  // ----- Flop タブ用 handlers (Phase 6) -----
-  const handleFlopVariantSelect = useCallback((v: string) => {
-    setFlopVariant(v);
+  // ----- Flop タブ用 handlers (Phase R2 で update) -----
+  const handleFlopPositionsChange = useCallback((p: Position[]) => {
+    setFlopPositions(p);
+    // 軸が変わったら chain と board 選択もリセット (旧 handleFlopVariantSelect と同方針)
+    setFlopChain([]);
+    setFlopSelectedBoard(null);
+  }, []);
+
+  const handleFlopBucketChange = useCallback((b: PreflopBucket | null) => {
+    setFlopBucket(b);
     setFlopChain([]);
     setFlopSelectedBoard(null);
   }, []);
 
   /**
    * Preflop の右ペインから flop タブへ自動遷移。現在の `rightNodePath` から
-   * `getDefaultFlopVariantFromPreflopNode` で variant を導出 (ambiguous は最小サイズ
-   * fallback)、Flop タブの state を初期化してタブ切替。
+   * `getDefaultFlopVariantFromPreflopNode` で variant を導出後、
+   * `reverseEngineerVariantToUI` で UI 状態 (positions + bucket) に逆引き。
    */
   const handleAdvanceToFlop = useCallback(() => {
     const v = getDefaultFlopVariantFromPreflopNode(rightNodePath);
     if (!v) return;
-    setFlopVariant(v);
+    const ui = reverseEngineerVariantToUI(v);
+    if (!ui) return;
+    setFlopPositions([...ui.positions]);
+    setFlopBucket(ui.bucket);
     setFlopChain([]);
     setFlopSelectedBoard(null);
     setActiveTab('flop');
@@ -304,10 +319,12 @@ export default function App() {
 
         {viewportMode === 'mobile' ? (
           <MobileApp
-            flopVariant={flopVariant}
+            flopPositions={flopPositions}
+            flopBucket={flopBucket}
             flopChain={flopChain}
             flopSelectedBoardName={flopSelectedBoard}
-            onSelectFlopVariant={handleFlopVariantSelect}
+            onFlopPositionsChange={handleFlopPositionsChange}
+            onFlopBucketChange={handleFlopBucketChange}
             onFlopChainChange={setFlopChain}
             onSelectFlopBoard={setFlopSelectedBoard}
           />
@@ -369,10 +386,12 @@ export default function App() {
 
         {activeTab === 'flop' && (
           <FlopStrategyView
-            variant={flopVariant}
+            positions={flopPositions}
+            bucket={flopBucket}
             chain={flopChain}
             selectedBoardName={flopSelectedBoard}
-            onSelectVariant={handleFlopVariantSelect}
+            onPositionsChange={handleFlopPositionsChange}
+            onBucketChange={handleFlopBucketChange}
             onChainChange={setFlopChain}
             onSelectBoard={setFlopSelectedBoard}
           />

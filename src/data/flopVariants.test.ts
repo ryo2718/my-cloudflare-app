@@ -10,6 +10,8 @@ import {
   getFlopVariantFromPreflopNode,
   getDefaultFlopVariantFromPreflopNode,
   findFlopVariants,
+  findFlopVariantFromUI,
+  reverseEngineerVariantToUI,
 } from './flopVariants';
 
 describe('FLOP_VARIANTS manifest', () => {
@@ -292,5 +294,134 @@ describe('getDefaultFlopVariantFromPreflopNode', () => {
   it('returns null for (HJ, CO) SRP-style which has no flop variant', () => {
     // CO doesn't cold-call HJ in this dataset
     expect(getDefaultFlopVariantFromPreflopNode('hjr_co')).toBeNull();
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Phase R2: UI 連携 helper
+// ----------------------------------------------------------------------------
+
+describe('findFlopVariantFromUI', () => {
+  it('UTG + BB + srp → utgr_bbc', () => {
+    expect(findFlopVariantFromUI(['UTG', 'BB'], 'srp')).toBe('utgr_bbc');
+  });
+
+  it('順序逆 (BB + UTG + srp) も同じ結果', () => {
+    expect(findFlopVariantFromUI(['BB', 'UTG'], 'srp')).toBe('utgr_bbc');
+  });
+
+  it('SB + BB + limp → sbc_bb', () => {
+    expect(findFlopVariantFromUI(['SB', 'BB'], 'limp')).toBe('sbc_bb');
+  });
+
+  it('SB + BB + 2bp → sbc_bbr3_sbc (smallest iso size)', () => {
+    expect(findFlopVariantFromUI(['SB', 'BB'], '2bp')).toBe('sbc_bbr3_sbc');
+  });
+
+  it('SB + BB + srp → sbr_bbc (open tree)', () => {
+    expect(findFlopVariantFromUI(['SB', 'BB'], 'srp')).toBe('sbr_bbc');
+  });
+
+  it('UTG + BB + 3bp → utgr_bbr_utgc', () => {
+    expect(findFlopVariantFromUI(['UTG', 'BB'], '3bp')).toBe('utgr_bbr_utgc');
+  });
+
+  it('UTG + BB + 4bp → utgr_bbr_utgr22_bbc', () => {
+    expect(findFlopVariantFromUI(['UTG', 'BB'], '4bp')).toBe('utgr_bbr_utgr22_bbc');
+  });
+
+  it('UTG + BB + 5bp → utgr_bbr_utgr_bbr34_utgc', () => {
+    expect(findFlopVariantFromUI(['UTG', 'BB'], '5bp')).toBe('utgr_bbr_utgr_bbr34_utgc');
+  });
+
+  it('UTG + SB + 5bp → utgr_sbr_utgr_sbr40_utgc', () => {
+    expect(findFlopVariantFromUI(['UTG', 'SB'], '5bp')).toBe('utgr_sbr_utgr_sbr40_utgc');
+  });
+
+  it('HJ + BB + 5bp → null (5bp は UTG-X のみ)', () => {
+    expect(findFlopVariantFromUI(['HJ', 'BB'], '5bp')).toBeNull();
+  });
+
+  it('UTG + HJ + srp → null (HJ は UTG を cold-call しない)', () => {
+    expect(findFlopVariantFromUI(['UTG', 'HJ'], 'srp')).toBeNull();
+  });
+
+  it('UTG + HJ + 3bp → utgr_hjr_utgc (HJ 3-bet)', () => {
+    expect(findFlopVariantFromUI(['UTG', 'HJ'], '3bp')).toBe('utgr_hjr_utgc');
+  });
+
+  it('limp は SB-BB 以外で null', () => {
+    expect(findFlopVariantFromUI(['UTG', 'BB'], 'limp')).toBeNull();
+    expect(findFlopVariantFromUI(['CO', 'BTN'], 'limp')).toBeNull();
+  });
+
+  it('2bp は SB-BB 以外で null', () => {
+    expect(findFlopVariantFromUI(['UTG', 'BB'], '2bp')).toBeNull();
+    expect(findFlopVariantFromUI(['CO', 'BTN'], '2bp')).toBeNull();
+  });
+});
+
+describe('reverseEngineerVariantToUI', () => {
+  it('utgr_bbc → (UTG, BB) + srp', () => {
+    expect(reverseEngineerVariantToUI('utgr_bbc')).toEqual({
+      positions: ['UTG', 'BB'],
+      bucket: 'srp',
+    });
+  });
+
+  it('sbc_bb → (SB, BB) + limp', () => {
+    expect(reverseEngineerVariantToUI('sbc_bb')).toEqual({
+      positions: ['SB', 'BB'],
+      bucket: 'limp',
+    });
+  });
+
+  it('sbc_bbr3_sbc → (SB, BB) + 2bp', () => {
+    expect(reverseEngineerVariantToUI('sbc_bbr3_sbc')).toEqual({
+      positions: ['SB', 'BB'],
+      bucket: '2bp',
+    });
+  });
+
+  it('sbr_bbc → (SB, BB) + srp (open tree)', () => {
+    expect(reverseEngineerVariantToUI('sbr_bbc')).toEqual({
+      positions: ['SB', 'BB'],
+      bucket: 'srp',
+    });
+  });
+
+  it('utgr_bbr_utgc → (UTG, BB) + 3bp', () => {
+    expect(reverseEngineerVariantToUI('utgr_bbr_utgc')).toEqual({
+      positions: ['UTG', 'BB'],
+      bucket: '3bp',
+    });
+  });
+
+  it('utgr_bbr_utgr22_bbc → (UTG, BB) + 4bp', () => {
+    expect(reverseEngineerVariantToUI('utgr_bbr_utgr22_bbc')).toEqual({
+      positions: ['UTG', 'BB'],
+      bucket: '4bp',
+    });
+  });
+
+  it('utgr_bbr_utgr_bbr34_utgc → (UTG, BB) + 5bp', () => {
+    expect(reverseEngineerVariantToUI('utgr_bbr_utgr_bbr34_utgc')).toEqual({
+      positions: ['UTG', 'BB'],
+      bucket: '5bp',
+    });
+  });
+
+  it('未知 variant は null', () => {
+    expect(reverseEngineerVariantToUI('nonexistent')).toBeNull();
+  });
+
+  it('findFlopVariantFromUI と reverseEngineerVariantToUI は逆関数 (sample)', () => {
+    const samples = ['utgr_bbc', 'sbc_bb', 'utgr_bbr_utgc', 'sbr_bbc', 'sbc_bbr3_sbc'];
+    for (const v of samples) {
+      const ui = reverseEngineerVariantToUI(v);
+      if (!ui) continue;
+      const backToVariant = findFlopVariantFromUI(ui.positions, ui.bucket);
+      expect(backToVariant).toBe(v);
+    }
   });
 });
