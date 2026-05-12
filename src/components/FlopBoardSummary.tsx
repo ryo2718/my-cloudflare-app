@@ -1,20 +1,18 @@
-// § 4: ボード概要 (Phase R3 で再設計、OOP/IP 横並び)。
+// § 4: ボード概要 — 2 カラム並列 + 勝者ハイライト版。
 //
-// 元要件 (要約):
-//   "UTG(original)  BB(caller)" 横並び (3bp 等で role 逆転)
-//   各列に EV / EQR
-//   大きめ flop カード 3 枚を中央配置
-//
-// 実装:
-//   - 横並び 2 列: OOP (左) / IP (右)、各列に position + role + EV + EQ + EQR
-//   - role label は variant の opener/caller/responder から動的判定
-//   - 中央 (列下) に大きめの flop カード 3 枚
+// 要件 (2026-05-12 改修):
+//   - OOP / IP を横並び 2 カラム (grid 1fr 1fr)
+//   - 各カラム card 形式: [Badge OOP/IP] [Position] [role 右寄せ]
+//                       + EV / EQ / EQR の 3 列 grid (内側 stats)
+//   - 勝者カード (EV が大): 背景 #dcfce7 + 緑ボーダー #16a34a + 値 #15803d
+//   - 同値 / どちらか null → 両方ニュートラル
+//   - 中央に大きめ flop カード 3 枚
+//   - role label (opener / caller / responder) 維持
 
 import { type CSSProperties } from 'react';
 import type {
   BoardSolution,
   FlopNode,
-  FlopPlayer,
   PlayerSolution,
   PlayerTotal,
 } from '../types/flop';
@@ -27,6 +25,7 @@ import {
 } from '../data/flopVariants';
 import type { Position } from '../types/strategy';
 import { THEME } from '../styles/theme';
+import { determineWinner } from './FlopBoardSummary.helpers';
 
 interface Props {
   variant: string;
@@ -38,14 +37,20 @@ export function FlopBoardSummary({ variant, data, selectedBoard }: Props) {
   const oopPlayer = data.players.find((p) => p.relative_position === 'OOP');
   const ipPlayer = data.players.find((p) => p.relative_position === 'IP');
 
-  // selectedBoard あれば player_solutions、なければ player_totals (range avg)
   const statsSource: ReadonlyArray<PlayerTotal | PlayerSolution> =
     selectedBoard ? selectedBoard.player_solutions : data.player_totals;
+  const oopStats = oopPlayer ? findStats(statsSource, oopPlayer.position) : null;
+  const ipStats = ipPlayer ? findStats(statsSource, ipPlayer.position) : null;
 
+  // 勝者判定: EV 大が勝者。null or 同値はニュートラル。
+  const { oopWins, ipWins } = determineWinner(oopStats?.ev, ipStats?.ev);
+
+  // role label
   const opener = getFlopOpener(variant);
   const caller = getFlopCaller(variant);
   const responder = getFlopResponder(variant);
-  const roleOf = (p: Position): string => buildRoleLabel(p, opener, caller, responder);
+  const roleOf = (p: Position): string =>
+    buildRoleLabel(p, opener, caller, responder);
 
   const boardName = selectedBoard ? selectedBoard.name : data.game_point.game.board;
   const cards = parseBoardString(boardName);
@@ -59,31 +64,36 @@ export function FlopBoardSummary({ variant, data, selectedBoard }: Props) {
         </span>
       </div>
 
-      <div style={rowStyle}>
+      {/* 2 カラム並列 (OOP / IP) */}
+      <div style={twoColumnStyle}>
         {oopPlayer && (
-          <PlayerColumn
+          <PlayerCard
             badge="OOP"
-            player={oopPlayer}
+            position={oopPlayer.position}
             role={roleOf(oopPlayer.position)}
-            stats={findStats(statsSource, oopPlayer.position)}
+            stats={oopStats}
+            isWinner={oopWins}
           />
         )}
         {ipPlayer && (
-          <PlayerColumn
+          <PlayerCard
             badge="IP"
-            player={ipPlayer}
+            position={ipPlayer.position}
             role={roleOf(ipPlayer.position)}
-            stats={findStats(statsSource, ipPlayer.position)}
+            stats={ipStats}
+            isWinner={ipWins}
           />
         )}
       </div>
 
+      {/* 中央: 大きめ flop カード 3 枚 */}
       <div style={boardRowStyle}>
         {cards.map((c, i) => (
           <BoardCardCell key={i} rank={c.rank} suit={c.suit} />
         ))}
       </div>
 
+      {/* Pot / Active 表示 */}
       <div style={potRowStyle}>
         <span style={potItemStyle}>
           <span style={potKeyStyle}>Pot</span>
@@ -112,21 +122,11 @@ function findStats(
 function parseBoardString(board: string): Array<{ rank: Rank; suit: Suit }> {
   const out: Array<{ rank: Rank; suit: Suit }> = [];
   for (let i = 0; i < board.length; i += 2) {
-    out.push({
-      rank: board[i] as Rank,
-      suit: board[i + 1] as Suit,
-    });
+    out.push({ rank: board[i] as Rank, suit: board[i + 1] as Suit });
   }
   return out;
 }
 
-/**
- * Position に role label を割当て。variant 文脈で:
- *  - opener と caller が同じ (3bp 等): "opener / caller" 表記
- *  - opener のみ: "original"
- *  - caller のみ: "caller"
- *  - responder のみ (= 3bettor): "raiser"
- */
 function buildRoleLabel(
   pos: Position,
   opener: Position,
@@ -144,55 +144,89 @@ function buildRoleLabel(
   return '';
 }
 
-// ----------------------------------------------------------------------------
-// Subcomponents
-// ----------------------------------------------------------------------------
-
-interface PlayerColumnProps {
-  badge: 'OOP' | 'IP';
-  player: FlopPlayer;
-  role: string;
-  stats: PlayerTotal | PlayerSolution | null;
+function formatEV(v: number | null | undefined): string {
+  return v != null ? v.toFixed(2) : '—';
 }
 
-function PlayerColumn({ badge, player, role, stats }: PlayerColumnProps) {
+function formatEQ(v: number | null | undefined): string {
+  return v != null ? `${(v * 100).toFixed(1)}%` : '—';
+}
+
+function formatEQR(v: number | null | undefined): string {
+  return v != null ? v.toFixed(2) : '—';
+}
+
+// ----------------------------------------------------------------------------
+// PlayerCard
+// ----------------------------------------------------------------------------
+
+interface PlayerCardProps {
+  badge: 'OOP' | 'IP';
+  position: string;
+  role: string;
+  stats: PlayerTotal | PlayerSolution | null;
+  isWinner: boolean;
+}
+
+function PlayerCard({ badge, position, role, stats, isWinner }: PlayerCardProps) {
+  const cardStyle: CSSProperties = isWinner
+    ? winnerCardStyle
+    : neutralCardStyle;
+  const positionColor = isWinner ? WIN_VALUE_COLOR : THEME.textPrimary;
+  const roleColor = isWinner ? WIN_BORDER_COLOR : THEME.textMuted;
+  const valueColor = isWinner ? WIN_VALUE_COLOR : THEME.textPrimary;
+
   return (
-    <div style={columnStyle}>
-      <div style={columnHeaderStyle}>
-        <span style={posBadgeStyle(badge)}>{badge}</span>
-        <span style={posNameStyle}>{player.position}</span>
+    <div style={cardStyle}>
+      <div style={cardHeaderStyle}>
+        <span style={badgeStyle}>{badge}</span>
+        <span style={{ ...positionLabelStyle, color: positionColor }}>{position}</span>
+        {role && <span style={{ ...roleLabelStyle, color: roleColor }}>{role}</span>}
       </div>
-      {role && <div style={roleLabelStyle}>{role}</div>}
-      <div style={statsListStyle}>
-        <Stat label="EV" value={stats?.ev !== null && stats?.ev !== undefined ? stats.ev.toFixed(2) : '—'} />
-        <Stat label="EQ" value={stats?.eq !== null && stats?.eq !== undefined ? `${(stats.eq * 100).toFixed(1)}%` : '—'} />
-        <Stat label="EQR" value={stats?.eqr !== null && stats?.eqr !== undefined ? stats.eqr.toFixed(2) : '—'} />
+      <div style={statsGridStyle}>
+        <StatCell label="EV" value={formatEV(stats?.ev)} valueColor={valueColor} />
+        <StatCell label="EQ" value={formatEQ(stats?.eq)} valueColor={valueColor} />
+        <StatCell label="EQR" value={formatEQR(stats?.eqr)} valueColor={valueColor} />
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function StatCell({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor: string;
+}) {
   return (
-    <div style={statRowStyle}>
-      <span style={statKeyStyle}>{label}</span>
-      <span style={statValueStyle}>{value}</span>
+    <div>
+      <div style={statLabelStyle}>{label}</div>
+      <div style={{ ...statValueStyle, color: valueColor }}>{value}</div>
     </div>
   );
 }
 
 function BoardCardCell({ rank, suit }: { rank: Rank; suit: Suit }) {
   return (
-    <div style={cardCellStyle}>
-      <span style={cardRankStyle}>{rank}</span>
-      <span style={{ ...cardSuitStyle, color: SUIT_COLOR[suit] }}>{SUIT_SYMBOL[suit]}</span>
+    <div style={boardCardStyle}>
+      <span style={boardCardRankStyle}>{rank}</span>
+      <span style={{ ...boardCardSuitStyle, color: SUIT_COLOR[suit] }}>
+        {SUIT_SYMBOL[suit]}
+      </span>
     </div>
   );
 }
 
 // ----------------------------------------------------------------------------
-// Styles
+// Style constants
 // ----------------------------------------------------------------------------
+
+const WIN_BG_COLOR = '#dcfce7';     // green-100
+const WIN_BORDER_COLOR = '#16a34a'; // green-600
+const WIN_VALUE_COLOR = '#15803d';  // green-700
 
 const containerStyle: CSSProperties = {
   display: 'flex',
@@ -207,7 +241,6 @@ const containerStyle: CSSProperties = {
 const titleRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'flex-start',
 };
 
 const titleStyle: CSSProperties = {
@@ -218,78 +251,74 @@ const titleStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-const rowStyle: CSSProperties = {
+const twoColumnStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: '1rem',
+  gap: '12px',
 };
 
-const columnStyle: CSSProperties = {
+const neutralCardStyle: CSSProperties = {
+  background: THEME.bg,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '8px',
+  padding: '12px',
+};
+
+const winnerCardStyle: CSSProperties = {
+  background: WIN_BG_COLOR,
+  border: `1px solid ${WIN_BORDER_COLOR}`,
+  borderRadius: '8px',
+  padding: '12px',
+};
+
+const cardHeaderStyle: CSSProperties = {
   display: 'flex',
-  flexDirection: 'column',
-  gap: '0.4rem',
+  alignItems: 'baseline',
+  gap: '6px',
+  marginBottom: '8px',
 };
 
-const columnHeaderStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
+const badgeStyle: CSSProperties = {
+  fontSize: '11px',
+  padding: '2px 6px',
+  background: 'white',
+  borderRadius: '4px',
+  color: '#6b7280',
+  fontWeight: 500,
 };
 
-function posBadgeStyle(label: 'OOP' | 'IP'): CSSProperties {
-  return {
-    display: 'inline-block',
-    fontSize: '0.7rem',
-    fontWeight: 700,
-    padding: '0.18rem 0.5rem',
-    borderRadius: '0.25rem',
-    background: label === 'OOP' ? '#fef3c7' : '#dbeafe',
-    color: label === 'OOP' ? '#92400e' : '#1e3a8a',
-    minWidth: '36px',
-    textAlign: 'center',
-    letterSpacing: '0.06em',
-  };
-}
-
-const posNameStyle: CSSProperties = {
-  fontWeight: 700,
-  fontSize: '1.05rem',
-  color: THEME.textPrimary,
+const positionLabelStyle: CSSProperties = {
+  fontSize: '16px',
+  fontWeight: 500,
 };
 
 const roleLabelStyle: CSSProperties = {
-  fontSize: '0.74rem',
-  color: THEME.textMuted,
+  fontSize: '11px',
+  marginLeft: 'auto',
   fontStyle: 'italic',
-  letterSpacing: '0.03em',
 };
 
-const statsListStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.25rem',
+const statsGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr 1fr',
+  gap: '4px',
+  fontSize: '12px',
 };
 
-const statRowStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'baseline',
-  gap: '0.6rem',
-};
-
-const statKeyStyle: CSSProperties = {
-  fontSize: '0.7rem',
-  letterSpacing: '0.06em',
+const statLabelStyle: CSSProperties = {
+  color: '#6b7280',
+  fontSize: '10px',
+  letterSpacing: '0.04em',
   textTransform: 'uppercase',
-  color: THEME.textMuted,
 };
 
 const statValueStyle: CSSProperties = {
+  fontSize: '15px',
+  fontWeight: 500,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  fontSize: '0.92rem',
-  color: THEME.textPrimary,
-  fontWeight: 600,
 };
+
+// ----- Board cards (大きめ、中央) -----
 
 const boardRowStyle: CSSProperties = {
   display: 'flex',
@@ -298,7 +327,7 @@ const boardRowStyle: CSSProperties = {
   padding: '0.45rem 0',
 };
 
-const cardCellStyle: CSSProperties = {
+const boardCardStyle: CSSProperties = {
   width: '64px',
   height: '88px',
   borderRadius: '0.5rem',
@@ -312,17 +341,19 @@ const cardCellStyle: CSSProperties = {
   gap: '0.15rem',
 };
 
-const cardRankStyle: CSSProperties = {
+const boardCardRankStyle: CSSProperties = {
   fontSize: '1.7rem',
   fontWeight: 700,
   color: '#1f2937',
   lineHeight: 1,
 };
 
-const cardSuitStyle: CSSProperties = {
+const boardCardSuitStyle: CSSProperties = {
   fontSize: '1.55rem',
   lineHeight: 1,
 };
+
+// ----- Pot / active row -----
 
 const potRowStyle: CSSProperties = {
   display: 'flex',
