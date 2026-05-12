@@ -16,12 +16,27 @@ import { ActionButtons } from './ActionButtons';
 import { Breadcrumb } from './Breadcrumb';
 import { DualPositionPicker } from './DualPositionPicker';
 import { MobileEvalTab } from './MobileEvalTab';
+import { MobileFlopView } from './MobileFlopView';
 import { RangeDisplay } from './RangeDisplay';
 import { ResetButton } from './ResetButton';
 import { SolutionLabel } from './SolutionLabel';
 import { TabSwitcher } from './TabSwitcher';
 
 const SOLUTION_LABEL = 'cash 100bb 6max NL500 2.5x';
+
+interface MobileAppProps {
+  /**
+   * Flop タブの state (Phase 7)。App.tsx に lift 済の値をそのまま渡す。
+   * PC ↔ Mobile 切替 (viewportMode.toggle) しても state が維持されるよう
+   * App-level に置く設計。
+   */
+  flopVariant: string;
+  flopChain: string[];
+  flopSelectedBoardName: string | null;
+  onSelectFlopVariant: (variant: string) => void;
+  onFlopChainChange: (chain: string[]) => void;
+  onSelectFlopBoard: (name: string | null) => void;
+}
 
 /**
  * モバイル版アプリ — 大幅 UI 改修版。
@@ -37,7 +52,14 @@ const SOLUTION_LABEL = 'cash 100bb 6max NL500 2.5x';
  * Stage 4+ (action 1回以上押下) では DualPositionPicker の選択済み以外がグレーアウト。
  * 直前のアクションは actor のボタン上に吹き出し表示。
  */
-export function MobileApp() {
+export function MobileApp({
+  flopVariant,
+  flopChain,
+  flopSelectedBoardName,
+  onSelectFlopVariant,
+  onFlopChainChange,
+  onSelectFlopBoard,
+}: MobileAppProps) {
   const [tab, setTab] = useState<MobileTab>('range');
   const [state, setState] = useState<MobileState>(createInitialState);
 
@@ -141,6 +163,17 @@ export function MobileApp() {
       )}
 
       {tab === 'eval' && <MobileEvalTab />}
+
+      {tab === 'flop' && (
+        <MobileFlopView
+          variant={flopVariant}
+          chain={flopChain}
+          selectedBoardName={flopSelectedBoardName}
+          onSelectVariant={onSelectFlopVariant}
+          onChainChange={onFlopChainChange}
+          onSelectBoard={onSelectFlopBoard}
+        />
+      )}
     </div>
   );
 }

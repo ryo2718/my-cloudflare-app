@@ -6,8 +6,10 @@ import { HandInput } from './components/HandInput';
 import { MobileApp } from './components/mobile/MobileApp';
 import { OpenStrategyTable } from './components/OpenStrategyTable';
 import { ScenarioSelector } from './components/ScenarioSelector';
+import { FlopStrategyView } from './components/FlopStrategyView';
 import { FourbetStrategyTable } from './components/FourbetStrategyTable';
 import { ThreebetStrategyTable } from './components/ThreebetStrategyTable';
+import { TopTabs, type TopTab } from './components/TopTabs';
 import {
   computeAllinNodePath,
   computeRaisedNodePath,
@@ -19,6 +21,7 @@ import {
   labelForNodePath,
   type OpenerPosition,
 } from './data/scenarios';
+import { getDefaultFlopVariantFromPreflopNode } from './data/flopVariants';
 import { loadAllOpenNodes } from './hooks/useOpenEvaluation';
 import { loadAll3betNodes } from './hooks/use3betEvaluation';
 import { loadAll4betNodes } from './hooks/use4betEvaluation';
@@ -60,6 +63,16 @@ export default function App() {
 
   // PC / Mobile レイアウトの切替 (Phase 1)
   const { mode: viewportMode, toggle: toggleViewport } = useViewportMode();
+
+  // PC のメインタブ切替 (Phase 5)。Mobile は別系統 (MobileApp 内 TabSwitcher)。
+  const [activeTab, setActiveTab] = useState<TopTab>('preflop');
+
+  // Flop タブの state (Phase 6 で App.tsx に lift)。
+  // preflop → flop 連携 (DualRangeView の「Flop に進む」ボタン) が同 state を
+  // 上書きするので App 直下に持つ必要がある。Mobile (Phase 7) も同 state を共有予定。
+  const [flopVariant, setFlopVariant] = useState<string>('utgr_bbc');
+  const [flopChain, setFlopChain] = useState<string[]>([]);
+  const [flopSelectedBoard, setFlopSelectedBoard] = useState<string | null>(null);
 
   const [opener, setOpener] = useState<OpenerPosition>(INITIAL_OPENER);
   const [responder, setResponder] = useState<Position>(INITIAL_RESPONDER);
@@ -147,6 +160,30 @@ export default function App() {
     [transition],
   );
 
+  // ----- Flop タブ用 handlers (Phase 6) -----
+  const handleFlopVariantSelect = useCallback((v: string) => {
+    setFlopVariant(v);
+    setFlopChain([]);
+    setFlopSelectedBoard(null);
+  }, []);
+
+  /**
+   * Preflop の右ペインから flop タブへ自動遷移。現在の `rightNodePath` から
+   * `getDefaultFlopVariantFromPreflopNode` で variant を導出 (ambiguous は最小サイズ
+   * fallback)、Flop タブの state を初期化してタブ切替。
+   */
+  const handleAdvanceToFlop = useCallback(() => {
+    const v = getDefaultFlopVariantFromPreflopNode(rightNodePath);
+    if (!v) return;
+    setFlopVariant(v);
+    setFlopChain([]);
+    setFlopSelectedBoard(null);
+    setActiveTab('flop');
+  }, [rightNodePath]);
+
+  // 右ペインから flop に進めるかの判定 (null なら DualRangeView 側でボタン非表示)
+  const rightFlopVariant = getDefaultFlopVariantFromPreflopNode(rightNodePath);
+
   // Breadcrumb: index === -1 で Home (完全リセット)、それ以上で当該ノードに巻き戻し。
   const handleBreadcrumbNavigate = useCallback(
     (index: number) => {
@@ -221,7 +258,8 @@ export default function App() {
               ver 1.0
             </span>
           </div>
-          {/* h1 副題 + 仕様 1行 はモバイル時に隠す (eyebrow "Preflop Strategy Viewer" のみ表示) */}
+          {/* h1 副題 + 仕様 1行 はモバイル時に隠す (eyebrow "Preflop Strategy Viewer" のみ表示)。
+              PC では activeTab に応じてタイトルを切替。 */}
           {viewportMode === 'pc' && (
             <>
               <h1
@@ -232,10 +270,12 @@ export default function App() {
                   color: THEME.textPrimary,
                 }}
               >
-                Open Range × Response
+                {activeTab === 'preflop' ? 'Open Range × Response' : 'Flop Strategy'}
               </h1>
               <div style={{ fontSize: '0.78rem', color: THEME.textSecondary, marginTop: '0.2rem' }}>
-                6max · 100bb · 2 ranges side by side
+                {activeTab === 'preflop'
+                  ? '6max · 100bb · 2 ranges side by side'
+                  : '6max · 100bb · 45 variants · 1,755 boards'}
               </div>
             </>
           )}
@@ -263,54 +303,80 @@ export default function App() {
         </header>
 
         {viewportMode === 'mobile' ? (
-          <MobileApp />
+          <MobileApp
+            flopVariant={flopVariant}
+            flopChain={flopChain}
+            flopSelectedBoardName={flopSelectedBoard}
+            onSelectFlopVariant={handleFlopVariantSelect}
+            onFlopChainChange={setFlopChain}
+            onSelectFlopBoard={setFlopSelectedBoard}
+          />
         ) : (
         <>
-        <div style={{ marginBottom: '0.9rem' }}>
-          <ScenarioSelector
-            opener={opener}
-            responder={responder}
-            onOpenerChange={handleOpenerChange}
-            onResponderChange={handleResponderChange}
-          />
-        </div>
+        <TopTabs active={activeTab} onChange={setActiveTab} />
 
-        {breadcrumb.length > 0 && (
-          <div style={{ marginBottom: '0.9rem' }}>
-            <Breadcrumb items={breadcrumbItems} onNavigate={handleBreadcrumbNavigate} />
-          </div>
+        {activeTab === 'preflop' && (
+          <>
+            <div style={{ marginBottom: '0.9rem' }}>
+              <ScenarioSelector
+                opener={opener}
+                responder={responder}
+                onOpenerChange={handleOpenerChange}
+                onResponderChange={handleResponderChange}
+              />
+            </div>
+
+            {breadcrumb.length > 0 && (
+              <div style={{ marginBottom: '0.9rem' }}>
+                <Breadcrumb items={breadcrumbItems} onNavigate={handleBreadcrumbNavigate} />
+              </div>
+            )}
+
+            <DualRangeView
+              left={{
+                data: left.data,
+                loading: left.loading,
+                error: left.error,
+                title: leftPaneTitle(left.data?.metadata.hero_position ?? opener, leftNodePath),
+                subtitle: rfiSubtitle,
+                raiseEnabled: leftRaiseEnabled,
+                onRaise: () => handleRaise('left'),
+                allinEnabled: leftAllinEnabled,
+                onAllin: () => handleAllin('left'),
+              }}
+              right={{
+                data: right.data,
+                loading: right.loading,
+                error: right.error,
+                title: rightPaneTitle(
+                  right.data?.metadata.hero_position ?? responder,
+                  left.data?.metadata.hero_position ?? opener,
+                ),
+                subtitle: right.data?.metadata.scenario_name,
+                raiseEnabled: rightRaiseEnabled,
+                onRaise: () => handleRaise('right'),
+                allinEnabled: rightAllinEnabled,
+                onAllin: () => handleAllin('right'),
+                flopVariant: rightFlopVariant,
+                onAdvanceToFlop: rightFlopVariant ? handleAdvanceToFlop : undefined,
+              }}
+            />
+
+            {/* TEMP: Hand Evaluator 試作エリア。用途確定後に専用ページ/モーダルへ移動して削除予定。 */}
+            <OpenStrategyTestArea />
+          </>
         )}
 
-        <DualRangeView
-          left={{
-            data: left.data,
-            loading: left.loading,
-            error: left.error,
-            title: leftPaneTitle(left.data?.metadata.hero_position ?? opener, leftNodePath),
-            subtitle: rfiSubtitle,
-            raiseEnabled: leftRaiseEnabled,
-            onRaise: () => handleRaise('left'),
-            allinEnabled: leftAllinEnabled,
-            onAllin: () => handleAllin('left'),
-          }}
-          right={{
-            data: right.data,
-            loading: right.loading,
-            error: right.error,
-            title: rightPaneTitle(
-              right.data?.metadata.hero_position ?? responder,
-              left.data?.metadata.hero_position ?? opener,
-            ),
-            subtitle: right.data?.metadata.scenario_name,
-            raiseEnabled: rightRaiseEnabled,
-            onRaise: () => handleRaise('right'),
-            allinEnabled: rightAllinEnabled,
-            onAllin: () => handleAllin('right'),
-          }}
-        />
-
-        {/* TEMP: Hand Evaluator 試作エリア。用途確定後に専用ページ/モーダルへ移動して削除予定。 */}
-        <OpenStrategyTestArea />
+        {activeTab === 'flop' && (
+          <FlopStrategyView
+            variant={flopVariant}
+            chain={flopChain}
+            selectedBoardName={flopSelectedBoard}
+            onSelectVariant={handleFlopVariantSelect}
+            onChainChange={setFlopChain}
+            onSelectBoard={setFlopSelectedBoard}
+          />
+        )}
 
         <footer
           style={{

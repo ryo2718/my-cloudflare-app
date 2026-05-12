@@ -56,7 +56,7 @@ export function formatHandPair(pair: HandPair): string {
  *  - 同じカード2枚 ("AhAh" 等)
  */
 export function parseCardString(input: string): HandPair | null {
-  const cleaned = input.replace(/[\s,\-]/g, '');
+  const cleaned = input.replace(/[\s,-]/g, '');
   if (cleaned.length !== 4) return null;
   const c1 = stringToCard(cleaned.slice(0, 2));
   const c2 = stringToCard(cleaned.slice(2, 4));

@@ -27,6 +27,8 @@ export function HandInput({ onChange, value }: Props) {
 
   // 親が value を制御する場合の sync
   useEffect(() => {
+    // 親 prop の変化を internal text state に反映する controlled-input パターン。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (value !== undefined) setText(value);
   }, [value]);
 

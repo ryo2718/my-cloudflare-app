@@ -20,11 +20,19 @@ export interface RangePane {
   allinEnabled?: boolean;
   /** All-in押下ハンドラ */
   onAllin?: () => void;
+  /**
+   * 「Flop に進む」ボタン用 (Phase 6)。null/undefined ならボタン非表示。
+   * 非 null の variant 名 (e.g. "utgr_bbc") はツールチップ表示に使う。
+   */
+  flopVariant?: string | null;
+  /** Flop タブへ遷移するクリックハンドラ (Phase 6)。 */
+  onAdvanceToFlop?: () => void;
 }
 
 // Action 色: src/utils/normalize.ts の FIXED_ACTIONS と揃える。
 const RAISE_COLOR = '#ef4444';
 const ALLIN_COLOR = '#9333ea';
+const FLOP_COLOR = '#0d9488'; // teal — preflop の raise(red)/allin(purple) と被らない色
 
 interface Props {
   left: RangePane;
@@ -156,7 +164,7 @@ function PaneView({ pane, hoveredHand, onHover }: PaneViewProps) {
             onHover={onHover}
           />
           <AggregateReport strategy={pane.data.strategy} actions={pane.data.actions} />
-          <div style={{ display: 'flex', gap: '0.5rem', alignSelf: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignSelf: 'flex-start', flexWrap: 'wrap' }}>
             <ActionButton
               label="Raise"
               enabled={!!pane.raiseEnabled}
@@ -173,6 +181,16 @@ function PaneView({ pane, hoveredHand, onHover }: PaneViewProps) {
               enabledTitle="相手側を all-in応答 のノードに進める"
               disabledTitle="このノードでは all-in 遷移先が存在しません"
             />
+            {pane.flopVariant && (
+              <ActionButton
+                label="→ Flop に進む"
+                enabled={!!pane.onAdvanceToFlop}
+                onClick={pane.onAdvanceToFlop}
+                enabledColor={FLOP_COLOR}
+                enabledTitle={`Flop タブへ遷移 (variant: ${pane.flopVariant})`}
+                disabledTitle="このノードから flop には進めません"
+              />
+            )}
           </div>
         </>
       ) : null}

@@ -26,6 +26,8 @@ export function MobileHandInput({ onChange, value }: Props) {
   const [text, setText] = useState<string>(value ?? '');
 
   useEffect(() => {
+    // 親 prop の変化を internal text state に反映する controlled-input パターン。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (value !== undefined) setText(value);
   }, [value]);
 

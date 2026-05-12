@@ -107,6 +107,8 @@ export function use4betEvaluation(
 
   useEffect(() => {
     if (!hand) {
+      // 既存パターン (useStrategy 系と統一): prop null 時の state reset。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEvaluations(null);
       setLoading(false);
       setError(null);

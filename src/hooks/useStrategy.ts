@@ -16,6 +16,10 @@ export function useStrategy(scenario: Scenario | null): UseStrategyResult {
 
   useEffect(() => {
     if (!scenario) {
+      // 既存パターン: prop が null になった時の state reset。eslint-plugin-react-hooks v7+
+      // の `set-state-in-effect` rule は意図的に許容。本 hook も含む 5 つの fetch hook で
+      // 統一形式 (useFlopNode / useOpenEvaluation / use3betEvaluation / use4betEvaluation)。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(null);
       setLoading(false);
       setError(null);

@@ -1,7 +1,7 @@
 // モバイル UI 用の型と判定ヘルパー (PC側 src/types/strategy.ts の Position とは別ドメインで管理)。
 
 export type Position = 'UTG' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
-export type MobileTab = 'range' | 'eval';
+export type MobileTab = 'range' | 'eval' | 'flop';
 
 /** 6max preflop アクション順 (UTG が最初、BB が最後) */
 export const POSITION_ORDER: ReadonlyArray<Position> = [

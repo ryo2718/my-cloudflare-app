@@ -49,7 +49,7 @@ function orderRanks(a: string, b: string): [string, string] {
 
 /** 入力文字列のクリーニング: 空白・カンマ・ハイフンを除去。 */
 function cleanInput(input: string): string {
-  return input.replace(/[\s,\-]/g, '');
+  return input.replace(/[\s,-]/g, '');
 }
 
 /**
