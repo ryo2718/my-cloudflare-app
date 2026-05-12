@@ -16,12 +16,11 @@
 // variant は positions + bucket から derive (findFlopVariantFromUI)。
 
 import { useMemo, type CSSProperties } from 'react';
-import { FlopActionTotalsCard } from './FlopActionTotalsCard';
 import { FlopBoardInput } from './FlopBoardInput';
 import { FlopBoardList } from './FlopBoardList';
 import { FlopBoardSummary } from './FlopBoardSummary';
 import { FlopBreadcrumb } from './FlopBreadcrumb';
-import { FlopNextActionButtons } from './FlopNextActionButtons';
+import { FlopOOPActions } from './FlopOOPActions';
 import { FlopPositionPicker } from './FlopPositionPicker';
 import { FlopPreflopPicker } from './FlopPreflopPicker';
 import { encodeStep, hasAggressionInChain } from '../data/flopChain';
@@ -128,18 +127,35 @@ export function FlopStrategyView({
                 </div>
               </StatusLine>
             )}
-            {!loading && !error && data && (
+            {!loading && !error && data && variant && (
               <>
-                <FlopBoardSummary data={data} selectedBoard={selectedBoard} />
-                <FlopActionTotalsCard totals={displayTotals}>
-                  <FlopNextActionButtons
-                    actions={data.game_point.available_actions}
-                    totals={displayTotals}
-                    afterAggression={hasAggressionInChain(chainArr)}
-                    onSelect={handleSelectAction}
-                    disabled={loading}
-                  />
-                </FlopActionTotalsCard>
+                <FlopBoardSummary
+                  variant={variant}
+                  data={data}
+                  selectedBoard={selectedBoard}
+                />
+                {(() => {
+                  // 現ノードの actor (= OOP / IP) を判定。chain 偶数 → OOP、奇数 → IP の
+                  // 厳密交代 (flop_tree の制約)。data.players の relative_position と
+                  // _meta.next_actor 一致でも判定可。
+                  const oopPlayer = data.players.find((p) => p.relative_position === 'OOP');
+                  const ipPlayer  = data.players.find((p) => p.relative_position === 'IP');
+                  const nextActorLc = data._meta.next_actor;
+                  const isOopTurn = oopPlayer && oopPlayer.position.toLowerCase() === nextActorLc;
+                  const currentPlayer = isOopTurn ? oopPlayer : ipPlayer;
+                  if (!currentPlayer) return null;
+                  return (
+                    <FlopOOPActions
+                      actor={isOopTurn ? 'OOP' : 'IP'}
+                      position={currentPlayer.position}
+                      actions={data.game_point.available_actions}
+                      totals={displayTotals}
+                      afterAggression={hasAggressionInChain(chainArr)}
+                      onSelect={handleSelectAction}
+                      disabled={loading}
+                    />
+                  );
+                })()}
                 <FlopBoardList
                   solutions={data.solutions}
                   selectedBoard={selectedBoardName}

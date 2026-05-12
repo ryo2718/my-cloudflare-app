@@ -1,9 +1,19 @@
-// ボード概要カード: OOP / IP ラベル + EV / EQ / EQR + 大きめ flop カード + pot。
+// § 4: ボード概要 (Phase R3 で再設計、OOP/IP 横並び)。
 //
-// 数値表示 ⇄ Visual (EQ をプログレスバー) を 1 つのトグルで切替 (Q5 確定済、
-// ボード概要のみが対象)。EV は絶対値で正規化困難なため数値固定、EQ のみゲージ化。
+// 元要件:
+//   　　　　　UTG(original)　　　BB(caller)  (3bpとかなら逆になるこれも判定して)
+//   EV
+//   EQR
+//
+//   大きめにflopカード表示
+//   「」　　　　「」　　　　「」
+//
+// 実装:
+//   - 横並び 2 列: OOP (左) / IP (右)、各列に position + role + EV + EQ + EQR
+//   - role label は variant の opener/caller/responder から動的判定
+//   - 中央 (列下) に大きめの flop カード 3 枚
 
-import { useState, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import type {
   BoardSolution,
   FlopNode,
@@ -13,62 +23,66 @@ import type {
 } from '../types/flop';
 import type { Rank, Suit } from '../types/card';
 import { SUIT_COLOR, SUIT_SYMBOL } from '../types/card';
+import {
+  getFlopCaller,
+  getFlopOpener,
+  getFlopResponder,
+} from '../data/flopVariants';
+import type { Position } from '../types/strategy';
 import { THEME } from '../styles/theme';
 
 interface Props {
+  variant: string;
   data: FlopNode;
-  /**
-   * 選択中の board solution。指定時:
-   *  - board cards: 選択 board の cards (data.game_point.game.board ではなく)
-   *  - player stats: solution.player_solutions (range avg の player_totals ではなく)
-   *  - タイトルに「Selected: <board>」を表示
-   */
   selectedBoard?: BoardSolution | null;
 }
 
-export function FlopBoardSummary({ data, selectedBoard }: Props) {
-  const [visual, setVisual] = useState(false);
+export function FlopBoardSummary({ variant, data, selectedBoard }: Props) {
+  const oopPlayer = data.players.find((p) => p.relative_position === 'OOP');
+  const ipPlayer = data.players.find((p) => p.relative_position === 'IP');
 
-  const oop = data.players.find((p) => p.relative_position === 'OOP');
-  const ip = data.players.find((p) => p.relative_position === 'IP');
-
-  // selectedBoard あれば player_solutions を、なければ player_totals を使う
+  // selectedBoard あれば player_solutions、なければ player_totals (range avg)
   const statsSource: ReadonlyArray<PlayerTotal | PlayerSolution> =
     selectedBoard ? selectedBoard.player_solutions : data.player_totals;
 
-  const oopTotals = oop ? findStats(statsSource, oop.position) : null;
-  const ipTotals = ip ? findStats(statsSource, ip.position) : null;
+  const opener = getFlopOpener(variant);
+  const caller = getFlopCaller(variant);
+  const responder = getFlopResponder(variant);
+  const roleOf = (p: Position): string => buildRoleLabel(p, opener, caller, responder);
 
-  // selectedBoard あればその name を、なければ data の board を使う
   const boardName = selectedBoard ? selectedBoard.name : data.game_point.game.board;
-  const boardCards = parseBoardString(boardName);
+  const cards = parseBoardString(boardName);
   const street = data.game_point.game.current_street;
 
   return (
     <div style={containerStyle}>
-      <div style={headerStyle}>
+      <div style={titleRowStyle}>
         <span style={titleStyle}>
           {selectedBoard ? `Selected: ${selectedBoard.name}` : 'Board Summary (range avg)'}
         </span>
-        <button
-          type="button"
-          onClick={() => setVisual(!visual)}
-          style={modeToggleStyle}
-          title="数値 ⇄ ゲージ 切替"
-        >
-          {visual ? 'Numeric' : 'Visual'}
-        </button>
       </div>
 
-      {oop && oopTotals && (
-        <PlayerRow label="OOP" player={oop} totals={oopTotals} visual={visual} />
-      )}
-      {ip && ipTotals && (
-        <PlayerRow label="IP" player={ip} totals={ipTotals} visual={visual} />
-      )}
+      <div style={rowStyle}>
+        {oopPlayer && (
+          <PlayerColumn
+            badge="OOP"
+            player={oopPlayer}
+            role={roleOf(oopPlayer.position)}
+            stats={findStats(statsSource, oopPlayer.position)}
+          />
+        )}
+        {ipPlayer && (
+          <PlayerColumn
+            badge="IP"
+            player={ipPlayer}
+            role={roleOf(ipPlayer.position)}
+            stats={findStats(statsSource, ipPlayer.position)}
+          />
+        )}
+      </div>
 
       <div style={boardRowStyle}>
-        {boardCards.map((c, i) => (
+        {cards.map((c, i) => (
           <BoardCardCell key={i} rank={c.rank} suit={c.suit} />
         ))}
       </div>
@@ -99,7 +113,6 @@ function findStats(
 }
 
 function parseBoardString(board: string): Array<{ rank: Rank; suit: Suit }> {
-  // "QsTs7h" → [{Q,s}, {T,s}, {7,h}]
   const out: Array<{ rank: Rank; suit: Suit }> = [];
   for (let i = 0; i < board.length; i += 2) {
     out.push({
@@ -110,52 +123,64 @@ function parseBoardString(board: string): Array<{ rank: Rank; suit: Suit }> {
   return out;
 }
 
+/**
+ * Position に role label を割当て。variant 文脈で:
+ *  - opener と caller が同じ (3bp 等): "opener / caller" 表記
+ *  - opener のみ: "original"
+ *  - caller のみ: "caller"
+ *  - responder のみ (= 3bettor): "raiser"
+ */
+function buildRoleLabel(
+  pos: Position,
+  opener: Position,
+  caller: Position,
+  responder: Position,
+): string {
+  const isOpener = pos === opener;
+  const isCaller = pos === caller;
+  const isResponder = pos === responder;
+  if (isOpener && isCaller) return 'opener · caller';
+  if (isOpener) return 'opener';
+  if (isCaller && isResponder) return 'caller · responder';
+  if (isResponder) return 'responder';
+  if (isCaller) return 'caller';
+  return '';
+}
+
 // ----------------------------------------------------------------------------
 // Subcomponents
 // ----------------------------------------------------------------------------
 
-interface PlayerRowProps {
-  label: 'OOP' | 'IP';
+interface PlayerColumnProps {
+  badge: 'OOP' | 'IP';
   player: FlopPlayer;
-  totals: PlayerTotal | PlayerSolution;
-  visual: boolean;
+  role: string;
+  stats: PlayerTotal | PlayerSolution | null;
 }
 
-function PlayerRow({ label, player, totals, visual }: PlayerRowProps) {
+function PlayerColumn({ badge, player, role, stats }: PlayerColumnProps) {
   return (
-    <div style={playerRowStyle}>
-      <span style={posBadgeStyle(label)}>{label}</span>
-      <span style={posNameStyle}>{player.position}</span>
-      <Stat name="EV" value={totals.ev !== null ? totals.ev.toFixed(2) : '—'} />
-      <StatEQ value={totals.eq} visual={visual} />
-      <Stat name="EQR" value={totals.eqr !== null ? totals.eqr.toFixed(2) : '—'} />
+    <div style={columnStyle}>
+      <div style={columnHeaderStyle}>
+        <span style={posBadgeStyle(badge)}>{badge}</span>
+        <span style={posNameStyle}>{player.position}</span>
+      </div>
+      {role && <div style={roleLabelStyle}>{role}</div>}
+      <div style={statsListStyle}>
+        <Stat label="EV" value={stats?.ev !== null && stats?.ev !== undefined ? stats.ev.toFixed(2) : '—'} />
+        <Stat label="EQ" value={stats?.eq !== null && stats?.eq !== undefined ? `${(stats.eq * 100).toFixed(1)}%` : '—'} />
+        <Stat label="EQR" value={stats?.eqr !== null && stats?.eqr !== undefined ? stats.eqr.toFixed(2) : '—'} />
+      </div>
     </div>
   );
 }
 
-function Stat({ name, value }: { name: string; value: string }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <span style={statStyle}>
-      <span style={statKeyStyle}>{name}</span>
+    <div style={statRowStyle}>
+      <span style={statKeyStyle}>{label}</span>
       <span style={statValueStyle}>{value}</span>
-    </span>
-  );
-}
-
-function StatEQ({ value, visual }: { value: number | null; visual: boolean }) {
-  const pct = value !== null ? value * 100 : null;
-  return (
-    <span style={statStyle}>
-      <span style={statKeyStyle}>EQ</span>
-      <span style={statValueStyle}>
-        {pct !== null ? `${pct.toFixed(1)}%` : '—'}
-      </span>
-      {visual && pct !== null && (
-        <span style={gaugeOuterStyle}>
-          <span style={{ ...gaugeInnerStyle, width: `${Math.min(100, Math.max(0, pct))}%` }} />
-        </span>
-      )}
-    </span>
+    </div>
   );
 }
 
@@ -175,17 +200,17 @@ function BoardCardCell({ rank, suit }: { rank: Rank; suit: Suit }) {
 const containerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.55rem',
+  gap: '0.8rem',
   background: THEME.card,
   border: `1px solid ${THEME.border}`,
   borderRadius: '0.5rem',
-  padding: '0.85rem 1rem',
+  padding: '0.95rem 1.1rem',
 };
 
-const headerStyle: CSSProperties = {
+const titleRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  justifyContent: 'flex-start',
 };
 
 const titleStyle: CSSProperties = {
@@ -196,24 +221,22 @@ const titleStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-const modeToggleStyle: CSSProperties = {
-  background: THEME.cardElevated,
-  color: THEME.textSecondary,
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '0.3rem',
-  padding: '0.2rem 0.6rem',
-  fontSize: '0.72rem',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
+const rowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '1rem',
 };
 
-const playerRowStyle: CSSProperties = {
+const columnStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.4rem',
+};
+
+const columnHeaderStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '0.7rem',
-  flexWrap: 'wrap',
-  fontSize: '0.86rem',
-  color: THEME.textPrimary,
+  gap: '0.5rem',
 };
 
 function posBadgeStyle(label: 'OOP' | 'IP'): CSSProperties {
@@ -221,11 +244,11 @@ function posBadgeStyle(label: 'OOP' | 'IP'): CSSProperties {
     display: 'inline-block',
     fontSize: '0.7rem',
     fontWeight: 700,
-    padding: '0.15rem 0.45rem',
+    padding: '0.18rem 0.5rem',
     borderRadius: '0.25rem',
     background: label === 'OOP' ? '#fef3c7' : '#dbeafe',
     color: label === 'OOP' ? '#92400e' : '#1e3a8a',
-    minWidth: '34px',
+    minWidth: '36px',
     textAlign: 'center',
     letterSpacing: '0.06em',
   };
@@ -233,14 +256,28 @@ function posBadgeStyle(label: 'OOP' | 'IP'): CSSProperties {
 
 const posNameStyle: CSSProperties = {
   fontWeight: 700,
-  minWidth: '36px',
+  fontSize: '1.05rem',
   color: THEME.textPrimary,
 };
 
-const statStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '0.3rem',
+const roleLabelStyle: CSSProperties = {
+  fontSize: '0.74rem',
+  color: THEME.textMuted,
+  fontStyle: 'italic',
+  letterSpacing: '0.03em',
+};
+
+const statsListStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.25rem',
+};
+
+const statRowStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'baseline',
+  gap: '0.6rem',
 };
 
 const statKeyStyle: CSSProperties = {
@@ -252,57 +289,41 @@ const statKeyStyle: CSSProperties = {
 
 const statValueStyle: CSSProperties = {
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  fontSize: '0.85rem',
+  fontSize: '0.92rem',
   color: THEME.textPrimary,
   fontWeight: 600,
 };
 
-const gaugeOuterStyle: CSSProperties = {
-  display: 'inline-block',
-  width: '60px',
-  height: '8px',
-  background: THEME.bg,
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '4px',
-  overflow: 'hidden',
-};
-
-const gaugeInnerStyle: CSSProperties = {
-  display: 'block',
-  height: '100%',
-  background: '#047857',
-};
-
 const boardRowStyle: CSSProperties = {
   display: 'flex',
-  gap: '0.6rem',
+  gap: '0.65rem',
   justifyContent: 'center',
   padding: '0.45rem 0',
 };
 
 const cardCellStyle: CSSProperties = {
-  width: '52px',
-  height: '70px',
-  borderRadius: '0.4rem',
+  width: '64px',
+  height: '88px',
+  borderRadius: '0.5rem',
   background: '#fff',
-  border: `1.5px solid ${THEME.borderStrong}`,
-  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  border: `2px solid ${THEME.borderStrong}`,
+  boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '0.1rem',
+  gap: '0.15rem',
 };
 
 const cardRankStyle: CSSProperties = {
-  fontSize: '1.45rem',
+  fontSize: '1.7rem',
   fontWeight: 700,
   color: '#1f2937',
   lineHeight: 1,
 };
 
 const cardSuitStyle: CSSProperties = {
-  fontSize: '1.3rem',
+  fontSize: '1.55rem',
   lineHeight: 1,
 };
 
@@ -312,6 +333,7 @@ const potRowStyle: CSSProperties = {
   fontSize: '0.78rem',
   color: THEME.textSecondary,
   flexWrap: 'wrap',
+  justifyContent: 'center',
 };
 
 const potItemStyle: CSSProperties = {

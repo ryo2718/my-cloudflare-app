@@ -1,29 +1,278 @@
-// Phase R1 scaffolding — 中身は Phase R3 で実装。
+// § 5: OOP アクション一覧 (Phase R3 で 5 列 table 化)。
 //
-// 元要件 §5: OOP アクション一覧 (table 形式、5 列)
+// 元要件:
 //   ヘッダ: "OOP: <position>"
 //   行: [記号] [アクション名] [サイズ%] [混合戦略%] [実行ボタン]
-//   0% 行は非表示、既存 STRATEGY_TEXT_COLORS + classifyByPlayRate 流用。
+//   0% 非表示、既存 STRATEGY_TEXT_COLORS + classifyByPlayRate 流用
 //
-// Q3 確定: tentative commit pattern.
-//   ユーザー OOP click → onTentativeSelect(actionCode)
-//   親 (FlopStrategyView) が tempChain 作成 + IP node fetch を起動
-//   pending 中は OOP 行で選択 action を highlight + 再 click で取消
+// R3 は immediate-commit (クリックで chain push)。R4 で tentative pattern に refactor 予定。
+// `actor` prop で OOP / IP のヘッダラベルだけ切替、振る舞いは同じ。
 
-import type { ActionSolution, FlopAvailableAction } from '../types/flop';
+import type { CSSProperties } from 'react';
+import type {
+  ActionSolution,
+  FlopAction,
+  FlopAvailableAction,
+} from '../types/flop';
+import {
+  classifyByPlayRate,
+  getSymbolStyle,
+  STRATEGY_TEXT_COLORS,
+} from '../utils/strategySymbol';
+import { THEME } from '../styles/theme';
 
 export interface FlopOOPActionsProps {
-  oopPosition: string;
+  /** 'OOP' or 'IP' (ヘッダラベル切替)。 */
+  actor: 'OOP' | 'IP';
+  /** Position display (例: 'BB')。 */
+  position: string;
   actions: ReadonlyArray<FlopAvailableAction>;
   totals: ReadonlyArray<ActionSolution>;
   afterAggression: boolean;
-  pendingAction: string | null;
-  onTentativeSelect: (actionCode: string) => void;
-  /** pendingAction を null に戻す (再 click)。 */
-  onCancelPending: () => void;
+  /** クリック時に呼ばれる (R3 immediate / R4 tentative の差は親が吸収)。 */
+  onSelect: (actionCode: string) => void;
+  disabled?: boolean;
+  /** ヘッダに「待機中 (OOP の選択待ち)」等の追加表示。任意。 */
+  subtitle?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function FlopOOPActions(_props: FlopOOPActionsProps) {
-  return null; // TODO Phase R3: 5 列 table + tentative highlight + 取消
+export function FlopOOPActions({
+  actor,
+  position,
+  actions,
+  totals,
+  afterAggression,
+  onSelect,
+  disabled = false,
+  subtitle,
+}: FlopOOPActionsProps) {
+  const freqByCode = new Map<string, number>();
+  for (const t of totals) freqByCode.set(t.action_code, t.frequency);
+
+  // 0% (= 表示値が "0%" になる ~0.5% 未満) アクションは非表示
+  const visible = actions.filter((a) => {
+    const freq = freqByCode.get(a.action.code) ?? 0;
+    return Math.round(freq * 100) > 0;
+  });
+
+  return (
+    <div style={containerStyle}>
+      <div style={headerStyle}>
+        <span style={actorBadgeStyle(actor)}>{actor}</span>
+        <span style={positionLabelStyle}>{position}</span>
+        {subtitle && <span style={subtitleStyle}>{subtitle}</span>}
+      </div>
+
+      {visible.length === 0 ? (
+        <div style={emptyStyle}>有効なアクションなし</div>
+      ) : (
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>記号</th>
+              <th style={thLeftStyle}>アクション</th>
+              <th style={thStyle}>サイズ</th>
+              <th style={thStyle}>混合戦略</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((a) => (
+              <ActionRow
+                key={a.action.code}
+                action={a.action}
+                frequency={freqByCode.get(a.action.code) ?? 0}
+                afterAggression={afterAggression}
+                disabled={disabled}
+                onClick={() => onSelect(a.action.code)}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
 }
+
+// ----------------------------------------------------------------------------
+// Action row
+// ----------------------------------------------------------------------------
+
+interface ActionRowProps {
+  action: FlopAction;
+  frequency: number;
+  afterAggression: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+function ActionRow({ action, frequency, afterAggression, disabled, onClick }: ActionRowProps) {
+  const pct = frequency * 100;
+  const symbol = classifyByPlayRate(pct, 0);
+  const symStyle = getSymbolStyle(symbol);
+  const { actionLabel, sizeLabel } = formatActionAndSize(action, afterAggression);
+  const textColor = getActionTextColor(action);
+
+  return (
+    <tr>
+      <td style={{ ...tdStyle, color: symStyle.symbolColor, fontSize: '1.15rem', fontWeight: 500 }}>
+        {symbol}
+      </td>
+      <td style={{ ...tdLeftStyle, color: textColor, fontWeight: 600 }}>{actionLabel}</td>
+      <td style={tdStyle}>{sizeLabel ?? '—'}</td>
+      <td style={tdMonoStyle}>{pct.toFixed(0)}%</td>
+      <td style={tdStyle}>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          style={disabled ? execButtonDisabledStyle : execButtonStyle}
+        >
+          実行
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Format helpers
+// ----------------------------------------------------------------------------
+
+function formatActionAndSize(action: FlopAction, afterAggression: boolean): {
+  actionLabel: string;
+  sizeLabel: string | null;
+} {
+  const code = action.code;
+  if (code === 'X') return { actionLabel: 'check', sizeLabel: null };
+  if (code === 'C') return { actionLabel: 'call', sizeLabel: null };
+  if (code === 'F') return { actionLabel: 'fold', sizeLabel: null };
+  if (code === 'RAI') return { actionLabel: 'all-in', sizeLabel: null };
+  if (code.startsWith('R')) {
+    const verb = afterAggression ? 'raise' : 'bet';
+    const potPct = action.betsize_by_pot
+      ? `${Math.round(parseFloat(action.betsize_by_pot) * 100)}%`
+      : null;
+    return { actionLabel: verb, sizeLabel: potPct };
+  }
+  return { actionLabel: code, sizeLabel: null };
+}
+
+function getActionTextColor(action: FlopAction): string {
+  if (action.code === 'RAI') return STRATEGY_TEXT_COLORS.allin;
+  if (action.type === 'FOLD') return STRATEGY_TEXT_COLORS.fold;
+  if (action.type === 'CHECK' || action.type === 'CALL') return STRATEGY_TEXT_COLORS.call;
+  if (action.type === 'RAISE') return STRATEGY_TEXT_COLORS.raise;
+  return THEME.textPrimary;
+}
+
+// ----------------------------------------------------------------------------
+// Styles
+// ----------------------------------------------------------------------------
+
+const containerStyle: CSSProperties = {
+  background: THEME.card,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.5rem',
+  padding: '0.85rem 1rem',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.55rem',
+};
+
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+};
+
+function actorBadgeStyle(label: 'OOP' | 'IP'): CSSProperties {
+  return {
+    display: 'inline-block',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    padding: '0.2rem 0.55rem',
+    borderRadius: '0.25rem',
+    background: label === 'OOP' ? '#fef3c7' : '#dbeafe',
+    color: label === 'OOP' ? '#92400e' : '#1e3a8a',
+    letterSpacing: '0.06em',
+  };
+}
+
+const positionLabelStyle: CSSProperties = {
+  fontSize: '0.95rem',
+  fontWeight: 700,
+  color: THEME.textPrimary,
+};
+
+const subtitleStyle: CSSProperties = {
+  fontSize: '0.74rem',
+  color: THEME.textMuted,
+  fontStyle: 'italic',
+  marginLeft: '0.3rem',
+};
+
+const tableStyle: CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: '0.88rem',
+};
+
+const thStyle: CSSProperties = {
+  textAlign: 'center',
+  padding: '0.3rem 0.4rem',
+  fontSize: '0.7rem',
+  color: THEME.textMuted,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  fontWeight: 700,
+  borderBottom: `1px solid ${THEME.border}`,
+};
+
+const thLeftStyle: CSSProperties = {
+  ...thStyle,
+  textAlign: 'left',
+};
+
+const tdStyle: CSSProperties = {
+  textAlign: 'center',
+  padding: '0.4rem 0.4rem',
+  borderBottom: `1px solid ${THEME.bg}`,
+};
+
+const tdLeftStyle: CSSProperties = {
+  ...tdStyle,
+  textAlign: 'left',
+};
+
+const tdMonoStyle: CSSProperties = {
+  ...tdStyle,
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  fontWeight: 600,
+  color: THEME.textPrimary,
+};
+
+const execButtonStyle: CSSProperties = {
+  background: THEME.accent,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.3rem',
+  padding: '0.32rem 0.7rem',
+  fontSize: '0.78rem',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  fontWeight: 600,
+};
+
+const execButtonDisabledStyle: CSSProperties = {
+  ...execButtonStyle,
+  background: THEME.textFaint,
+  cursor: 'not-allowed',
+};
+
+const emptyStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textMuted,
+  padding: '0.5rem',
+  textAlign: 'center',
+};
