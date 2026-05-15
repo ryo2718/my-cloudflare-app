@@ -17,8 +17,8 @@ import {
 import type { Position } from '../types/strategy';
 
 describe('FLOP_VARIANTS manifest', () => {
-  it('contains exactly 45 variants', () => {
-    expect(FLOP_VARIANTS.size).toBe(45);
+  it('contains exactly 49 variants (Phase 2 で 4 件追加)', () => {
+    expect(FLOP_VARIANTS.size).toBe(49);
   });
 
   it('FLOP_CONFIG points to the single supported config', () => {
@@ -440,18 +440,18 @@ describe('UI mapping 完全列挙 (Fix 3 で確定)', () => {
     'SB-BB':  { limp: 'sbc_bb', srp: 'sbr_bbc',  '3bp': 'sbr_bbr_sbc',          '4bp': 'sbr_bbr_sbr21_bbc',        '5bp': null },
     'SB-UTG': { limp: null,     srp: 'utgr_sbc', '3bp': 'utgr_sbr_utgc',        '4bp': 'utgr_sbr_utgr21_sbc',      '5bp': 'utgr_sbr_utgr_sbr40_utgc' },
     'SB-HJ':  { limp: null,     srp: 'hjr_sbc',  '3bp': null,                   '4bp': null,                       '5bp': null },
-    'SB-CO':  { limp: null,     srp: 'cor_sbc',  '3bp': 'cor_sbr_coc',          '4bp': null,                       '5bp': null },
+    'SB-CO':  { limp: null,     srp: 'cor_sbc',  '3bp': 'cor_sbr_coc',          '4bp': 'cor_sbr_cor24_sbc',        '5bp': 'cor_sbr_cor24_sbr40_coc' },
     'SB-BTN': { limp: null,     srp: 'btnr_sbc', '3bp': 'btnr_sbr_btnc',        '4bp': 'btnr_sbr_btnr26_sbc',      '5bp': null },
     'BB-UTG': { limp: null,     srp: 'utgr_bbc', '3bp': 'utgr_bbr_utgc',        '4bp': 'utgr_bbr_utgr22_bbc',      '5bp': 'utgr_bbr_utgr_bbr34_utgc' },
     'BB-HJ':  { limp: null,     srp: 'hjr_bbc',  '3bp': 'hjr_bbr_hjc',          '4bp': 'hjr_bbr_hjr24_bbc',        '5bp': null },
     'BB-CO':  { limp: null,     srp: 'cor_bbc',  '3bp': 'cor_bbr_coc',          '4bp': 'cor_bbr_cor27_bbc',        '5bp': null },
-    'BB-BTN': { limp: null,     srp: 'btnr_bbc', '3bp': null,                   '4bp': 'btnr_bbr_btnr27_bbc',      '5bp': null },
+    'BB-BTN': { limp: null,     srp: 'btnr_bbc', '3bp': 'btnr_bbr_btnc',        '4bp': 'btnr_bbr_btnr27_bbc',      '5bp': null },
     'UTG-HJ': { limp: null,     srp: null,       '3bp': 'utgr_hjr_utgc',        '4bp': 'utgr_hjr_utgr20_hjc',      '5bp': null },
     'UTG-CO': { limp: null,     srp: null,       '3bp': 'utgr_cor_utgc',        '4bp': 'utgr_cor_utgr20_coc',      '5bp': null },
     'UTG-BTN':{ limp: null,     srp: 'utgr_btnc','3bp': 'utgr_btnr_utgc',       '4bp': 'utgr_btnr_utgr20_btnc',    '5bp': null },
     'HJ-CO':  { limp: null,     srp: null,       '3bp': 'hjr_cor_hjc',          '4bp': 'hjr_cor_hjr20_coc',        '5bp': null },
     'HJ-BTN': { limp: null,     srp: 'hjr_btnc', '3bp': 'hjr_btnr_hjc',         '4bp': 'hjr_btnr_hjr20_btnc',      '5bp': null },
-    'CO-BTN': { limp: null,     srp: 'cor_btnc', '3bp': 'cor_btnr_coc',         '4bp': null,                       '5bp': null },
+    'CO-BTN': { limp: null,     srp: 'cor_btnc', '3bp': 'cor_btnr_coc',         '4bp': 'cor_btnr_cor22_btnc',      '5bp': null },
   };
 
   for (let i = 0; i < POSITIONS.length; i++) {
@@ -470,7 +470,7 @@ describe('UI mapping 完全列挙 (Fix 3 で確定)', () => {
     }
   }
 
-  it('UI から到達できる variant 数: 40 / 45 (5 件は limp-tree higher depth)', () => {
+  it('UI から到達できる variant 数: 44 / 49 (5 件は limp-tree higher depth)', () => {
     const reached = new Set<string>();
     for (let i = 0; i < POSITIONS.length; i++) {
       for (let j = i + 1; j < POSITIONS.length; j++) {
@@ -480,8 +480,8 @@ describe('UI mapping 完全列挙 (Fix 3 で確定)', () => {
         }
       }
     }
-    expect(reached.size).toBe(40);
-    // 残り 5 件は limp-tree higher depth (Fix 2 で意図的に除外)
+    expect(reached.size).toBe(44);
+    // 残り 5 件は限-tree higher depth (Fix 2 で意図的に除外)
     const unreached = [...FLOP_VARIANTS].filter((v) => !reached.has(v)).sort();
     expect(unreached).toEqual([
       'sbc_bbr3_sbc',

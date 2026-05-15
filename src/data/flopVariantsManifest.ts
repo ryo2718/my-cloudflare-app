@@ -7,6 +7,7 @@ export const FLOP_CONFIG = 'cash_100bb_6max_nl500_2.5x' as const;
 /** All flop variant directory names available in the dataset. */
 export const FLOP_VARIANTS: ReadonlySet<string> = new Set<string>([
   'btnr_bbc',
+  'btnr_bbr_btnc',
   'btnr_bbr_btnr27_bbc',
   'btnr_sbc',
   'btnr_sbr_btnc',
@@ -16,8 +17,11 @@ export const FLOP_VARIANTS: ReadonlySet<string> = new Set<string>([
   'cor_bbr_cor27_bbc',
   'cor_btnc',
   'cor_btnr_coc',
+  'cor_btnr_cor22_btnc',
   'cor_sbc',
   'cor_sbr_coc',
+  'cor_sbr_cor24_sbc',
+  'cor_sbr_cor24_sbr40_coc',
   'hjr_bbc',
   'hjr_bbr_hjc',
   'hjr_bbr_hjr24_bbc',

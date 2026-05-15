@@ -1,0 +1,203 @@
+{
+  "kind": "cb_srp_quiz",
+  "description": "Continuation Bet (CB) quiz dataset for all SRP scenarios in cash_100bb_6max_nl500_2.5x preset.",
+  "cb_definition": "CB = preflop aggressor の flop における最初の aggressive action (= R<size> or RAI)。check は CB しない選択。",
+  "scenarios": [
+    {
+      "variant": "btnr_bbc",
+      "aggressor": "BTN",
+      "aggressor_role": "IP",
+      "defender": "BB",
+      "oop": "BB",
+      "ip": "BTN",
+      "cb_node": {
+        "filename": "flop_bb_x.json",
+        "chain": [
+          "bb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.53304,
+      "aggregate_check_rate": 0.46696,
+      "board_count": 1755
+    },
+    {
+      "variant": "btnr_sbc",
+      "aggressor": "BTN",
+      "aggressor_role": "IP",
+      "defender": "SB",
+      "oop": "SB",
+      "ip": "BTN",
+      "cb_node": {
+        "filename": "flop_sb_x.json",
+        "chain": [
+          "sb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.43286,
+      "aggregate_check_rate": 0.56714,
+      "board_count": 1755
+    },
+    {
+      "variant": "cor_bbc",
+      "aggressor": "CO",
+      "aggressor_role": "IP",
+      "defender": "BB",
+      "oop": "BB",
+      "ip": "CO",
+      "cb_node": {
+        "filename": "flop_bb_x.json",
+        "chain": [
+          "bb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.56425,
+      "aggregate_check_rate": 0.43575,
+      "board_count": 1755
+    },
+    {
+      "variant": "cor_btnc",
+      "aggressor": "CO",
+      "aggressor_role": "OOP",
+      "defender": "BTN",
+      "oop": "CO",
+      "ip": "BTN",
+      "cb_node": {
+        "filename": "flop_root.json",
+        "chain": []
+      },
+      "aggregate_cb_rate": 0.21878,
+      "aggregate_check_rate": 0.78122,
+      "board_count": 1755
+    },
+    {
+      "variant": "cor_sbc",
+      "aggressor": "CO",
+      "aggressor_role": "IP",
+      "defender": "SB",
+      "oop": "SB",
+      "ip": "CO",
+      "cb_node": {
+        "filename": "flop_sb_x.json",
+        "chain": [
+          "sb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.5043,
+      "aggregate_check_rate": 0.4957,
+      "board_count": 1755
+    },
+    {
+      "variant": "hjr_bbc",
+      "aggressor": "HJ",
+      "aggressor_role": "IP",
+      "defender": "BB",
+      "oop": "BB",
+      "ip": "HJ",
+      "cb_node": {
+        "filename": "flop_bb_x.json",
+        "chain": [
+          "bb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.59237,
+      "aggregate_check_rate": 0.40763,
+      "board_count": 1755
+    },
+    {
+      "variant": "hjr_btnc",
+      "aggressor": "HJ",
+      "aggressor_role": "OOP",
+      "defender": "BTN",
+      "oop": "HJ",
+      "ip": "BTN",
+      "cb_node": {
+        "filename": "flop_root.json",
+        "chain": []
+      },
+      "aggregate_cb_rate": 0.2822,
+      "aggregate_check_rate": 0.7178,
+      "board_count": 1755
+    },
+    {
+      "variant": "hjr_sbc",
+      "aggressor": "HJ",
+      "aggressor_role": "IP",
+      "defender": "SB",
+      "oop": "SB",
+      "ip": "HJ",
+      "cb_node": {
+        "filename": "flop_sb_x.json",
+        "chain": [
+          "sb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.52909,
+      "aggregate_check_rate": 0.47091,
+      "board_count": 1755
+    },
+    {
+      "variant": "sbr_bbc",
+      "aggressor": "SB",
+      "aggressor_role": "OOP",
+      "defender": "BB",
+      "oop": "SB",
+      "ip": "BB",
+      "cb_node": {
+        "filename": "flop_root.json",
+        "chain": []
+      },
+      "aggregate_cb_rate": 0.42225,
+      "aggregate_check_rate": 0.57776,
+      "board_count": 1755
+    },
+    {
+      "variant": "utgr_bbc",
+      "aggressor": "UTG",
+      "aggressor_role": "IP",
+      "defender": "BB",
+      "oop": "BB",
+      "ip": "UTG",
+      "cb_node": {
+        "filename": "flop_bb_x.json",
+        "chain": [
+          "bb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.59984,
+      "aggregate_check_rate": 0.40017,
+      "board_count": 1755
+    },
+    {
+      "variant": "utgr_btnc",
+      "aggressor": "UTG",
+      "aggressor_role": "OOP",
+      "defender": "BTN",
+      "oop": "UTG",
+      "ip": "BTN",
+      "cb_node": {
+        "filename": "flop_root.json",
+        "chain": []
+      },
+      "aggregate_cb_rate": 0.30447,
+      "aggregate_check_rate": 0.69553,
+      "board_count": 1755
+    },
+    {
+      "variant": "utgr_sbc",
+      "aggressor": "UTG",
+      "aggressor_role": "IP",
+      "defender": "SB",
+      "oop": "SB",
+      "ip": "UTG",
+      "cb_node": {
+        "filename": "flop_sb_x.json",
+        "chain": [
+          "sb_x"
+        ]
+      },
+      "aggregate_cb_rate": 0.52892,
+      "aggregate_check_rate": 0.47108,
+      "board_count": 1755
+    }
+  ]
+}
