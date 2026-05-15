@@ -166,17 +166,16 @@ export default function App() {
   );
 
   // ----- Flop タブ用 handlers (Phase R2 で update) -----
+  // Position / bucket 変更時は chain のみリセット (新 variant では actor が変わり旧 chain が無効)。
+  // 選択中のフロップ (selectedBoard) は保持して、同じボード上で variant 切替・数値再計算できるようにする。
   const handleFlopPositionsChange = useCallback((p: Position[]) => {
     setFlopPositions(p);
-    // 軸が変わったら chain と board 選択もリセット (旧 handleFlopVariantSelect と同方針)
     setFlopChain([]);
-    setFlopSelectedBoard(null);
   }, []);
 
   const handleFlopBucketChange = useCallback((b: PreflopBucket | null) => {
     setFlopBucket(b);
     setFlopChain([]);
-    setFlopSelectedBoard(null);
   }, []);
 
   /**

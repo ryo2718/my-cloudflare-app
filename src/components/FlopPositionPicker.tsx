@@ -1,6 +1,5 @@
-// § 2: Position 選択 (2 つ)。元要件:
-//   ○SB ○BB ○UTG ○HJ ○CO ○BTN
-//   2 つ選択、3 つ目クリック で 最古を pop (FIFO)、選択中はダーク背景 + ✓
+// § 2: Position 選択 — 最大 2 つまでトグル。
+//   選択中を再 click → 解除 / 2 つ選択済みで未選択 click → 無反応 (グレーアウト)。
 
 import type { CSSProperties } from 'react';
 import type { Position } from '../types/strategy';
@@ -14,32 +13,38 @@ export interface FlopPositionPickerProps {
 const ALL_POSITIONS: ReadonlyArray<Position> = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
 
 export function FlopPositionPicker({ positions, onChange }: FlopPositionPickerProps) {
+  const isMaxed = positions.length >= 2;
+
   const handleClick = (pos: Position) => {
     if (positions.includes(pos)) {
-      // 選択中を再 click → 解除
       onChange(positions.filter((p) => p !== pos));
       return;
     }
-    if (positions.length < 2) {
+    if (!isMaxed) {
       onChange([...positions, pos]);
-      return;
     }
-    // 既に 2 つ選択中で 3 つ目を click → 最古を pop して 新規を追加 (FIFO)
-    onChange([positions[1], pos]);
   };
 
   return (
     <div style={containerStyle}>
-      <div style={labelStyle}>Position (2 つ選択)</div>
+      <div style={labelStyle}>Position (最大 2 つ選択)</div>
       <div style={buttonsStyle}>
         {ALL_POSITIONS.map((pos) => {
           const selected = positions.includes(pos);
+          const disabled = !selected && isMaxed;
+          const style = selected
+            ? selectedButtonStyle
+            : disabled
+              ? disabledButtonStyle
+              : buttonStyle;
           return (
             <button
               key={pos}
               type="button"
               onClick={() => handleClick(pos)}
-              style={selected ? selectedButtonStyle : buttonStyle}
+              disabled={disabled}
+              aria-pressed={selected}
+              style={style}
             >
               {selected && <span style={checkStyle}>✓</span>}
               {pos}
@@ -97,6 +102,12 @@ const selectedButtonStyle: CSSProperties = {
   background: '#1a1a1a',
   color: '#ffffff',
   border: '1px solid #1a1a1a',
+};
+
+const disabledButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  opacity: 0.45,
+  cursor: 'not-allowed',
 };
 
 const checkStyle: CSSProperties = {

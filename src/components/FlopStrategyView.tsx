@@ -78,6 +78,17 @@ export function FlopStrategyView({
     ? selectedBoard.action_solutions
     : currentData?.action_totals ?? [];
 
+  // Bottom row も top row と同じく、選択中ボードがあれば per-board solution を引く。
+  // 引けなかった場合 (board name 不一致など) は変種全体の平均にフォールバック。
+  const pendingSelectedBoard =
+    pendingData && selectedBoardName
+      ? pendingData.solutions.find((s) => s.name === selectedBoardName) ?? null
+      : null;
+
+  const pendingDisplayTotals = pendingSelectedBoard
+    ? pendingSelectedBoard.action_solutions
+    : pendingData?.action_totals ?? [];
+
   // ----- Breadcrumb handlers -----
   const handleTruncate = (newLength: number) => {
     onChainChange(chain.slice(0, newLength));
@@ -192,7 +203,7 @@ export function FlopStrategyView({
                       actor={pendingActorLabels.current}
                       position={pendingActorLabels.currentPos}
                       actions={pendingData.game_point.available_actions}
-                      totals={pendingData.action_totals}
+                      totals={pendingDisplayTotals}
                       afterAggression={hasAggressionInChain(tempChain ?? [])}
                       onSelect={handleBottomCommit}
                       subtitle="↑ の選択を反映した次ノード"

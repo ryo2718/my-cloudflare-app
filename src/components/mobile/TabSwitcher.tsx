@@ -48,8 +48,14 @@ const baseStyle: CSSProperties = {
   textAlign: 'center',
   cursor: 'pointer',
   background: 'transparent',
+  // 透明 2px の bottom border で active との height 差をなくし、切替時の layout shift を防ぐ。
   border: 'none',
+  borderBottom: '2px solid transparent',
+  // Browser 既定の :focus outline (青リング) が active の orange underline と重なって
+  // 「inactive にも下線」と見える誤認を防ぐ。
+  outline: 'none',
   fontFamily: 'inherit',
+  transition: 'border-color 0.12s, color 0.12s',
 };
 
 const activeStyle: CSSProperties = {

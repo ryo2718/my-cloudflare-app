@@ -1,19 +1,16 @@
 // § 1: FLOP 入力 (常時表示)。
 //
-// 構造:
-//   - 上段: 3 slot [□] [□] [□] 表示 (空 / 選択中カード)
-//   - 中段: 13×4 grid (FlopKeyboard)
-//   - 下段: Reset + 正準化結果のヒント
+// state モデル (改修):
+//   - cards: (Card | null)[] 固定長 3
+//   - 3 slot は個別にクリア可 (slot click → そのインデックスを null に)
+//   - グリッド click → 「最初の null スロット」に挿入
+//   - 既選択カードはグリッドで disabled、3 スロットが全部埋まれば自動 canonicalize
 //
-// 動作:
-//   - grid click → 最初の空 slot に追加
-//   - 3 枚揃ったら getCanonicalBoardName で正準化 → 親に通知
-//   - Reset で全クリア + 親に通知 (null)
-//   - 選択済みカードは grid で disabled
+// メリット: 真ん中だけ間違えた等のケースで 1 タップ修正できる。
 
 import { useState, useCallback, useEffect, type CSSProperties } from 'react';
 import type { Card } from '../types/card';
-import { SUIT_COLOR, SUIT_SYMBOL, containsCard } from '../types/card';
+import { SUIT_COLOR, SUIT_SYMBOL, isSameCard } from '../types/card';
 import { FlopKeyboard } from './FlopKeyboard';
 import { getCanonicalBoardName } from '../data/flopBoardMap';
 import { THEME } from '../styles/theme';
@@ -21,32 +18,33 @@ import { THEME } from '../styles/theme';
 interface Props {
   /** 親 (FlopStrategyView) 側で保持する正準ボード名 (null = 未選択)。 */
   selectedBoard: string | null;
-  /** 確定 (3 枚揃って canonicalize 完了) or 解除 (Reset) で通知。 */
+  /** 確定 (3 枚揃って canonicalize 完了) or 解除 (Reset / slot 個別 click) で通知。 */
   onBoardSelect: (canonicalName: string | null) => void;
 }
 
+const EMPTY_SLOTS: ReadonlyArray<Card | null> = [null, null, null];
+
 export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
-  const [cards, setCards] = useState<Card[]>([]);
+  const [cards, setCards] = useState<(Card | null)[]>(() => [...EMPTY_SLOTS]);
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
 
   // 親側で selectedBoard が null に戻された (= 別所からの解除) ら local cards もクリア。
   // 既存パターン: prop 変化を internal state に sync する controlled-input 風挙動。
   useEffect(() => {
-    if (selectedBoard === null && cards.length > 0) {
+    if (selectedBoard === null && cards.some((c) => c !== null)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCards([]);
+      setCards([...EMPTY_SLOTS]);
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBoard]);
 
   const resolveBoard = useCallback(
-    async (flop: Card[]): Promise<void> => {
+    async (triplet: [Card, Card, Card]): Promise<void> => {
       setResolving(true);
       setError(null);
       try {
-        const triplet: [Card, Card, Card] = [flop[0], flop[1], flop[2]];
         const canonical = await getCanonicalBoardName(triplet);
         if (canonical === null) {
           setError('該当 iso class データなし');
@@ -62,21 +60,43 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
     [onBoardSelect],
   );
 
-  const handleSelectCard = (c: Card) => {
-    if (cards.length >= 3) return;
-    if (containsCard(cards, c)) return;
-    const next = [...cards, c];
+  /** グリッドから card 選択 → 最初の null スロットに入れる。 */
+  const handleGridCardClick = (c: Card) => {
+    // 既に選択中のカードは無視
+    if (cards.some((x) => x !== null && isSameCard(x, c))) return;
+    const emptyIndex = cards.findIndex((x) => x === null);
+    if (emptyIndex === -1) return; // 空きなし
+    const next = [...cards];
+    next[emptyIndex] = c;
     setCards(next);
-    if (next.length === 3) {
-      void resolveBoard(next);
+    // 3 枚揃ったら canonicalize
+    if (next.every((x) => x !== null)) {
+      void resolveBoard(next as [Card, Card, Card]);
+    }
+  };
+
+  /** スロット click → そのインデックスを null に (個別削除)。 */
+  const handleSlotClick = (index: number) => {
+    if (cards[index] === null) return;
+    const next = [...cards];
+    next[index] = null;
+    setCards(next);
+    setError(null);
+    // canonicalize 済の board は無効化
+    if (selectedBoard !== null) {
+      onBoardSelect(null);
     }
   };
 
   const handleReset = () => {
-    setCards([]);
+    setCards([...EMPTY_SLOTS]);
     setError(null);
     onBoardSelect(null);
   };
+
+  // FlopKeyboard には non-null だけ渡す (それが disabled 判定の元)
+  const filledCards = cards.filter((c): c is Card => c !== null);
+  const hasAny = filledCards.length > 0;
 
   return (
     <div style={containerStyle}>
@@ -85,35 +105,38 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
         <button
           type="button"
           onClick={handleReset}
-          disabled={cards.length === 0 && selectedBoard === null}
-          style={
-            cards.length === 0 && selectedBoard === null
-              ? resetDisabledStyle
-              : resetStyle
-          }
+          disabled={!hasAny && selectedBoard === null}
+          style={!hasAny && selectedBoard === null ? resetDisabledStyle : resetStyle}
         >
           ↻ Reset
         </button>
       </div>
 
-      {/* 3 slot 表示 */}
+      {/* 3 slot 表示。filled は button (click で個別削除)、empty は静的 div */}
       <div style={slotsStyle}>
         {[0, 1, 2].map((i) => {
           const c = cards[i];
           if (!c) {
             return (
-              <div key={i} style={slotEmptyStyle} aria-label="empty slot">
+              <div key={i} style={slotEmptyStyle} aria-label={`empty slot ${i + 1}`}>
                 □
               </div>
             );
           }
           return (
-            <div key={i} style={slotFilledStyle}>
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleSlotClick(i)}
+              style={slotFilledStyle}
+              title={`${c.rank}${SUIT_SYMBOL[c.suit]} (タップで削除)`}
+              aria-label={`Remove ${c.rank}${c.suit}`}
+            >
               <span style={slotRankStyle}>{c.rank}</span>
               <span style={{ ...slotSuitStyle, color: SUIT_COLOR[c.suit] }}>
                 {SUIT_SYMBOL[c.suit]}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -121,14 +144,14 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
       {/* 状態表示 */}
       {resolving && <div style={infoStyle}>正準化中…</div>}
       {error && <div style={errorStyle}>⚠ {error}</div>}
-      {selectedBoard && cards.length === 3 && !error && !resolving && (
+      {selectedBoard && filledCards.length === 3 && !error && !resolving && (
         <div style={resolvedHintStyle}>
           正準ボード: <code>{selectedBoard}</code>
         </div>
       )}
 
       {/* 13×4 grid */}
-      <FlopKeyboard selectedCards={cards} onSelect={handleSelectCard} />
+      <FlopKeyboard selectedCards={filledCards} onSelect={handleGridCardClick} />
     </div>
   );
 }
@@ -191,6 +214,11 @@ const slotFilledStyle: CSSProperties = {
   background: '#fff',
   border: `1.5px solid ${THEME.borderStrong}`,
   boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  padding: 0,
+  // hover で削除可能と示唆するための subtle transition
+  transition: 'background 0.1s, border-color 0.1s',
 };
 
 const slotRankStyle: CSSProperties = {
