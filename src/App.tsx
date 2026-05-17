@@ -14,10 +14,26 @@ import { GroupKeyForm } from './components/admin/GroupKeyForm';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingResult } from './components/training/TrainingResult';
+import { TrainingReview } from './components/training/TrainingReview';
 
 const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
 
-function matchTrainingRoute(path: string): { level: TrainingLevel; screen: 'confirm' | 'play' | 'result' } | null {
+type TrainingMatch =
+  | { level: TrainingLevel; screen: 'confirm' | 'play' | 'result' }
+  | { level: TrainingLevel; screen: 'review'; index: number };
+
+function matchTrainingRoute(path: string): TrainingMatch | null {
+  // /training/<slug>/review/<n>
+  const review = path.match(/^\/training\/([a-z_-]+)\/review\/(\d+)\/?$/);
+  if (review) {
+    const slug = review[1];
+    const index = Number(review[2]);
+    if (!Number.isFinite(index) || index < 1) return null;
+    const key = slug.replace(/-/g, '_');
+    const level = TRAINING_LEVELS_FLAT.find((lv) => lv.key === key);
+    if (!level) return null;
+    return { level, screen: 'review', index };
+  }
   // /training/<slug>/<screen>
   const m = path.match(/^\/training\/([a-z_-]+)\/(confirm|play|result)\/?$/);
   if (!m) return null;
@@ -52,6 +68,7 @@ export default function App() {
     if (screen === 'confirm') return <TrainingConfirm level={level} />;
     if (screen === 'play') return <TrainingPlay level={level} />;
     if (screen === 'result') return <TrainingResult level={level} />;
+    if (screen === 'review') return <TrainingReview level={level} index={trainingMatch.index} />;
   }
 
   if (path === '/strategy') return <StrategyPage />;

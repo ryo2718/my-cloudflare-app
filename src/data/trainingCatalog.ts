@@ -84,3 +84,9 @@ export function trainingPath(key: string, screen: 'confirm' | 'play' | 'result')
   const slug = key.replace(/_/g, '-');
   return `/training/${slug}/${screen}`;
 }
+
+/** 振り返り画面のパス。 index は 1-indexed (= 間違えた問題内での位置)。 */
+export function trainingReviewPath(key: string, index: number): string {
+  const slug = key.replace(/_/g, '-');
+  return `/training/${slug}/review/${index}`;
+}

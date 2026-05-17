@@ -1,15 +1,25 @@
 // トレーニング結果画面 (初級・中級共有)。
 // マウント時に POST /api/account/training-result で結果を保存し、レスポンスからベスト更新情報を表示。
+// recordsStore から 20 問の記録を読んで、間違えた問題一覧を下部にレンダリングする。
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { apiSubmitTrainingResult, type TrainingResultSubmission } from '../../api/account';
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
 import { navigate } from '../../router/router-core';
 import {
   trainingPath,
+  trainingReviewPath,
   type TrainingLevel,
 } from '../../data/trainingCatalog';
+import {
+  loadRecords,
+  missedRecords,
+  type ProblemRecord,
+} from '../../data/training/recordsStore';
+import { CardSet } from '../CardSet';
+import type { Suit, Rank } from '../../types/card';
+import { scenarioLabel } from './scenarioLabel';
 import { THEME } from '../../styles/theme';
 
 export interface TrainingResultProps {
@@ -35,6 +45,11 @@ export function TrainingResult({ level }: TrainingResultProps) {
   const auth = useAuth();
   const scoreInfo = parseQueryScore();
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
+  // records は遷移時に確定する (sessionStorage + in-mem) ので、初回 render で同期取得して memoize
+  const missed = useMemo<ProblemRecord[]>(() => {
+    const records = loadRecords(level.key);
+    return records ? missedRecords(records) : [];
+  }, [level.key]);
 
   useEffect(() => {
     if (!scoreInfo || !auth.sessionId) return;
@@ -113,6 +128,22 @@ export function TrainingResult({ level }: TrainingResultProps) {
           )}
         </div>
 
+        {missed.length > 0 && (
+          <section style={missedSectionStyle} aria-label="間違えた問題">
+            <header style={missedHeaderStyle}>間違えた問題 ({missed.length}問)</header>
+            <ul style={missedListStyle}>
+              {missed.map((rec, idx) => (
+                <li key={rec.id} style={{ listStyle: 'none' }}>
+                  <MissedCard
+                    record={rec}
+                    onReview={() => navigate(trainingReviewPath(level.key, idx + 1))}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div style={btnRowStyle}>
           <button
             type="button"
@@ -126,6 +157,40 @@ export function TrainingResult({ level }: TrainingResultProps) {
           </Link>
         </div>
       </main>
+    </div>
+  );
+}
+
+function MissedCard({
+  record,
+  onReview,
+}: {
+  record: ProblemRecord;
+  onReview: () => void;
+}) {
+  const userText = record.userAnswer === 'participate' ? '参加' : '参加しない';
+  const correctText = record.correct === 'participate' ? '参加' : '参加しない';
+  return (
+    <div style={missedCardStyle}>
+      <div style={missedCardLeftStyle}>
+        <span style={missedScenarioStyle}>{scenarioLabel(record)}</span>
+        <CardSet
+          cards={record.cards.map((c) => ({
+            rank: c.rank as Rank,
+            suit: c.suit as Suit,
+          }))}
+          size="md"
+          gap={4}
+        />
+        <div style={missedAnswerLineStyle}>
+          あなた: <span style={userAnswerStyle}>{userText}</span>
+          {' | '}
+          正解: <span style={correctAnswerStyle}>{correctText}</span>
+        </div>
+      </div>
+      <button type="button" onClick={onReview} style={reviewBtnStyle}>
+        問題へ
+      </button>
     </div>
   );
 }
@@ -307,4 +372,79 @@ const errorBtnStyle: CSSProperties = {
   borderRadius: '0.35rem',
   fontFamily: 'inherit',
   cursor: 'pointer',
+};
+
+const missedSectionStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem',
+  marginTop: '0.5rem',
+};
+
+const missedHeaderStyle: CSSProperties = {
+  fontSize: '0.92rem',
+  fontWeight: 700,
+  color: THEME.textPrimary,
+  borderTop: `1px solid ${THEME.border}`,
+  paddingTop: '0.7rem',
+};
+
+const missedListStyle: CSSProperties = {
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem',
+};
+
+const missedCardStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.7rem',
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.5rem',
+  padding: '0.7rem 0.85rem',
+};
+
+const missedCardLeftStyle: CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.35rem',
+};
+
+const missedScenarioStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  fontWeight: 700,
+  color: '#993C1D',
+};
+
+const missedAnswerLineStyle: CSSProperties = {
+  fontSize: '0.8rem',
+  color: THEME.textSecondary,
+};
+
+const userAnswerStyle: CSSProperties = {
+  fontWeight: 600,
+  color: THEME.textPrimary,
+};
+
+const correctAnswerStyle: CSSProperties = {
+  fontWeight: 700,
+  color: '#993C1D',
+};
+
+const reviewBtnStyle: CSSProperties = {
+  padding: '0.5rem 0.85rem',
+  background: THEME.accent,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.35rem',
+  fontSize: '0.82rem',
+  fontWeight: 700,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  flexShrink: 0,
 };

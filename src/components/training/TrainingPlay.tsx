@@ -22,6 +22,11 @@ import {
   type PreflopQuestion,
 } from '../../data/training/preflopBeginner';
 import {
+  clearRecords,
+  saveRecords,
+  type ProblemRecord,
+} from '../../data/training/recordsStore';
+import {
   trainingPath,
   type TrainingLevel,
 } from '../../data/trainingCatalog';
@@ -37,7 +42,13 @@ export interface TrainingPlayProps {
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; questions: PreflopQuestion[]; current: number; correctCount: number };
+  | {
+      kind: 'ready';
+      questions: PreflopQuestion[];
+      current: number;
+      correctCount: number;
+      records: ProblemRecord[];
+    };
 
 export function TrainingPlay({ level }: TrainingPlayProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -56,12 +67,14 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // 旧セッションの記録があれば破棄してから生成 (中断後再開で混在を防ぐ)
+    clearRecords(level.key);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: 'loading' });
     generatePreflopQuestions(level.questionCount ?? 20)
       .then((questions) => {
         if (cancelled) return;
-        setState({ kind: 'ready', questions, current: 0, correctCount: 0 });
+        setState({ kind: 'ready', questions, current: 0, correctCount: 0, records: [] });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -83,9 +96,17 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
     const isCorrect = q.correct === chosen;
     const next = prev.current + 1;
     const newCorrectCount = prev.correctCount + (isCorrect ? 1 : 0);
+    const newRecord: ProblemRecord = {
+      ...q,
+      id: prev.current + 1,
+      userAnswer: chosen,
+      isCorrect,
+    };
+    const newRecords = [...prev.records, newRecord];
 
     if (next >= prev.questions.length) {
-      // 全問終了: result 画面へ navigate
+      // 全問終了: 記録を保存してから result 画面へ navigate
+      saveRecords(level.key, newRecords);
       const params = new URLSearchParams({
         score: String(newCorrectCount),
         total: String(prev.questions.length),
@@ -98,6 +119,7 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
       questions: prev.questions,
       current: next,
       correctCount: newCorrectCount,
+      records: newRecords,
     });
     // 次の問題でも advance できるよう、microtask 後にロック解除
     Promise.resolve().then(() => {
