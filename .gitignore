@@ -52,3 +52,4 @@ public/data/preflop/*/repaired/
 # Flop tree データ (data/cash_<config>/) は 1.6 GB / 2,686 ファイル と巨大なため Cloudflare R2 から
 # 配信する。ローカル作業コピーは git に含めない。R2 アップロード手順は docs/FLOP_STRATEGY_TAB.md §4.1 参照。
 /data/cash_*/
+.env.production

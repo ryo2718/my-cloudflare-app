@@ -10,9 +10,10 @@
 
 import { useState, useCallback, useEffect, type CSSProperties } from 'react';
 import type { Card } from '../types/card';
-import { SUIT_COLOR, SUIT_SYMBOL, isSameCard } from '../types/card';
+import { isSameCard } from '../types/card';
 import { FlopKeyboard } from './FlopKeyboard';
 import { getCanonicalBoardName } from '../data/flopBoardMap';
+import { PlayingCard } from './PlayingCard';
 import { THEME } from '../styles/theme';
 
 interface Props {
@@ -29,10 +30,16 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
 
-  // 親側で selectedBoard が null に戻された (= 別所からの解除) ら local cards もクリア。
-  // 既存パターン: prop 変化を internal state に sync する controlled-input 風挙動。
+  // 親側で selectedBoard が null に戻された場合 (e.g. variant 切替時の external reset、
+  // 「Flop に進む」ボタンからの遷移) ら local cards もクリア。
+  //
+  // ⚠ ここの条件は `every` でないとダメ。`some` だと slot 個別 click → onBoardSelect(null)
+  // の経路でも発火してしまい、残り 2 スロットを全消しするバグになる。
+  // 「cards が完全に 3 枚揃ったまま selectedBoard だけ外部から null 化された」場合のみ
+  // 外部リセットとみなす。部分状態 (slot click 直後の 2/3) は internal trigger とみなして
+  // 保持する。
   useEffect(() => {
-    if (selectedBoard === null && cards.some((c) => c !== null)) {
+    if (selectedBoard === null && cards.every((c) => c !== null)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCards([...EMPTY_SLOTS]);
       setError(null);
@@ -112,7 +119,7 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
         </button>
       </div>
 
-      {/* 3 slot 表示。filled は button (click で個別削除)、empty は静的 div */}
+      {/* 3 slot 表示。filled は <PlayingCard size="lg"> (click で個別削除)、empty は静的 div */}
       <div style={slotsStyle}>
         {[0, 1, 2].map((i) => {
           const c = cards[i];
@@ -124,19 +131,14 @@ export function FlopBoardInput({ selectedBoard, onBoardSelect }: Props) {
             );
           }
           return (
-            <button
+            <PlayingCard
               key={i}
-              type="button"
+              rank={c.rank}
+              suit={c.suit}
+              size="lg"
               onClick={() => handleSlotClick(i)}
-              style={slotFilledStyle}
-              title={`${c.rank}${SUIT_SYMBOL[c.suit]} (タップで削除)`}
-              aria-label={`Remove ${c.rank}${c.suit}`}
-            >
-              <span style={slotRankStyle}>{c.rank}</span>
-              <span style={{ ...slotSuitStyle, color: SUIT_COLOR[c.suit] }}>
-                {SUIT_SYMBOL[c.suit]}
-              </span>
-            </button>
+              ariaLabel={`Remove ${c.rank}${c.suit}`}
+            />
           );
         })}
       </div>
@@ -190,47 +192,19 @@ const slotsStyle: CSSProperties = {
   justifyContent: 'center',
 };
 
-const slotBaseStyle: CSSProperties = {
-  width: '48px',
-  height: '64px',
-  borderRadius: '0.35rem',
-  display: 'flex',
+// 空 slot: PlayingCard.lg と同じサイズ (36×48) で見た目を揃える。
+const slotEmptyStyle: CSSProperties = {
+  width: 36,
+  height: 48,
+  borderRadius: 4,
+  display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '0.1rem',
-  flexDirection: 'column',
-};
-
-const slotEmptyStyle: CSSProperties = {
-  ...slotBaseStyle,
   background: THEME.bg,
   border: `1.5px dashed ${THEME.border}`,
   color: THEME.textFaint,
-  fontSize: '1.5rem',
-};
-
-const slotFilledStyle: CSSProperties = {
-  ...slotBaseStyle,
-  background: '#fff',
-  border: `1.5px solid ${THEME.borderStrong}`,
-  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  padding: 0,
-  // hover で削除可能と示唆するための subtle transition
-  transition: 'background 0.1s, border-color 0.1s',
-};
-
-const slotRankStyle: CSSProperties = {
   fontSize: '1.25rem',
-  fontWeight: 700,
-  color: '#1f2937',
-  lineHeight: 1,
-};
-
-const slotSuitStyle: CSSProperties = {
-  fontSize: '1.1rem',
-  lineHeight: 1,
+  boxSizing: 'border-box',
 };
 
 const infoStyle: CSSProperties = {

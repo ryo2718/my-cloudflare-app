@@ -17,7 +17,7 @@ import type {
   PlayerTotal,
 } from '../types/flop';
 import type { Rank, Suit } from '../types/card';
-import { SUIT_COLOR, SUIT_SYMBOL } from '../types/card';
+import { PlayingCard } from './PlayingCard';
 import {
   getFlopCaller,
   getFlopOpener,
@@ -57,7 +57,7 @@ export function FlopBoardSummary({ variant, data, selectedBoard }: Props) {
   const street = data.game_point.game.current_street;
 
   return (
-    <div style={containerStyle}>
+    <div className="flop-board-summary" style={containerStyle}>
       <div style={titleRowStyle}>
         <span style={titleStyle}>
           {selectedBoard ? `Selected: ${selectedBoard.name}` : 'Board Summary (range avg)'}
@@ -87,14 +87,14 @@ export function FlopBoardSummary({ variant, data, selectedBoard }: Props) {
       </div>
 
       {/* 中央: 大きめ flop カード 3 枚 */}
-      <div style={boardRowStyle}>
+      <div className="flop-board-summary__board-row" style={boardRowStyle}>
         {cards.map((c, i) => (
           <BoardCardCell key={i} rank={c.rank} suit={c.suit} />
         ))}
       </div>
 
       {/* Pot / Active 表示 */}
-      <div style={potRowStyle}>
+      <div className="flop-board-summary__pot-row" style={potRowStyle}>
         <span style={potItemStyle}>
           <span style={potKeyStyle}>Pot</span>
           {street.start_pot}bb → {street.end_pot}bb
@@ -177,11 +177,23 @@ function PlayerCard({ badge, position, role, stats, isWinner }: PlayerCardProps)
   const valueColor = isWinner ? WIN_VALUE_COLOR : THEME.textPrimary;
 
   return (
-    <div style={cardStyle}>
+    <div className="flop-board-summary__card" style={cardStyle}>
       <div style={cardHeaderStyle}>
-        <span style={badgeStyle}>{badge}</span>
-        <span style={{ ...positionLabelStyle, color: positionColor }}>{position}</span>
-        {role && <span style={{ ...roleLabelStyle, color: roleColor }}>{role}</span>}
+        <span className="flop-board-summary__badge" style={badgeStyle}>{badge}</span>
+        <span
+          className="flop-board-summary__position"
+          style={{ ...positionLabelStyle, color: positionColor }}
+        >
+          {position}
+        </span>
+        {role && (
+          <span
+            className="flop-board-summary__role"
+            style={{ ...roleLabelStyle, color: roleColor }}
+          >
+            {role}
+          </span>
+        )}
       </div>
       <div style={statsGridStyle}>
         <StatCell label="EV" value={formatEV(stats?.ev)} valueColor={valueColor} />
@@ -203,21 +215,19 @@ function StatCell({
 }) {
   return (
     <div>
-      <div style={statLabelStyle}>{label}</div>
-      <div style={{ ...statValueStyle, color: valueColor }}>{value}</div>
+      <div className="flop-board-summary__stat-label" style={statLabelStyle}>{label}</div>
+      <div
+        className="flop-board-summary__stat-value"
+        style={{ ...statValueStyle, color: valueColor }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
 
 function BoardCardCell({ rank, suit }: { rank: Rank; suit: Suit }) {
-  return (
-    <div style={boardCardStyle}>
-      <span style={boardCardRankStyle}>{rank}</span>
-      <span style={{ ...boardCardSuitStyle, color: SUIT_COLOR[suit] }}>
-        {SUIT_SYMBOL[suit]}
-      </span>
-    </div>
-  );
+  return <PlayingCard rank={rank} suit={suit} size="md" />;
 }
 
 // ----------------------------------------------------------------------------
@@ -325,32 +335,6 @@ const boardRowStyle: CSSProperties = {
   gap: '0.65rem',
   justifyContent: 'center',
   padding: '0.45rem 0',
-};
-
-const boardCardStyle: CSSProperties = {
-  width: '64px',
-  height: '88px',
-  borderRadius: '0.5rem',
-  background: '#fff',
-  border: `2px solid ${THEME.borderStrong}`,
-  boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '0.15rem',
-};
-
-const boardCardRankStyle: CSSProperties = {
-  fontSize: '1.7rem',
-  fontWeight: 700,
-  color: '#1f2937',
-  lineHeight: 1,
-};
-
-const boardCardSuitStyle: CSSProperties = {
-  fontSize: '1.55rem',
-  lineHeight: 1,
 };
 
 // ----- Pot / active row -----

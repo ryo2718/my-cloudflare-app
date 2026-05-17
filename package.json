@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:functions": "wrangler pages dev . --port 8788",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "validate": "node scripts/validate-ranges.cjs",
     "validate-leakage": "node scripts/validate-range-leakage.cjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "d1:migrate:local": "wrangler d1 execute poker-app-db --local --file=./migrations/0001_init.sql && wrangler d1 execute poker-app-db --local --file=./migrations/0002_seed.sql",
+    "d1:migrate:remote": "wrangler d1 execute poker-app-db --remote --file=./migrations/0001_init.sql && wrangler d1 execute poker-app-db --remote --file=./migrations/0002_seed.sql",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=my-cloudflare-app"
   },
   "dependencies": {
     "react": "^19.2.5",
@@ -31,6 +35,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "wrangler": "^4.92.0"
   }
 }

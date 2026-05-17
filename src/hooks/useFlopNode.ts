@@ -3,6 +3,10 @@
 //
 // Variant あたり最大 ~125 ファイル × 各 ~600 KB = ~75 MB なので prefetch 不可。
 // ユーザーが breadcrumb / アクションボタンで chain を変えるたびに 1 ファイル fetch。
+//
+// Phase 4: module-level memoization を追加。同一 URL の fetch は in-flight Promise
+// を共有するため、preload と通常 fetch が衝突せず一度しか network が走らない。
+// Cache はモジュールスコープ (page reload で消える) で十分。
 
 import { useEffect, useState } from 'react';
 import { chainToFilename } from '../data/flopChain';
@@ -14,8 +18,28 @@ export interface UseFlopNodeResult {
   error: Error | null;
 }
 
+// ----------------------------------------------------------------------------
+// Module-level fetch memoization
+// ----------------------------------------------------------------------------
+
+/**
+ * URL → 共有 Promise。最初の呼び出しが実際に network へ行き、後続は同じ Promise を
+ * 待つだけ (一度成功すれば二度と network へ行かない)。失敗時は entry を削除して
+ * 再試行可能にする。
+ */
+const FETCH_CACHE = new Map<string, Promise<FlopNode>>();
+
+/** テスト用: モジュールキャッシュをクリア。production コードでは呼ばないこと。 */
+export function clearFlopNodeCache(): void {
+  FETCH_CACHE.clear();
+}
+
 /**
  * 純 fetch ロジック (テスト容易のため分離)。
+ *
+ * Phase 4 以降: 同一 URL に対する fetch を memoize する。caller の `signal` は
+ * 自分の `await` を中断するためだけに使い、共有された underlying fetch は中断
+ * しない (他の caller がまだ待っているかもしれない)。
  *
  * @throws `VITE_FLOP_DATA_BASE_URL` 未設定時 / fetch !ok 時
  */
@@ -30,11 +54,45 @@ export async function fetchFlopNode(
   }
   const filename = chainToFilename(variant, chain);
   const url = `${baseUrl}/${variant}/${filename}`;
-  const res = await fetch(url, signal ? { signal } : undefined);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+
+  let shared = FETCH_CACHE.get(url);
+  if (!shared) {
+    // Underlying fetch は signal なし (共有、複数 caller で再利用)。
+    // 失敗時は cache から消して次回 retry を可能にする。
+    shared = (async () => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+      }
+      return (await res.json()) as FlopNode;
+    })();
+    FETCH_CACHE.set(url, shared);
+    shared.catch(() => FETCH_CACHE.delete(url));
   }
-  return (await res.json()) as FlopNode;
+
+  if (!signal) return shared;
+  // Caller の signal は「自分の await を中断」用。underlying fetch は触らない。
+  return new Promise<FlopNode>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal.addEventListener('abort', onAbort);
+    shared!.then(
+      (data) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(data);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
 }
 
 /**

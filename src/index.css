@@ -18,6 +18,93 @@ body {
   min-height: 100vh;
 }
 
+/* ============================================================================
+ * Flop レポート用レスポンシブトークン (Phase 6)
+ *   - スマホ <480px: セル 46px
+ *   - 中画面 480〜768px: セル 54px
+ *   - PC >=768px: セル 64px
+ * ========================================================================== */
+:root {
+  --flop-cell-size: 64px;
+  --flop-cell-icon: 22px;
+  --flop-cell-pct: 10px;
+  --flop-cell-na: 18px;
+  --flop-cell-load: 16px;
+  --flop-cell-err: 11px;
+  --flop-matrix-gap: 3px;
+  --flop-matrix-header-w: 28px;
+  --flop-matrix-corner-h: 20px;
+  --flop-matrix-dash: 18px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --flop-cell-size: 54px;
+    --flop-cell-icon: 19px;
+    --flop-cell-pct: 9px;
+    --flop-cell-na: 16px;
+    --flop-cell-load: 14px;
+    --flop-cell-err: 10px;
+    --flop-matrix-gap: 2px;
+    --flop-matrix-header-w: 24px;
+    --flop-matrix-corner-h: 18px;
+    --flop-matrix-dash: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --flop-cell-size: 46px;
+    --flop-cell-icon: 16px;
+    --flop-cell-pct: 9px;
+    --flop-cell-na: 14px;
+    --flop-cell-load: 13px;
+    --flop-cell-err: 10px;
+    --flop-matrix-gap: 2px;
+    --flop-matrix-header-w: 22px;
+    --flop-matrix-corner-h: 16px;
+    --flop-matrix-dash: 14px;
+  }
+}
+
+/* ============================================================================
+ * Flop Board Summary のスマホ対応 (Phase 6)
+ *   ベース inline styles はそのままで、@media で上書きする。
+ * ========================================================================== */
+@media (max-width: 480px) {
+  .flop-board-summary {
+    padding: 0.6rem 0.7rem !important;
+    gap: 0.55rem !important;
+  }
+  .flop-board-summary__card {
+    padding: 8px !important;
+  }
+  .flop-board-summary__position {
+    font-size: 14px !important;
+  }
+  .flop-board-summary__role {
+    font-size: 10px !important;
+  }
+  .flop-board-summary__badge {
+    font-size: 10px !important;
+    padding: 1px 5px !important;
+  }
+  .flop-board-summary__stat-value {
+    font-size: 13px !important;
+  }
+  .flop-board-summary__stat-label {
+    font-size: 9px !important;
+  }
+  .flop-board-summary__board-row {
+    gap: 0.4rem !important;
+    padding: 0.3rem 0 !important;
+  }
+  .flop-board-summary__pot-row {
+    font-size: 0.72rem !important;
+    gap: 0.6rem !important;
+  }
+}
+
 /* Hand Evaluator 試作エリア: 上段の2カラム → 狭幅で縦並びに崩す */
 @media (max-width: 768px) {
   .hand-evaluator-top-row {

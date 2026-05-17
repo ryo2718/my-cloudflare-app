@@ -24,7 +24,7 @@ import {
   getFlopResponder,
   getPotDepth,
 } from './data/flopVariants';
-import { fetchFlopNode } from './hooks/useFlopNode';
+import { fetchFlopNode, clearFlopNodeCache } from './hooks/useFlopNode';
 
 // ----------------------------------------------------------------------------
 // Iso signature + canonical map 整合性
@@ -195,11 +195,14 @@ describe('integration: fetchFlopNode の URL 組立 chain advance', () => {
 
   beforeEach(() => {
     vi.stubEnv('VITE_FLOP_DATA_BASE_URL', BASE);
+    // Phase 4 以降: module-level memoization が test 間で持ち越されないようクリア。
+    clearFlopNodeCache();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    clearFlopNodeCache();
   });
 
   it('chain 進行に応じて URL が変わる (root → bet → raise → allin)', async () => {

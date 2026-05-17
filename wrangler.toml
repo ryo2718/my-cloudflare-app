@@ -1,0 +1,13 @@
+name = "my-cloudflare-app"
+compatibility_date = "2026-05-17"
+pages_build_output_dir = "./dist"
+
+# D1 database binding for accounts/sessions/group_keys/quiz_results.
+# Local dev では SQLite ファイルが `.wrangler/state/v3/d1/` 配下に自動生成される。
+# クラウド作成は `npx wrangler d1 create poker-app-db` 実行後に database_id を更新。
+[[d1_databases]]
+binding = "DB"
+database_name = "poker-app-db"
+# Placeholder UUID。本番作成時は `npx wrangler d1 create poker-app-db` の出力で置換。
+# ローカル開発では値は使われないが、wrangler v4 は string 必須。
+database_id = "74e6f4b1-819f-4a2a-8097-0bd336fa9616"

@@ -9,7 +9,7 @@
 import { useMemo, type CSSProperties } from 'react';
 import type { ActionSolution, BoardSolution } from '../types/flop';
 import { parseBoardName } from '../utils/flopBoardCanonical';
-import { SUIT_COLOR, SUIT_SYMBOL } from '../types/card';
+import { CardSet } from './CardSet';
 import { THEME } from '../styles/theme';
 
 interface Props {
@@ -66,12 +66,11 @@ function BoardRow({
       style={selected ? rowSelectedStyle : rowStyle}
     >
       <span style={boardLabelStyle}>
-        {cards.map((c, i) => (
-          <span key={i} style={{ color: SUIT_COLOR[c.suit] }}>
-            {c.rank}
-            {SUIT_SYMBOL[c.suit]}
-          </span>
-        ))}
+        <CardSet
+          cards={cards.map((c) => ({ rank: c.rank, suit: c.suit }))}
+          size="sm"
+          gap={3}
+        />
       </span>
       <span style={actionsStyle}>{top2.map(formatAction).join(' · ')}</span>
     </button>

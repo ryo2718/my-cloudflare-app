@@ -7,14 +7,17 @@
 //   IP click → commit (chain に 2 step push)、pending clear
 //   OOP の取消: 同 action 再 click
 
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { FlopBoardInput } from './FlopBoardInput';
 import { FlopBoardList } from './FlopBoardList';
+import { FlopBoardSelector } from './FlopBoardSelector';
 import { FlopBoardSummary } from './FlopBoardSummary';
 import { FlopBreadcrumb } from './FlopBreadcrumb';
 import { FlopOOPActions } from './FlopOOPActions';
 import { FlopPositionPicker } from './FlopPositionPicker';
 import { FlopPreflopPicker } from './FlopPreflopPicker';
+import { FlopReportSection } from './FlopReportSection';
+import { recordBoardSelection } from '../data/boardHistory';
 import { encodeStep, hasAggressionInChain } from '../data/flopChain';
 import { findFlopVariantFromUI, type PreflopBucket } from '../data/flopVariants';
 import { useFlopNode } from '../hooks/useFlopNode';
@@ -55,6 +58,16 @@ export function FlopStrategyView({
 
   // Tentative pending: 現 actor (top row) が click したが、まだ commit されてない action code。
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  // ボード選択履歴の記録: 3 枚揃った瞬間 (selectedBoardName が canonical 名に確定した時)
+  // に 1 回だけ記録。同じ board が連続で残っているマウントでは多重記録しない。
+  const lastRecordedBoardRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedBoardName && lastRecordedBoardRef.current !== selectedBoardName) {
+      recordBoardSelection(selectedBoardName);
+      lastRecordedBoardRef.current = selectedBoardName;
+    }
+  }, [selectedBoardName]);
 
   // tempChain: pendingAction 適用後の chain (= child node の fetch key)。null なら fetch しない。
   const tempChain = useMemo(() => {
@@ -153,7 +166,7 @@ export function FlopStrategyView({
         onChange={onBucketChange}
       />
 
-      {/* § 4-7: variant 決定後 */}
+      {/* § 4-7: variant 決定後 (内容は variant 選択後にのみ表示) */}
       {variant === null ? (
         <div style={pendingStyle}>
           Position と Preflop シナリオを選択すると戦略が表示されます
@@ -236,6 +249,13 @@ export function FlopStrategyView({
           {!currentLoading && !currentError && !currentData && <StatusLine kind="empty">No data.</StatusLine>}
         </div>
       )}
+
+      {/* § 8: Flop レポート (常時表示、variant 選択前から見える)。
+            プリロードはマウント直後 + board 変更で発火。 */}
+      <FlopReportSection board={selectedBoardName} />
+
+      {/* § 9: ボードを選択 (履歴 + デフォルト) — 「ボードに適応」は別 Phase */}
+      <FlopBoardSelector />
     </div>
   );
 }
