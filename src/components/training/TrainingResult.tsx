@@ -2,7 +2,7 @@
 // マウント時に POST /api/account/training-result で結果を保存し、レスポンスからベスト更新情報を表示。
 // recordsStore から 20 問の記録を読んで、間違えた問題一覧を下部にレンダリングする。
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { apiSubmitTrainingResult, type TrainingResultSubmission } from '../../api/account';
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
@@ -45,10 +45,20 @@ export function TrainingResult({ level }: TrainingResultProps) {
   const auth = useAuth();
   const scoreInfo = parseQueryScore();
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
-  // records は遷移時に確定する (sessionStorage + in-mem) ので、初回 render で同期取得して memoize
-  const missed = useMemo<ProblemRecord[]>(() => {
+  // records は遷移時に確定する (sessionStorage + in-mem) ので、初回マウント時に取得して
+  // state に格納する (useMemo より useEffect+setState の方が再 render を確実に trigger できる)。
+  // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
+  const [missed, setMissed] = useState<ProblemRecord[]>(() => {
     const records = loadRecords(level.key);
     return records ? missedRecords(records) : [];
+  });
+  useEffect(() => {
+    // クライアントマウント後に再度フェッチ (SSR / 初期 state が空でも復元できる)。
+    const records = loadRecords(level.key);
+    if (records) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMissed(missedRecords(records));
+    }
   }, [level.key]);
 
   useEffect(() => {
