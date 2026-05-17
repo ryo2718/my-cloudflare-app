@@ -121,11 +121,20 @@ describe('<TrainingReview />', () => {
     expect(html).toContain('あなた');
   });
 
-  it('「← 結果に戻る」リンク', () => {
-    saveRecords(BEGINNER.key, [record(1, false)]);
+  it('「← 結果に戻る」リンクが ?score=N&total=M 付き (バグ1 再発防止)', () => {
+    // 3 問中 1 問正解 (id=1 が正解、他は不正解) → score=1, total=3
+    saveRecords(BEGINNER.key, [record(1, true), record(2, false), record(3, false)]);
     const html = render(1);
     expect(html).toContain('結果に戻る');
-    expect(html).toContain('/training/preflop-beginner/result');
+    // resultPath が score/total クエリ付きであること
+    expect(html).toMatch(/href="\/training\/preflop-beginner\/result\?score=1&(amp;)?total=3"/);
+  });
+
+  it('20 問全問不正解時の resultPath: ?score=0&total=20', () => {
+    const records = Array.from({ length: 20 }, (_, i) => record(i + 1, false));
+    saveRecords(BEGINNER.key, records);
+    const html = render(1);
+    expect(html).toMatch(/href="\/training\/preflop-beginner\/result\?score=0&(amp;)?total=20"/);
   });
 
   it('1 問目で [前の問題] が disabled', () => {

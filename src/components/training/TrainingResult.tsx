@@ -105,7 +105,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
 
   const { score, total } = scoreInfo;
   const pct = Math.round((score / total) * 100);
-  const earnedPt = level.points !== null ? level.points * score : 0;
+  const pointsPerQ = level.points ?? 0;
 
   return (
     <div style={pageStyle}>
@@ -125,18 +125,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
           </div>
         </div>
 
-        <div style={ptCardStyle}>
-          <span style={celebrateStyle}>🎉 {earnedPt}pt 獲得!</span>
-          {save.kind === 'ok' && (
-            <BestBadge submission={save.submission} score={score} earnedPt={earnedPt} pointsPerQ={level.points ?? 0} />
-          )}
-          {save.kind === 'saving' && (
-            <span style={subInfoStyle}>結果を保存中…</span>
-          )}
-          {save.kind === 'error' && (
-            <span style={subErrorStyle}>結果保存失敗: {save.message}</span>
-          )}
-        </div>
+        <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} />
 
         {missed.length > 0 && (
           <section style={missedSectionStyle} aria-label="間違えた問題">
@@ -205,37 +194,85 @@ function MissedCard({
   );
 }
 
-function BestBadge({
-  submission,
+/**
+ * 結果画面の pt カード。is_best / is_first に応じて 3 パターンの表示を切り替える。
+ *  A. 初回 (previous_best === 0 && is_best): 「初挑戦お疲れさま!+{N}pt 獲得!」
+ *  B. ベスト更新 (is_best && previous_best > 0): 「過去最高更新! {prev}→{curr}点 +{delta}pt 獲得!」
+ *  C. ベスト未更新 (!is_best): 「※過去最高は更新できませんでした / 今回 {N}点 (0pt 獲得) / ベスト: {curr}点」
+ *
+ * saving / error 中は中間メッセージのみ表示する。
+ */
+export function ResultPtCard({
+  save,
   score,
-  earnedPt,
   pointsPerQ,
 }: {
-  submission: TrainingResultSubmission;
+  save: SaveState;
   score: number;
-  earnedPt: number;
   pointsPerQ: number;
 }) {
-  if (submission.is_best) {
-    if (submission.previous_best > 0) {
-      const prevPt = submission.previous_best * pointsPerQ;
-      const delta = earnedPt - prevPt;
-      return (
-        <span style={subInfoStyle}>
-          自己ベスト更新! (前回: {prevPt}pt → {earnedPt}pt、+{delta}pt)
-        </span>
-      );
-    }
-    return <span style={subInfoStyle}>自己ベスト更新! (初回挑戦)</span>;
+  if (save.kind === 'saving' || save.kind === 'idle') {
+    return (
+      <div style={ptCardStyle}>
+        <span style={subInfoStyle}>結果を保存中…</span>
+      </div>
+    );
   }
-  // ベスト未更新
-  const bestPt = submission.current_best * pointsPerQ;
-  return (
-    <span style={subInfoStyle}>
-      ベスト記録: {submission.current_best}/{score >= submission.current_best ? score : submission.current_best} ({bestPt}pt)。
-      今回 +{earnedPt}pt 試行 #{submission.total_attempts}
-    </span>
-  );
+  if (save.kind === 'error') {
+    return (
+      <div style={ptCardStyle}>
+        <span style={subErrorStyle}>結果保存失敗: {save.message}</span>
+      </div>
+    );
+  }
+
+  const sub = save.submission;
+  const isFirst = sub.is_best && sub.previous_best === 0;
+  const isBestUpdate = sub.is_best && sub.previous_best > 0;
+  const isNoUpdate = !sub.is_best;
+
+  if (isFirst) {
+    const earnedPt = score * pointsPerQ;
+    return (
+      <div style={ptCardStyle}>
+        <span style={celebrateStyle}>🎉 初挑戦お疲れさま!</span>
+        <span style={ptBigStyle}>+{earnedPt}pt 獲得!</span>
+        <span style={subInfoStyle}>過去の最高スコア: {sub.current_best}点</span>
+      </div>
+    );
+  }
+
+  if (isBestUpdate) {
+    const prevPt = sub.previous_best * pointsPerQ;
+    const currPt = sub.current_best * pointsPerQ;
+    const delta = currPt - prevPt;
+    return (
+      <div style={ptCardStyle}>
+        <span style={celebrateStyle}>🎉 過去最高更新!</span>
+        <span style={subInfoStyle}>
+          {sub.previous_best} → {sub.current_best}点 (おめでとう!)
+        </span>
+        <span style={ptBigStyle}>+{delta}pt 獲得!</span>
+        <span style={subInfoStyle}>過去の最高スコア: {sub.current_best}点</span>
+      </div>
+    );
+  }
+
+  // isNoUpdate
+  if (isNoUpdate) {
+    return (
+      <div style={ptCardNoUpdateStyle}>
+        <span style={noUpdateHeadStyle}>※ 過去最高は更新できませんでした</span>
+        <span style={subInfoStyle}>
+          今回スコア: {score}点 (0pt 獲得)
+        </span>
+        <span style={subInfoStyle}>
+          過去の最高スコア: {sub.current_best}点 (試行 #{sub.total_attempts})
+        </span>
+      </div>
+    );
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +356,30 @@ const celebrateStyle: CSSProperties = {
   fontSize: '1.4rem',
   fontWeight: 700,
   color: '#412402',
+};
+
+const ptBigStyle: CSSProperties = {
+  fontSize: '1.6rem',
+  fontWeight: 800,
+  color: '#993C1D',
+  fontVariantNumeric: 'tabular-nums',
+};
+
+const ptCardNoUpdateStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.4rem',
+  background: '#fff',
+  border: `1px dashed ${THEME.border}`,
+  borderRadius: '0.5rem',
+  padding: '1rem',
+};
+
+const noUpdateHeadStyle: CSSProperties = {
+  fontSize: '0.92rem',
+  fontWeight: 600,
+  color: '#7B5A3E',
 };
 
 const subInfoStyle: CSSProperties = {

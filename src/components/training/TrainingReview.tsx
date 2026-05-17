@@ -16,6 +16,7 @@ import {
   loadRecords,
   missedRecords,
 } from '../../data/training/recordsStore';
+import type { ProblemRecord } from '../../data/training/recordsStore';
 import {
   trainingPath,
   trainingReviewPath,
@@ -33,16 +34,30 @@ export interface TrainingReviewProps {
   index: number;
 }
 
+/** クエリパラメータ ?score=N&total=M を付けた result パス。 records から score を再計算する。 */
+function buildResultPath(
+  levelKey: string,
+  records: ReadonlyArray<ProblemRecord> | null,
+): string {
+  const base = trainingPath(levelKey, 'result');
+  if (!records || records.length === 0) return base;
+  const score = records.filter((r) => r.isCorrect).length;
+  const total = records.length;
+  const sp = new URLSearchParams({ score: String(score), total: String(total) });
+  return `${base}?${sp.toString()}`;
+}
+
 export function TrainingReview({ level, index }: TrainingReviewProps) {
   const records = loadRecords(level.key);
   const missed = records ? missedRecords(records) : [];
+  const resultPath = buildResultPath(level.key, records);
 
   // 1-indexed → 0-indexed
   const i = index - 1;
   const current = missed[i];
 
   if (!current) {
-    // 記録なし / 範囲外: 結果画面へリダイレクト
+    // 記録なし / 範囲外: 結果画面へリダイレクト (score 付きで戻すことで再エラーを防ぐ)
     return (
       <div style={pageStyle}>
         <main style={mainStyle}>
@@ -51,7 +66,7 @@ export function TrainingReview({ level, index }: TrainingReviewProps) {
           </p>
           <button
             type="button"
-            onClick={() => navigate(trainingPath(level.key, 'result'))}
+            onClick={() => navigate(resultPath)}
             style={primaryBtnStyle}
           >
             結果画面へ
@@ -74,7 +89,7 @@ export function TrainingReview({ level, index }: TrainingReviewProps) {
   return (
     <div style={pageStyle}>
       <main style={mainStyle}>
-        <Link to={trainingPath(level.key, 'result')} style={crumbStyle}>
+        <Link to={resultPath} style={crumbStyle}>
           ← 結果に戻る
         </Link>
 
