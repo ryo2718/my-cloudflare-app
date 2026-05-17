@@ -47,16 +47,14 @@ describe('<QuizPage /> (トレーニングメニュー)', () => {
     expect(expertCount).toBe(2);
   });
 
-  it('プリフロップ初級: "1pt" + "制限時間なし" を表示', () => {
+  it('レベル ラベル以外の補足表記 (1pt / × 20問 / 制限時間 / 括弧サブタイトル) を出さない', () => {
     const html = render();
-    expect(html).toContain('1pt');
-    expect(html).toContain('制限時間なし');
-  });
-
-  it('プリフロップ中級: "3pt" + "制限時間 20s" を表示', () => {
-    const html = render();
-    expect(html).toContain('3pt');
-    expect(html).toContain('制限時間 20s');
+    expect(html).not.toContain('1pt');
+    expect(html).not.toContain('3pt');
+    expect(html).not.toContain('× 20問');
+    expect(html).not.toContain('制限時間');
+    expect(html).not.toContain('(オープンレンジ)');
+    expect(html).not.toContain('(vs open)');
   });
 
   it('not-planned (points=null) level は「未実装」バッジ表示 (preflop 2 + flop 4 = 6)', () => {

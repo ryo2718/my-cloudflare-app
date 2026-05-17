@@ -15,29 +15,28 @@ describe('TRAINING_CATALOG', () => {
     }
   });
 
-  it('preflop 初級: points=1, timeLimitSec=none', () => {
+  it('preflop 初級: questionCount=20 (実装予定)', () => {
     const beginner = TRAINING_CATALOG[0].levels[0];
     expect(beginner.key).toBe('preflop_beginner');
-    expect(beginner.points).toBe(1);
-    expect(beginner.timeLimitSec).toBe('none');
+    expect(beginner.questionCount).toBe(20);
   });
 
-  it('preflop 中級: points=3, timeLimitSec=20', () => {
+  it('preflop 中級: questionCount=20 (実装予定)', () => {
     const intermediate = TRAINING_CATALOG[0].levels[1];
     expect(intermediate.key).toBe('preflop_intermediate');
-    expect(intermediate.points).toBe(3);
-    expect(intermediate.timeLimitSec).toBe(20);
+    expect(intermediate.questionCount).toBe(20);
+  });
+
+  it('preflop 上級/超上級 と flop 全 level は questionCount=null (未計画)', () => {
+    expect(TRAINING_CATALOG[0].levels[2].questionCount).toBeNull();
+    expect(TRAINING_CATALOG[0].levels[3].questionCount).toBeNull();
+    expect(TRAINING_CATALOG[1].levels.every((l) => l.questionCount === null)).toBe(true);
   });
 
   it('全 8 level は implemented=false (現状)', () => {
     const allLevels = TRAINING_CATALOG.flatMap((c) => c.levels);
     expect(allLevels).toHaveLength(8);
     expect(allLevels.every((l) => l.implemented === false)).toBe(true);
-  });
-
-  it('flop カテゴリは全 level が points=null (未実装)', () => {
-    const flop = TRAINING_CATALOG[1];
-    expect(flop.levels.every((l) => l.points === null)).toBe(true);
   });
 });
 

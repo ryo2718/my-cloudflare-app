@@ -120,13 +120,13 @@ export function AccountPage() {
 }
 
 function renderLevelLabel(lv: TrainingLevel): string {
-  return lv.subtitle ? `${lv.label}(${lv.subtitle})` : lv.label;
+  return lv.label;
 }
 
 function renderScore(lv: TrainingLevel, record: TrainingResult | undefined): string {
   if (!isPlanned(lv)) return '未実装';
-  if (!record) return '--- /20 (未挑戦)';
   const total = lv.questionCount ?? 20;
+  if (!record) return `--- /${total} (未挑戦)`;
   return `${record.best_score} /${total}`;
 }
 
