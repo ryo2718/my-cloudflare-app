@@ -12,6 +12,8 @@ export interface AccountAdmin {
   is_admin: boolean;
   created_at: number;
   last_login_at: number | null;
+  /** training_results.best_score の合計 (Phase 9 で追加)。 */
+  total_points: number;
 }
 
 export interface GroupKey {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   TRAINING_CATALOG,
-  TRAINING_RESULT_DISPLAY,
+  isPlanned,
 } from './trainingCatalog';
 
 describe('TRAINING_CATALOG', () => {
@@ -41,18 +41,14 @@ describe('TRAINING_CATALOG', () => {
   });
 });
 
-describe('TRAINING_RESULT_DISPLAY (AccountPage 用 4 種固定)', () => {
-  it('プリフロ / フロップの 初級・中級 4 種', () => {
-    expect(TRAINING_RESULT_DISPLAY.map((x) => x.key)).toEqual([
-      'preflop_beginner',
-      'preflop_intermediate',
-      'flop_beginner',
-      'flop_intermediate',
-    ]);
+describe('isPlanned helper', () => {
+  it('points !== null は planned (実装予定)', () => {
+    expect(isPlanned(TRAINING_CATALOG[0].levels[0])).toBe(true); // preflop_beginner
+    expect(isPlanned(TRAINING_CATALOG[0].levels[1])).toBe(true); // preflop_intermediate
   });
 
-  it('label に日本語名', () => {
-    expect(TRAINING_RESULT_DISPLAY[0].label).toBe('プリフロップ初級');
-    expect(TRAINING_RESULT_DISPLAY[3].label).toBe('フロップ中級');
+  it('points === null は not-planned (未実装、表示は「未実装」)', () => {
+    expect(isPlanned(TRAINING_CATALOG[0].levels[2])).toBe(false); // preflop_advanced
+    expect(isPlanned(TRAINING_CATALOG[1].levels[0])).toBe(false); // flop_beginner
   });
 });

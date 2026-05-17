@@ -38,3 +38,13 @@ async function fetchJsonAuthed<T>(url: string, sessionId: string): Promise<T> {
 export async function apiAccountMe(sessionId: string): Promise<AccountDetail> {
   return await fetchJsonAuthed<AccountDetail>('/api/account/me', sessionId);
 }
+
+export async function apiAccountTrainingResults(
+  sessionId: string,
+): Promise<TrainingResult[]> {
+  const res = await fetchJsonAuthed<{ training_results: TrainingResult[] }>(
+    '/api/account/training-results',
+    sessionId,
+  );
+  return res.training_results;
+}

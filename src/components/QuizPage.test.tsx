@@ -59,10 +59,17 @@ describe('<QuizPage /> (トレーニングメニュー)', () => {
     expect(html).toContain('制限時間 20s');
   });
 
-  it('全 8 カードに "(未実装)" が含まれる', () => {
+  it('not-planned (points=null) level は「未実装」バッジ表示 (preflop 2 + flop 4 = 6)', () => {
     const html = render();
-    const matches = html.match(/\(未実装\)/g) ?? [];
-    expect(matches.length).toBe(8);
+    const matches = html.match(/>未実装</g) ?? [];
+    // バッジ + tooltip 等で複数回ヒット得るため、最低 6 件以上で planned/not-planned 整合確認
+    expect(matches.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('planned (preflop 初級・中級) には「挑戦する」ボタン', () => {
+    const html = render();
+    const matches = html.match(/>挑戦する</g) ?? [];
+    expect(matches.length).toBe(2);
   });
 
   it('「← ホーム」リンク (AppHeader showBack)', () => {

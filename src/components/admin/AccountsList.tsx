@@ -91,6 +91,7 @@ export function AccountsList() {
                   <th style={thStyle}>ポーカーネーム</th>
                   <th style={thStyle}>パスワード</th>
                   <th style={thStyle}>Admin</th>
+                  <th style={thStyle}>合計pt</th>
                   <th style={thStyle}>作成</th>
                   <th style={thStyle}>最終ログイン</th>
                 </tr>
@@ -115,13 +116,16 @@ export function AccountsList() {
                       </button>
                     </td>
                     <td style={tdStyle}>{a.is_admin ? '✓' : ''}</td>
+                    <td style={{ ...tdStyle, fontFamily: 'ui-monospace, SFMono-Regular, monospace', textAlign: 'right' }}>
+                      {a.total_points}
+                    </td>
                     <td style={tdStyle}>{formatTime(a.created_at)}</td>
                     <td style={tdStyle}>{formatTime(a.last_login_at)}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} style={emptyRowStyle}>該当アカウントなし</td>
+                    <td colSpan={7} style={emptyRowStyle}>該当アカウントなし</td>
                   </tr>
                 )}
               </tbody>

@@ -26,6 +26,7 @@ describe('apiAdminListAccounts', () => {
             is_admin: true,
             created_at: 1,
             last_login_at: 2,
+            total_points: 42,
           },
         ],
       }),
@@ -36,6 +37,7 @@ describe('apiAdminListAccounts', () => {
       headers: expect.objectContaining({ Authorization: 'Bearer sid' }),
     }));
     expect(list[0].poker_name).toBe('テスト君');
+    expect(list[0].total_points).toBe(42);
   });
 
   it('403 → AuthApiError(code=forbidden)', async () => {

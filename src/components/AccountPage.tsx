@@ -1,10 +1,31 @@
-// /account: アカウント情報ページ (Phase 8 で枠だけ実装)。
-// 現状はポイント (常に 0) と トレーニング成績 (空) のプレースホルダ。
+// /account: アカウント情報ページ。
+//
+// レイアウト:
+//   ユーザー: {poker_name}
+//   ポイント: {points}pt
+//   ── トレーニング成績 ──
+//   プリフロップトレーニング
+//     初級:   --- /20 (未挑戦)   or   18 /20
+//     中級:   --- /20 (未挑戦)   or   12 /20
+//     上級:   未実装
+//     超上級: 未実装
+//   フロップトレーニング
+//     初級:   未実装
+//     ...
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { apiAccountMe, type AccountDetail } from '../api/account';
+import {
+  apiAccountMe,
+  apiAccountTrainingResults,
+  type AccountDetail,
+  type TrainingResult,
+} from '../api/account';
 import { useAuth } from '../hooks/useAuth';
-import { TRAINING_RESULT_DISPLAY } from '../data/trainingCatalog';
+import {
+  TRAINING_CATALOG,
+  isPlanned,
+  type TrainingLevel,
+} from '../data/trainingCatalog';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
@@ -12,7 +33,7 @@ type LoadState =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ok'; detail: AccountDetail };
+  | { kind: 'ok'; detail: AccountDetail; trainings: TrainingResult[] };
 
 export function AccountPage() {
   const auth = useAuth();
@@ -24,10 +45,10 @@ export function AccountPage() {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: 'loading' });
-    apiAccountMe(sid)
-      .then((detail) => {
+    Promise.all([apiAccountMe(sid), apiAccountTrainingResults(sid)])
+      .then(([detail, trainings]) => {
         if (cancelled) return;
-        setState({ kind: 'ok', detail });
+        setState({ kind: 'ok', detail, trainings });
       })
       .catch((err) => {
         if (cancelled) return;
@@ -41,11 +62,10 @@ export function AccountPage() {
     };
   }, [auth.sessionId]);
 
-  // poker_name は auth.account からも取れる (即時表示用)
   const fallbackName = auth.account?.poker_name ?? '';
-  const detail = state.kind === 'ok' ? state.detail : null;
-  const points = detail?.points ?? 0;
-  const trainings = detail?.training_results ?? [];
+  const pokerName = state.kind === 'ok' ? state.detail.poker_name : fallbackName;
+  const points = state.kind === 'ok' ? state.detail.points : 0;
+  const trainings: TrainingResult[] = state.kind === 'ok' ? state.trainings : [];
 
   return (
     <div style={pageStyle}>
@@ -54,50 +74,65 @@ export function AccountPage() {
         <h1 style={titleStyle}>アカウント情報</h1>
         <div style={dividerStyle} />
 
-        <div style={nameRowStyle}>
-          <span style={nameLabelStyle}>poker_name</span>
-          <span style={nameValueStyle}>{detail?.poker_name ?? fallbackName}</span>
+        <div style={infoRowStyle}>
+          <span style={infoLabelStyle}>ユーザー</span>
+          <span style={infoValueStyle}>{pokerName}</span>
+        </div>
+        <div style={infoRowStyle}>
+          <span style={infoLabelStyle}>ポイント</span>
+          <span style={infoValuePrimaryStyle}>
+            {state.kind === 'loading' ? '…' : `${points}pt`}
+          </span>
         </div>
 
-        <section style={cardStyle}>
-          <header style={cardHeaderStyle}>
-            <span style={cardIconStyle}>📍</span>
-            <span style={cardTitleStyle}>ポイント</span>
-          </header>
-          <div style={pointsValueStyle}>{state.kind === 'loading' ? '…' : points}</div>
-          <div style={cardSubStyle}>(今後アップデート予定)</div>
-        </section>
+        <div style={sectionLabelRowStyle}>
+          <span style={sectionLabelStyle}>トレーニング成績</span>
+        </div>
 
-        <section style={cardStyle}>
-          <header style={cardHeaderStyle}>
-            <span style={cardIconStyle}>📊</span>
-            <span style={cardTitleStyle}>トレーニング成績</span>
-          </header>
-          {state.kind === 'loading' && <div style={cardSubStyle}>読み込み中…</div>}
-          {state.kind === 'error' && (
-            <div style={errorStyle}>取得失敗: {state.message}</div>
-          )}
-          {state.kind !== 'error' && (
-            <ul style={trainingListStyle}>
-              {TRAINING_RESULT_DISPLAY.map((entry) => {
-                const record = trainings.find((t) => t.training_type === entry.key);
-                return (
-                  <li key={entry.key} style={trainingItemStyle}>
-                    <span>{entry.label}</span>
-                    <span style={trainingValueStyle}>
-                      {record ? `${record.best_score}/20` : '--- (未挑戦)'}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div style={cardSubStyle}>(今後アップデート予定)</div>
-        </section>
+        {state.kind === 'error' && (
+          <div style={errorStyle}>取得失敗: {state.message}</div>
+        )}
+
+        {state.kind !== 'error' &&
+          TRAINING_CATALOG.map((cat) => (
+            <section key={cat.key} style={categoryCardStyle}>
+              <header style={categoryHeaderStyle}>{cat.label}</header>
+              <ul style={levelListStyle}>
+                {cat.levels.map((lv) => {
+                  const record = trainings.find(
+                    (t) => t.training_type === lv.key,
+                  );
+                  return (
+                    <li key={lv.key} style={levelRowStyle}>
+                      <span style={levelLabelStyle}>{renderLevelLabel(lv)}</span>
+                      <span style={levelScoreStyle}>
+                        {renderScore(lv, record)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
       </main>
     </div>
   );
 }
+
+function renderLevelLabel(lv: TrainingLevel): string {
+  return lv.subtitle ? `${lv.label}(${lv.subtitle})` : lv.label;
+}
+
+function renderScore(lv: TrainingLevel, record: TrainingResult | undefined): string {
+  if (!isPlanned(lv)) return '未実装';
+  if (!record) return '--- /20 (未挑戦)';
+  const total = lv.questionCount ?? 20;
+  return `${record.best_score} /${total}`;
+}
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
@@ -129,53 +164,83 @@ const dividerStyle: CSSProperties = {
   background: THEME.border,
 };
 
-const nameRowStyle: CSSProperties = {
+const infoRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'baseline',
+  justifyContent: 'space-between',
   gap: '0.65rem',
 };
-const nameLabelStyle: CSSProperties = {
-  fontSize: '0.72rem',
-  letterSpacing: '0.04em',
+const infoLabelStyle: CSSProperties = {
+  fontSize: '0.85rem',
   color: THEME.textSecondary,
-  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
 };
-const nameValueStyle: CSSProperties = {
+const infoValueStyle: CSSProperties = {
   fontSize: '1rem',
   fontWeight: 600,
   color: THEME.textPrimary,
 };
+const infoValuePrimaryStyle: CSSProperties = {
+  fontSize: '1.05rem',
+  fontWeight: 700,
+  color: THEME.accent,
+  fontVariantNumeric: 'tabular-nums',
+};
 
-const cardStyle: CSSProperties = {
+const sectionLabelRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginTop: '0.4rem',
+};
+const sectionLabelStyle: CSSProperties = {
+  fontSize: '0.75rem',
+  fontWeight: 700,
+  letterSpacing: '0.04em',
+  color: THEME.textSecondary,
+};
+
+const categoryCardStyle: CSSProperties = {
   background: '#fff',
   border: `1px solid ${THEME.border}`,
-  borderRadius: '0.55rem',
-  padding: '0.95rem 1.05rem',
+  borderRadius: '0.5rem',
+  padding: '0.75rem 0.95rem',
   display: 'flex',
   flexDirection: 'column',
   gap: '0.4rem',
 };
-const cardHeaderStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.45rem',
-};
-const cardIconStyle: CSSProperties = { fontSize: '1.15rem', lineHeight: 1 };
-const cardTitleStyle: CSSProperties = {
+
+const categoryHeaderStyle: CSSProperties = {
   fontSize: '0.88rem',
   fontWeight: 700,
   color: THEME.textPrimary,
 };
-const cardSubStyle: CSSProperties = {
-  fontSize: '0.75rem',
-  color: THEME.textMuted,
+
+const levelListStyle: CSSProperties = {
+  listStyle: 'none',
+  padding: 0,
+  margin: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.2rem',
 };
 
-const pointsValueStyle: CSSProperties = {
-  fontSize: '2rem',
-  fontWeight: 700,
-  color: THEME.accent,
-  fontVariantNumeric: 'tabular-nums',
+const levelRowStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'baseline',
+  fontSize: '0.88rem',
+  padding: '0.25rem 0',
+  borderBottom: `1px dashed ${THEME.border}`,
+};
+
+const levelLabelStyle: CSSProperties = {
+  color: THEME.textPrimary,
+};
+
+const levelScoreStyle: CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  color: THEME.textSecondary,
+  fontSize: '0.85rem',
 };
 
 const errorStyle: CSSProperties = {
@@ -185,25 +250,4 @@ const errorStyle: CSSProperties = {
   border: `1px solid ${THEME.errorBorder}`,
   borderRadius: '0.3rem',
   padding: '0.4rem 0.6rem',
-};
-
-const trainingListStyle: CSSProperties = {
-  listStyle: 'none',
-  padding: 0,
-  margin: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.3rem',
-};
-const trainingItemStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  fontSize: '0.88rem',
-  padding: '0.2rem 0',
-  borderBottom: `1px dashed ${THEME.border}`,
-};
-
-const trainingValueStyle: CSSProperties = {
-  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  color: THEME.textSecondary,
 };

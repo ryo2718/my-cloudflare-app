@@ -53,7 +53,7 @@ export interface AccountPublic {
   is_admin: boolean;
 }
 
-/** Admin 画面用 (平文 private_pass + last_login_at を含む)。 */
+/** Admin 画面用 (平文 private_pass + last_login_at + total_points を含む)。 */
 export interface AccountAdmin {
   id: number;
   poker_name: string;
@@ -61,6 +61,8 @@ export interface AccountAdmin {
   is_admin: boolean;
   created_at: number;
   last_login_at: number | null;
+  /** training_results.best_score の合計 (LEFT JOIN + SUM)。未挑戦は 0。 */
+  total_points: number;
 }
 
 export interface AuthSuccess {

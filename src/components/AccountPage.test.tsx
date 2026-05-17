@@ -29,20 +29,25 @@ function render(auth: AuthState): string {
 }
 
 describe('<AccountPage />', () => {
-  it('タイトル + poker_name 表示 (auth.account からの fallback)', () => {
+  it('タイトル + ユーザー名 + ポイント表記', () => {
     const html = render(makeAuth());
     expect(html).toContain('アカウント情報');
-    expect(html).toContain('poker_name');
+    expect(html).toContain('ユーザー');
     expect(html).toContain('テスト君');
+    expect(html).toContain('ポイント');
+    expect(html).toContain('pt');
   });
 
-  it('ポイント + トレーニング成績セクション枠が表示される', () => {
+  it('トレーニング成績セクション (プリフロップ/フロップ × 4 levels)', () => {
     const html = render(makeAuth());
-    expect(html).toContain('📍');
-    expect(html).toContain('ポイント');
-    expect(html).toContain('📊');
     expect(html).toContain('トレーニング成績');
-    expect(html).toContain('今後アップデート予定');
+    expect(html).toContain('プリフロップトレーニング');
+    expect(html).toContain('フロップトレーニング');
+    // planned levels は --- /20 (未挑戦)
+    expect(html).toContain('--- /20');
+    expect(html).toContain('(未挑戦)');
+    // not-planned (上級/超上級/フロップ全) は 未実装
+    expect(html).toContain('未実装');
   });
 
   it('「← ホーム」リンク (AppHeader showBack)', () => {
