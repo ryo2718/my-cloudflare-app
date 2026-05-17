@@ -16,7 +16,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const trainingRes = await env.DB
     .prepare(
-      'SELECT * FROM training_results WHERE account_id = ? ORDER BY completed_at DESC LIMIT 100',
+      'SELECT * FROM training_results WHERE account_id = ? ORDER BY updated_at DESC LIMIT 100',
     )
     .bind(account.id)
     .all<TrainingResultRow>();

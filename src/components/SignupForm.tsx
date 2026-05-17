@@ -66,6 +66,7 @@ export function SignupForm() {
           value={groupKey}
           onChange={(e) => setGroupKey(e.target.value)}
           required
+          placeholder="Group Key を入力"
           style={inputStyle}
         />
       </label>

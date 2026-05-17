@@ -4,6 +4,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { apiAccountMe, type AccountDetail } from '../api/account';
 import { useAuth } from '../hooks/useAuth';
+import { TRAINING_RESULT_DISPLAY } from '../data/trainingCatalog';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
@@ -76,17 +77,19 @@ export function AccountPage() {
           {state.kind === 'error' && (
             <div style={errorStyle}>取得失敗: {state.message}</div>
           )}
-          {state.kind === 'ok' && trainings.length === 0 && (
-            <div style={cardSubStyle}>まだデータがありません</div>
-          )}
-          {state.kind === 'ok' && trainings.length > 0 && (
+          {state.kind !== 'error' && (
             <ul style={trainingListStyle}>
-              {trainings.map((t) => (
-                <li key={t.id} style={trainingItemStyle}>
-                  <span>{t.training_type}</span>
-                  <span>{t.score}</span>
-                </li>
-              ))}
+              {TRAINING_RESULT_DISPLAY.map((entry) => {
+                const record = trainings.find((t) => t.training_type === entry.key);
+                return (
+                  <li key={entry.key} style={trainingItemStyle}>
+                    <span>{entry.label}</span>
+                    <span style={trainingValueStyle}>
+                      {record ? `${record.best_score}/20` : '--- (未挑戦)'}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
           <div style={cardSubStyle}>(今後アップデート予定)</div>
@@ -195,5 +198,12 @@ const trainingListStyle: CSSProperties = {
 const trainingItemStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
-  fontSize: '0.85rem',
+  fontSize: '0.88rem',
+  padding: '0.2rem 0',
+  borderBottom: `1px dashed ${THEME.border}`,
+};
+
+const trainingValueStyle: CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  color: THEME.textSecondary,
 };

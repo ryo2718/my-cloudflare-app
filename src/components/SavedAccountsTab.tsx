@@ -103,7 +103,7 @@ export function SavedAccountsTab({
           type="text"
           value={groupKey}
           onChange={(e) => setGroupKey(e.target.value)}
-          placeholder="例: 2818"
+          placeholder="Group Key を入力"
           style={groupKeyInputStyle}
           autoComplete="off"
         />

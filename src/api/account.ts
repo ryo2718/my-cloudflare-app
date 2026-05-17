@@ -6,8 +6,10 @@ export interface TrainingResult {
   id: number;
   account_id: number;
   training_type: string;
-  score: number;
-  completed_at: number;
+  best_score: number;
+  best_score_at: number;
+  total_attempts: number;
+  updated_at: number;
 }
 
 export interface AccountDetail {

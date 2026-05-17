@@ -18,8 +18,11 @@ export interface TrainingResultRow {
   id: number;
   account_id: number;
   training_type: string;
-  score: number;
-  completed_at: number;
+  /** 20 問中の最高正解数。 */
+  best_score: number;
+  best_score_at: number;
+  total_attempts: number;
+  updated_at: number;
 }
 
 export interface AccountDetail {

@@ -41,7 +41,7 @@ describe('apiAccountMe', () => {
     });
   });
 
-  it('training_results が含まれていれば配列で受け取れる', async () => {
+  it('training_results が含まれていれば配列で受け取れる (新スキーマ v2)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -51,13 +51,23 @@ describe('apiAccountMe', () => {
           poker_name: 'a',
           points: 0,
           training_results: [
-            { id: 1, account_id: 1, training_type: 'preflop', score: 8, completed_at: 1 },
+            {
+              id: 1,
+              account_id: 1,
+              training_type: 'preflop_beginner',
+              best_score: 18,
+              best_score_at: 1700000000000,
+              total_attempts: 5,
+              updated_at: 1700000000000,
+            },
           ],
         }),
       }),
     );
     const detail = await apiAccountMe('sid');
     expect(detail.training_results).toHaveLength(1);
-    expect(detail.training_results[0].training_type).toBe('preflop');
+    expect(detail.training_results[0].training_type).toBe('preflop_beginner');
+    expect(detail.training_results[0].best_score).toBe(18);
+    expect(detail.training_results[0].total_attempts).toBe(5);
   });
 });
