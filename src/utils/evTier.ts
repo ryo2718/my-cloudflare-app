@@ -77,6 +77,13 @@ export const TIER_CONFIG: Record<EvTier, TierConfig> = {
     textColor: '#fff',
     borderColor: '#4527a0',
   },
+  garbage: {
+    name: 'ゴミハンド',
+    subtitle: 'プレイ厳禁',
+    color: '#3b0a0a',        // 深い赤茶 (危険シグナル)
+    textColor: '#d4a1a1',
+    borderColor: '#1d0505',
+  },
   trash: {
     name: 'トラッシュ',
     subtitle: 'EV 0',
