@@ -22,7 +22,7 @@ function render(): string {
   );
 }
 
-describe('<QuizPage /> (トレーニングメニュー)', () => {
+describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => {
   it('タイトル "トレーニング" 表示', () => {
     const html = render();
     expect(html).toContain('トレーニング');
@@ -36,7 +36,6 @@ describe('<QuizPage /> (トレーニングメニュー)', () => {
 
   it('4 レベル × 2 カテゴリ = 8 カード分のラベル', () => {
     const html = render();
-    // 各カテゴリ 4 ラベル
     const beginnerCount = (html.match(/>初級</g) ?? []).length;
     const intermediateCount = (html.match(/>中級</g) ?? []).length;
     const advancedCount = (html.match(/>上級</g) ?? []).length;
@@ -47,27 +46,34 @@ describe('<QuizPage /> (トレーニングメニュー)', () => {
     expect(expertCount).toBe(2);
   });
 
-  it('プリフロップ初級: subtitle "オープンレンジ" + "1pt × 20問・制限時間なし"', () => {
+  it('プリフロップ初級・中級 subtitle: "(オープンレンジ)" "(vs open)" が collapsed 状態でも見える', () => {
     const html = render();
     expect(html).toContain('(オープンレンジ)');
-    expect(html).toContain('1pt × 20問・制限時間なし');
+    expect(html).toContain('(vs open)');
   });
 
-  it('プリフロップ中級: subtitle "vs open" + "3pt × 20問・制限時間 20s"', () => {
+  it('未挑戦の playable level は "未挑戦" 表示 (collapsed 状態)', () => {
     const html = render();
-    expect(html).toContain('(vs open)');
-    expect(html).toContain('3pt × 20問・制限時間 20s');
+    // 認証ありだが SSR で fetch 結果は来ないので、両 playable level は未挑戦扱い
+    const matches = html.match(/未挑戦/g) ?? [];
+    expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 
   it('未実装 level は「未実装」バッジ表示 (preflop 上級/超上級 + flop 全 = 6 枚)', () => {
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    expect(matches.length).toBeGreaterThanOrEqual(6);
+    expect(matches.length).toBe(6);
   });
 
-  it('実装済 (preflop 初級・中級) には「挑戦する」ボタン', () => {
+  it('collapsed 初期状態では [スタート] ボタンは含まれない (展開時のみ表示)', () => {
     const html = render();
-    const matches = html.match(/>挑戦する</g) ?? [];
+    // 詳細パネルは展開時のみ。初期 SSR では全 level collapsed → スタート 0件
+    expect(html).not.toContain('>スタート<');
+  });
+
+  it('playable level はアコーディオン展開可能 (aria-expanded="false" を持つボタンが 2 つ)', () => {
+    const html = render();
+    const matches = html.match(/aria-expanded="false"/g) ?? [];
     expect(matches.length).toBe(2);
   });
 

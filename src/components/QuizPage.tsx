@@ -1,42 +1,53 @@
-// /quiz: トレーニングメニュー画面。
+// /quiz: トレーニングメニュー (レベル単位アコーディオン UI)。
 //
-// プリフロップ初級・中級は実装済 (挑戦するボタンで /training/preflop-{beginner,intermediate}/confirm へ)。
-// それ以外は「未実装」バッジ。
+// 各 level は独立したアコーディオンで、collapsed=score 表示 / expanded=詳細+[戻る][スタート]。
+// implemented=false の level はアコーディオンではなく [未実装] バッジ固定。
+// マウント時に GET /api/account/training-results を取得して最高スコアを表示。
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   TRAINING_CATALOG,
-  formatLevelInfo,
   isPlayable,
   trainingPath,
   type TrainingLevel,
 } from '../data/trainingCatalog';
+import {
+  apiAccountTrainingResults,
+  type TrainingResult,
+} from '../api/account';
+import { useAuth } from '../hooks/useAuth';
 import { navigate } from '../router/router-core';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
 export function QuizPage() {
-  const [notice, setNotice] = useState<string | null>(null);
-  const [openCats, setOpenCats] = useState<Set<string>>(
-    () => new Set(TRAINING_CATALOG.map((c) => c.key)),
-  );
+  const auth = useAuth();
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [records, setRecords] = useState<TrainingResult[]>([]);
 
-  const toggleCat = (key: string) => {
-    setOpenCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  useEffect(() => {
+    if (!auth.sessionId) return;
+    const sid = auth.sessionId;
+    let cancelled = false;
+    apiAccountTrainingResults(sid)
+      .then((rows) => {
+        if (cancelled) return;
+        setRecords(rows);
+      })
+      .catch(() => {
+        /* スコア取得失敗時は「未挑戦」表示にフォールバック */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.sessionId]);
+
+  const toggle = (key: string) => {
+    setOpenKey((prev) => (prev === key ? null : key));
   };
 
-  const handleChallenge = (level: TrainingLevel) => {
-    if (isPlayable(level)) {
-      navigate(trainingPath(level.key, 'confirm'));
-      return;
-    }
-    setNotice(`${level.label} は未実装です。リリースをお待ちください。`);
-    window.setTimeout(() => setNotice(null), 3000);
+  const start = (level: TrainingLevel) => {
+    navigate(trainingPath(level.key, 'play'));
   };
 
   return (
@@ -45,84 +56,145 @@ export function QuizPage() {
       <main style={mainStyle}>
         <h1 style={titleStyle}>トレーニング</h1>
 
-        {TRAINING_CATALOG.map((cat) => {
-          const open = openCats.has(cat.key);
-          return (
-            <section key={cat.key} style={categorySectionStyle}>
-              <button
-                type="button"
-                onClick={() => toggleCat(cat.key)}
-                style={categoryToggleStyle}
-                aria-expanded={open}
-              >
-                <span style={categoryChevronStyle} aria-hidden>
-                  {open ? '▼' : '▶'}
-                </span>
-                <span>{cat.label}</span>
-              </button>
-              {open && (
-                <div style={levelListStyle}>
-                  {cat.levels.map((lv) => (
-                    <LevelCard
-                      key={lv.key}
-                      level={lv}
-                      onChallenge={() => handleChallenge(lv)}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          );
-        })}
+        {TRAINING_CATALOG.map((cat) => (
+          <section key={cat.key} style={categorySectionStyle}>
+            <header style={categoryHeaderStyle}>{cat.label}</header>
+            <div style={levelListStyle}>
+              {cat.levels.map((lv) => (
+                <LevelAccordion
+                  key={lv.key}
+                  level={lv}
+                  category={cat.label}
+                  record={records.find((r) => r.training_type === lv.key)}
+                  open={openKey === lv.key}
+                  onToggle={() => toggle(lv.key)}
+                  onStart={() => start(lv)}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
       </main>
+    </div>
+  );
+}
 
-      {notice && (
-        <div role="status" aria-live="polite" style={noticeStyle}>
-          {notice}
-        </div>
+// ---------------------------------------------------------------------------
+// LevelAccordion
+// ---------------------------------------------------------------------------
+
+function LevelAccordion({
+  level,
+  category,
+  record,
+  open,
+  onToggle,
+  onStart,
+}: {
+  level: TrainingLevel;
+  category: string;
+  record: TrainingResult | undefined;
+  open: boolean;
+  onToggle: () => void;
+  onStart: () => void;
+}) {
+  const playable = isPlayable(level);
+
+  if (!playable) {
+    return (
+      <div style={unimplementedCardStyle}>
+        <span style={cardLevelStyle}>{level.label}</span>
+        <span style={unimplementedBadgeStyle}>未実装</span>
+      </div>
+    );
+  }
+
+  const pt = level.points ?? 0;
+  const totalPt = record ? record.best_score * pt : 0;
+  const scoreLine = record
+    ? `最高スコア ${record.best_score}点 (${totalPt}pt)`
+    : '未挑戦';
+
+  return (
+    <div style={open ? playableCardOpenStyle : playableCardStyle}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={cardHeaderBtnStyle}
+        aria-expanded={open}
+      >
+        <span style={cardTitleColStyle}>
+          <span style={cardLevelStyle}>{level.label}</span>
+          {level.subtitle && (
+            <span style={cardSubtitleStyle}>({level.subtitle})</span>
+          )}
+        </span>
+        <span style={chevronStyle} aria-hidden>
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+      <div style={scoreLineStyle}>{scoreLine}</div>
+
+      {open && (
+        <>
+          <div style={dividerStyle} />
+          <DetailPanel level={level} category={category} />
+          <div style={actionRowStyle}>
+            <button type="button" onClick={onToggle} style={backBtnStyle}>
+              戻る
+            </button>
+            <button type="button" onClick={onStart} style={startBtnStyle}>
+              スタート
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// LevelCard
+// DetailPanel (展開時の説明)
 // ---------------------------------------------------------------------------
 
-function LevelCard({
+function DetailPanel({
   level,
-  onChallenge,
+  category,
 }: {
   level: TrainingLevel;
-  onChallenge: () => void;
+  category: string;
 }) {
-  const playable = isPlayable(level);
-  const planned = level.questionCount !== null;
-  const cardStyle: CSSProperties = playable ? plannedCardStyle : unimplementedCardStyle;
-  const info = planned ? formatLevelInfo(level) : '';
+  const timeLimitLabel =
+    level.timeLimitSec === 'none'
+      ? 'なし'
+      : typeof level.timeLimitSec === 'number'
+        ? `${level.timeLimitSec}秒`
+        : '—';
 
   return (
-    <div style={cardStyle}>
-      <div style={cardTopRowStyle}>
-        <div style={cardTitleColStyle}>
-          <span style={cardLevelStyle}>{level.label}</span>
-          {level.subtitle && (
-            <span style={cardSubtitleStyle}>({level.subtitle})</span>
-          )}
-        </div>
-        {!playable && <span style={unimplementedBadgeStyle}>未実装</span>}
-      </div>
+    <div style={detailColStyle}>
+      <DetailRow label={category} />
+      <DetailRow label="レベル" value={level.label} />
+      <DetailRow label="制限時間" value={timeLimitLabel} />
+      <div style={noteHeaderStyle}>注意:</div>
+      <ul style={noteListStyle}>
+        <li>スタック: 100BB</li>
+        <li>レーキ: 安め</li>
+        <li>2.5BB open</li>
+      </ul>
+      <div style={noteHintStyle}>(わからない人は考えなくて大丈夫です)</div>
+    </div>
+  );
+}
 
-      {playable && (
-        <>
-          <div style={cardInfoStyle}>{info}</div>
-          <div style={cardActionRowStyle}>
-            <button type="button" onClick={onChallenge} style={challengeBtnStyle}>
-              挑戦する
-            </button>
-          </div>
-        </>
-      )}
+function DetailRow({ label, value }: { label: string; value?: ReactNode }) {
+  if (value === undefined) {
+    return <div style={detailHeaderRowStyle}>{label}</div>;
+  }
+  return (
+    <div style={detailRowStyle}>
+      <span style={detailLabelStyle}>{label}:</span>
+      <span style={detailValueStyle}>{value}</span>
     </div>
   );
 }
@@ -136,7 +208,6 @@ const pageStyle: CSSProperties = {
   background: THEME.bg,
   display: 'flex',
   flexDirection: 'column',
-  position: 'relative',
 };
 
 const mainStyle: CSSProperties = {
@@ -163,26 +234,11 @@ const categorySectionStyle: CSSProperties = {
   gap: '0.55rem',
 };
 
-const categoryToggleStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.4rem',
-  background: 'transparent',
-  border: 'none',
-  padding: '0.2rem 0',
-  fontFamily: 'inherit',
+const categoryHeaderStyle: CSSProperties = {
   fontSize: '0.92rem',
   fontWeight: 700,
   color: THEME.textSecondary,
   letterSpacing: '0.04em',
-  cursor: 'pointer',
-  textAlign: 'left',
-};
-
-const categoryChevronStyle: CSSProperties = {
-  fontSize: '0.72rem',
-  color: THEME.textMuted,
-  minWidth: '14px',
 };
 
 const levelListStyle: CSSProperties = {
@@ -194,28 +250,42 @@ const levelListStyle: CSSProperties = {
 const cardBase: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.4rem',
-  padding: '0.85rem 1rem',
+  gap: '0.35rem',
+  padding: '0.75rem 0.95rem',
   border: `1px solid ${THEME.border}`,
   borderRadius: '0.5rem',
+  background: '#fff',
 };
 
-const plannedCardStyle: CSSProperties = {
+const playableCardStyle: CSSProperties = cardBase;
+
+const playableCardOpenStyle: CSSProperties = {
   ...cardBase,
-  background: '#fff',
+  borderColor: THEME.accent,
+  boxShadow: `0 0 0 1px ${THEME.accent} inset`,
 };
 
 const unimplementedCardStyle: CSSProperties = {
   ...cardBase,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
   background: '#f5f1ea',
   opacity: 0.72,
 };
 
-const cardTopRowStyle: CSSProperties = {
+const cardHeaderBtnStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: '0.6rem',
+  gap: '0.5rem',
+  width: '100%',
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  fontFamily: 'inherit',
+  textAlign: 'left',
+  cursor: 'pointer',
 };
 
 const cardTitleColStyle: CSSProperties = {
@@ -236,24 +306,100 @@ const cardSubtitleStyle: CSSProperties = {
   color: THEME.textSecondary,
 };
 
-const cardInfoStyle: CSSProperties = {
-  fontSize: '0.8rem',
+const chevronStyle: CSSProperties = {
+  fontSize: '0.72rem',
+  color: THEME.textMuted,
+  minWidth: '14px',
+  textAlign: 'right',
+};
+
+const scoreLineStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textMuted,
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+};
+
+const dividerStyle: CSSProperties = {
+  height: 1,
+  background: THEME.border,
+  margin: '0.4rem 0 0.5rem',
+};
+
+const detailColStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.3rem',
+  fontSize: '0.85rem',
+  color: THEME.textPrimary,
+};
+
+const detailHeaderRowStyle: CSSProperties = {
+  fontWeight: 700,
+  color: THEME.textPrimary,
+  marginBottom: '0.15rem',
+};
+
+const detailRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: '0.35rem',
+};
+
+const detailLabelStyle: CSSProperties = {
+  color: THEME.textSecondary,
+  fontWeight: 600,
+};
+
+const detailValueStyle: CSSProperties = {
+  color: THEME.textPrimary,
+};
+
+const noteHeaderStyle: CSSProperties = {
+  marginTop: '0.2rem',
+  fontWeight: 600,
+  color: THEME.textSecondary,
+};
+
+const noteListStyle: CSSProperties = {
+  margin: 0,
+  paddingLeft: '1.1rem',
+  color: THEME.textPrimary,
+  fontSize: '0.85rem',
+  lineHeight: 1.55,
+};
+
+const noteHintStyle: CSSProperties = {
+  fontSize: '0.78rem',
   color: THEME.textMuted,
 };
 
-const cardActionRowStyle: CSSProperties = {
+const actionRowStyle: CSSProperties = {
   display: 'flex',
-  justifyContent: 'flex-end',
+  gap: '0.6rem',
+  marginTop: '0.6rem',
 };
 
-const challengeBtnStyle: CSSProperties = {
-  padding: '0.4rem 1rem',
+const backBtnStyle: CSSProperties = {
+  flex: 1,
+  padding: '0.55rem 0.9rem',
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.4rem',
+  fontSize: '0.9rem',
+  color: THEME.textSecondary,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
+
+const startBtnStyle: CSSProperties = {
+  flex: 1,
+  padding: '0.55rem 0.9rem',
   background: THEME.accent,
   color: '#fff',
   border: 'none',
-  borderRadius: '0.3rem',
-  fontSize: '0.85rem',
-  fontWeight: 600,
+  borderRadius: '0.4rem',
+  fontSize: '0.92rem',
+  fontWeight: 700,
   fontFamily: 'inherit',
   cursor: 'pointer',
 };
@@ -265,20 +411,4 @@ const unimplementedBadgeStyle: CSSProperties = {
   borderRadius: '0.25rem',
   padding: '1px 6px',
   background: '#fff',
-};
-
-const noticeStyle: CSSProperties = {
-  position: 'fixed',
-  bottom: '1rem',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  background: '#412402',
-  color: '#fff',
-  fontSize: '0.85rem',
-  padding: '0.55rem 1rem',
-  borderRadius: '0.4rem',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-  maxWidth: '90%',
-  textAlign: 'center',
-  zIndex: 50,
 };
