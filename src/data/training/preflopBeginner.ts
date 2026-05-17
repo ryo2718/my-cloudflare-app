@@ -60,6 +60,14 @@ const VS_OPEN_COUNT = 10;
 const TOTAL_COUNT = OPEN_COUNT + VS_OPEN_COUNT;
 const DEDUP_MAX_RETRIES = 8;
 
+/**
+ * 初級は混合戦略を出題しない。
+ * GTO データは 0-100 スケール (例: { raise: 29, fold: 71 })。
+ * fold が EPSILON 未満なら "実質 0%"、100-EPSILON 超なら "実質 100%" と判定。
+ */
+const ELIGIBLE_EPSILON = 0.1;
+const ELIGIBLE_RETRIES = 50;
+
 // ---------------------------------------------------------------------------
 // 型
 // ---------------------------------------------------------------------------
@@ -106,10 +114,30 @@ export interface PreflopQuestion {
 // 純粋ヘルパー (テスト容易)
 // ---------------------------------------------------------------------------
 
-/** (raise + call + allin) > 0 → "participate"。100% fold のみ "fold"。 */
+/** (raise + call + allin) > 0 → "participate"。100% fold のみ "fold"。 (低レベル判定) */
 export function hasAnyParticipation(s: HandStrategy | undefined): boolean {
   if (!s) return false;
   return (s.raise ?? 0) + (s.call ?? 0) + (s.allin ?? 0) > 0;
+}
+
+/**
+ * 初級出題対象判定: fold が「実質 0%」または「実質 100%」のハンドのみ true。
+ * 混合戦略 (例: raise 50% / fold 50%) は false → 出題スキップ。
+ * 戦略が存在しない (undefined) は「実質 100% fold」とみなして true。
+ */
+export function isEligibleForBeginner(s: HandStrategy | undefined): boolean {
+  if (!s) return true;
+  const fold = s.fold ?? 0;
+  return fold < ELIGIBLE_EPSILON || fold > 100 - ELIGIBLE_EPSILON;
+}
+
+/**
+ * eligible なハンドの正解。eligible 前提で fold が EPSILON 未満なら "participate"、
+ * それ以外 (= 実質 100% fold) なら "fold"。
+ */
+export function correctForBeginner(s: HandStrategy | undefined): CorrectAnswer {
+  if (!s) return 'fold';
+  return (s.fold ?? 0) < ELIGIBLE_EPSILON ? 'participate' : 'fold';
 }
 
 /** 指定ポジションより前にアクションするポジション一覧 (= 既に fold した可能性のある席)。 */
@@ -230,53 +258,70 @@ export const VS_OPEN_PAIRS: ReadonlyArray<[Position, Position]> = (() => {
 // 1 問生成 (純粋関数、戦略データを引数で受ける)
 // ---------------------------------------------------------------------------
 
-/** open シナリオの 1 問生成。 */
+/**
+ * open シナリオの 1 問生成。
+ * 混合戦略 (fold が 0% でも 100% でもない) のハンドはスキップして最大 50 回リトライ。
+ * 50 回で見つからない場合は例外 (= 該当ポジ × ティアで eligible ハンドが極めて少ない異常状態)。
+ */
 export function generateOpenQuestion(
   open: OpenStrategies,
 ): PreflopQuestion {
-  const position = pickRandom(OPEN_POSITIONS);
-  const tiers = OPEN_TIER_RANGES[position];
-  const hand = pickRandomHandFromTiers(tiers);
-  const strategy = open[position]?.[hand];
-  return {
-    scenario: 'open',
-    myPosition: position,
-    opener: null,
-    foldedBefore: positionsBefore(position),
-    hand,
-    cards: handToCards(hand),
-    correct: hasAnyParticipation(strategy) ? 'participate' : 'fold',
-  };
+  for (let attempt = 0; attempt < ELIGIBLE_RETRIES; attempt++) {
+    const position = pickRandom(OPEN_POSITIONS);
+    const tiers = OPEN_TIER_RANGES[position];
+    const hand = pickRandomHandFromTiers(tiers);
+    const strategy = open[position]?.[hand];
+
+    if (!isEligibleForBeginner(strategy)) continue;
+
+    return {
+      scenario: 'open',
+      myPosition: position,
+      opener: null,
+      foldedBefore: positionsBefore(position),
+      hand,
+      cards: handToCards(hand),
+      correct: correctForBeginner(strategy),
+    };
+  }
+  throw new Error('generateOpenQuestion: no eligible hand after retries');
 }
 
-/** vs_open シナリオの 1 問生成。 */
+/**
+ * vs_open シナリオの 1 問生成。
+ * 混合戦略はスキップして最大 50 回リトライ。
+ */
 export function generateVsOpenQuestion(
   vsOpen: VsOpenStrategies,
 ): PreflopQuestion {
-  const responder = pickRandom(VS_OPEN_RESPONDERS);
-  const possibleOpeners = OPEN_POSITIONS.filter(
-    (p) => PREFLOP_ORDER.indexOf(p) < PREFLOP_ORDER.indexOf(responder),
-  );
-  const opener = pickRandom(possibleOpeners);
-  const tiers = VS_OPEN_TIER_RANGES[responder];
-  const hand = pickRandomHandFromTiers(tiers);
-  const strategy = vsOpen[opener]?.[responder]?.[hand];
+  for (let attempt = 0; attempt < ELIGIBLE_RETRIES; attempt++) {
+    const responder = pickRandom(VS_OPEN_RESPONDERS);
+    const possibleOpeners = OPEN_POSITIONS.filter(
+      (p) => PREFLOP_ORDER.indexOf(p) < PREFLOP_ORDER.indexOf(responder),
+    );
+    const opener = pickRandom(possibleOpeners);
+    const tiers = VS_OPEN_TIER_RANGES[responder];
+    const hand = pickRandomHandFromTiers(tiers);
+    const strategy = vsOpen[opener]?.[responder]?.[hand];
 
-  // folded = opener より前の全 + opener と自分の間 (open に乗らなかった席)
-  const foldedBefore = [
-    ...positionsBefore(opener),
-    ...positionsBetween(opener, responder),
-  ];
+    if (!isEligibleForBeginner(strategy)) continue;
 
-  return {
-    scenario: 'vs_open',
-    myPosition: responder,
-    opener,
-    foldedBefore,
-    hand,
-    cards: handToCards(hand),
-    correct: hasAnyParticipation(strategy) ? 'participate' : 'fold',
-  };
+    const foldedBefore = [
+      ...positionsBefore(opener),
+      ...positionsBetween(opener, responder),
+    ];
+
+    return {
+      scenario: 'vs_open',
+      myPosition: responder,
+      opener,
+      foldedBefore,
+      hand,
+      cards: handToCards(hand),
+      correct: correctForBeginner(strategy),
+    };
+  }
+  throw new Error('generateVsOpenQuestion: no eligible hand after retries');
 }
 
 // ---------------------------------------------------------------------------

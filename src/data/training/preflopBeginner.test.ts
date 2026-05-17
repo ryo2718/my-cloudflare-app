@@ -6,9 +6,11 @@ import {
   VS_OPEN_PAIRS,
   VS_OPEN_RESPONDERS,
   VS_OPEN_TIER_RANGES,
+  correctForBeginner,
   generateOpenQuestion,
   generateVsOpenQuestion,
   hasAnyParticipation,
+  isEligibleForBeginner,
   positionsBefore,
   positionsBetween,
   type HandStrategy,
@@ -264,6 +266,141 @@ describe('出題バリエーション統計', () => {
 
 // ---------------------------------------------------------------------------
 // 8. VS_OPEN_PAIRS の整合性
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 9. 混合戦略フィルタ (初級専用ルール)
+// ---------------------------------------------------------------------------
+
+describe('isEligibleForBeginner (混合戦略除外)', () => {
+  it('fold 0% (= 100% raise) → eligible', () => {
+    expect(isEligibleForBeginner({ fold: 0, call: 0, raise: 100, allin: 0 })).toBe(true);
+  });
+  it('fold 100% → eligible', () => {
+    expect(isEligibleForBeginner({ fold: 100, call: 0, raise: 0, allin: 0 })).toBe(true);
+  });
+  it('fold 50% (混合) → ineligible', () => {
+    expect(isEligibleForBeginner({ fold: 50, call: 0, raise: 50, allin: 0 })).toBe(false);
+  });
+  it('fold 70% / call 30% (混合) → ineligible', () => {
+    expect(isEligibleForBeginner({ fold: 70, call: 30, raise: 0, allin: 0 })).toBe(false);
+  });
+  it('fold 0.05% (誤差レベル) → eligible として扱う (EPSILON 0.1%)', () => {
+    expect(isEligibleForBeginner({ fold: 0.05, call: 0, raise: 99.95, allin: 0 })).toBe(true);
+  });
+  it('fold 99.95% (誤差レベル) → eligible として扱う', () => {
+    expect(isEligibleForBeginner({ fold: 99.95, call: 0.05, raise: 0, allin: 0 })).toBe(true);
+  });
+  it('undefined → 出題対象 (実質 100% fold とみなす)', () => {
+    expect(isEligibleForBeginner(undefined)).toBe(true);
+  });
+});
+
+describe('correctForBeginner (正解整合性)', () => {
+  it('fold 100% → fold 正解', () => {
+    expect(correctForBeginner({ fold: 100, call: 0, raise: 0, allin: 0 })).toBe('fold');
+  });
+  it('fold 0% / raise 100% → participate 正解', () => {
+    expect(correctForBeginner({ fold: 0, call: 0, raise: 100, allin: 0 })).toBe('participate');
+  });
+  it('fold 0% / call 100% → participate 正解', () => {
+    expect(correctForBeginner({ fold: 0, call: 100, raise: 0, allin: 0 })).toBe('participate');
+  });
+  it('fold 0% / raise 80% / call 20% (fold なし混合) → participate', () => {
+    expect(correctForBeginner({ fold: 0, call: 20, raise: 80, allin: 0 })).toBe('participate');
+  });
+  it('undefined → fold (戦略未定義は実質 fold)', () => {
+    expect(correctForBeginner(undefined)).toBe('fold');
+  });
+});
+
+describe('混合戦略フィルタの実動作 (generateOpenQuestion / generateVsOpenQuestion)', () => {
+  // 部分的に eligible、部分的に混合のデータを作る
+  function makePartialEligible(): Record<string, HandStrategy> {
+    const out: Record<string, HandStrategy> = {};
+    const allHands = [...getHandsFromTiers([
+      'premium', 'elite', 'strong', 'good', 'standard',
+      'average', 'weak', 'marginal', 'poor', 'garbage', 'trash',
+    ])];
+    allHands.forEach((hand, i) => {
+      if (i % 3 === 0) {
+        out[hand] = { fold: 100, call: 0, raise: 0, allin: 0 };       // fold 100%
+      } else if (i % 3 === 1) {
+        out[hand] = { fold: 0, call: 0, raise: 100, allin: 0 };       // fold 0%
+      } else {
+        out[hand] = { fold: 50, call: 0, raise: 50, allin: 0 };       // 混合: フィルタされる
+      }
+    });
+    return out;
+  }
+
+  it('open: 100 回生成して、すべて eligible なハンドのみ (混合 0 件)', () => {
+    const data: OpenStrategies = {
+      UTG: makePartialEligible(),
+      HJ: makePartialEligible(),
+      CO: makePartialEligible(),
+      BTN: makePartialEligible(),
+      SB: makePartialEligible(),
+    };
+    for (let i = 0; i < 100; i++) {
+      const q = generateOpenQuestion(data);
+      const strategy = data[q.myPosition]![q.hand];
+      expect(isEligibleForBeginner(strategy)).toBe(true);
+    }
+  });
+
+  it('vs_open: 100 回生成して、すべて eligible (混合 0 件)', () => {
+    const data: VsOpenStrategies = {};
+    for (const [o, r] of VS_OPEN_PAIRS) {
+      if (!data[o]) data[o] = {};
+      data[o]![r] = makePartialEligible();
+    }
+    for (let i = 0; i < 100; i++) {
+      const q = generateVsOpenQuestion(data);
+      const strategy = data[q.opener!]![q.myPosition]![q.hand];
+      expect(isEligibleForBeginner(strategy)).toBe(true);
+    }
+  });
+
+  it('open: 生成された問題の correct は戦略と整合 (fold 100% → fold / fold 0% → participate)', () => {
+    const data: OpenStrategies = {
+      UTG: makePartialEligible(),
+      HJ: makePartialEligible(),
+      CO: makePartialEligible(),
+      BTN: makePartialEligible(),
+      SB: makePartialEligible(),
+    };
+    for (let i = 0; i < 100; i++) {
+      const q = generateOpenQuestion(data);
+      const strategy = data[q.myPosition]![q.hand];
+      const fold = strategy.fold;
+      if (fold === 100) expect(q.correct).toBe('fold');
+      else if (fold === 0) expect(q.correct).toBe('participate');
+      else throw new Error('non-eligible leaked through filter');
+    }
+  });
+
+  it('全ハンド混合戦略 → 50 回リトライ後に throw', () => {
+    function makeAllMixed(): Record<string, HandStrategy> {
+      const out: Record<string, HandStrategy> = {};
+      for (const hand of getHandsFromTiers([
+        'premium', 'elite', 'strong', 'good', 'standard',
+        'average', 'weak', 'marginal', 'poor', 'garbage', 'trash',
+      ])) {
+        out[hand] = { fold: 50, call: 0, raise: 50, allin: 0 };
+      }
+      return out;
+    }
+    const data: OpenStrategies = {
+      UTG: makeAllMixed(), HJ: makeAllMixed(), CO: makeAllMixed(),
+      BTN: makeAllMixed(), SB: makeAllMixed(),
+    };
+    expect(() => generateOpenQuestion(data)).toThrow(/no eligible hand/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. VS_OPEN_PAIRS 整合性
 // ---------------------------------------------------------------------------
 
 describe('VS_OPEN_PAIRS', () => {
