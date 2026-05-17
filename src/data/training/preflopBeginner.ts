@@ -1,100 +1,130 @@
-// プリフロップ初級トレーニング用の問題生成ロジック。
+// プリフロップ初級・中級トレーニングの出題ロジック。
 //
 // 仕様:
-//   - 5 ポジション (UTG/HJ/CO/BTN/SB) の RFI データを fetch
-//   - 各ハンド × 各ポジションを (raise+allin >= 90%) → "open", (fold >= 90%) → "fold" で分類
-//   - 中間 (どっちも 90% 未満) は出題対象外
-//   - 20 問: open / fold をできるだけバランスよく抽選 (~10:10)
+//   - 1 セッション 20 問: 前半 10 = open 判定、後半 10 = vs_open 判定
+//   - ポジション毎の EV ティア範囲からハンドをランダム抽選 (OPEN_TIER_RANGES / VS_OPEN_TIER_RANGES)
+//   - 正解判定: GTO データ (R2 → public/data/preflop) で (raise+call+allin) > 0% なら "participate"
+//   - 重複排除: (scenario, position, hand) 単位で重複しないよう N 回までリトライ
 //
-// 注:
-//   - 結果保存 = 結果画面到達時のみ。途中離脱で DB 影響なし (確認ダイアログは別途 Play 画面)
-//   - 各問題はランダム生成、リロード時に状態破棄
+// データ参照:
+//   - open: `/data/preflop/cash_100bb_6max_nl500_2.5x/{pos}.json` (5 ファイル)
+//   - vs_open: `{opener}r_{responder}.json` (15 ペア, ORDER の前後関係に従う)
+//
+// 中級は本ジェネレータの結果をそのまま使用、TrainingPlay 側でタイマーのみ追加。
 
 import type { Position, Hand } from '../../types/strategy';
+import type { EvTier } from '../evRanking';
+import { pickRandomHandFromTiers } from './tierLookup';
 
-const RFI_POSITIONS: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
+// ---------------------------------------------------------------------------
+// 定数
+// ---------------------------------------------------------------------------
+
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
-const QUESTION_COUNT = 20;
-const OPEN_THRESHOLD_PCT = 90;
-const FOLD_THRESHOLD_PCT = 90;
 
-interface RawHand {
+/** プリフロップアクション順。UTG → … → BB。 */
+export const PREFLOP_ORDER: ReadonlyArray<Position> = [
+  'UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB',
+];
+
+/** open 判定で出題する 5 ポジション (BB 除外)。 */
+export const OPEN_POSITIONS: ReadonlyArray<Position> = [
+  'UTG', 'HJ', 'CO', 'BTN', 'SB',
+];
+
+/** vs_open 判定で出題する 5 ポジション (UTG 除外)。 */
+export const VS_OPEN_RESPONDERS: ReadonlyArray<Position> = [
+  'HJ', 'CO', 'BTN', 'SB', 'BB',
+];
+
+/** ポジション別 open 出題ティア (両端含む)。 */
+export const OPEN_TIER_RANGES: Readonly<Record<string, ReadonlyArray<EvTier>>> = {
+  UTG: ['elite', 'strong', 'good', 'standard', 'average', 'weak', 'marginal', 'poor'],
+  HJ:  ['elite', 'strong', 'good', 'standard', 'average', 'weak', 'marginal', 'poor'],
+  CO:  ['strong', 'good', 'standard', 'average', 'weak', 'marginal', 'poor'],
+  BTN: ['good', 'standard', 'average', 'weak', 'marginal', 'poor', 'trash'],
+  SB:  ['standard', 'average', 'weak', 'marginal', 'poor', 'trash', 'garbage'],
+};
+
+/** vs_open: responder 別の出題ティア。 */
+export const VS_OPEN_TIER_RANGES: Readonly<Record<string, ReadonlyArray<EvTier>>> = {
+  HJ:  ['elite', 'strong', 'good', 'standard'],
+  CO:  ['elite', 'strong', 'good', 'standard'],
+  BTN: ['premium', 'elite', 'strong', 'good', 'standard', 'average'],
+  SB:  ['premium', 'elite', 'strong', 'good', 'standard', 'average', 'weak'],
+  BB:  ['standard', 'average', 'weak', 'marginal', 'poor', 'trash', 'garbage'],
+};
+
+const OPEN_COUNT = 10;
+const VS_OPEN_COUNT = 10;
+const TOTAL_COUNT = OPEN_COUNT + VS_OPEN_COUNT;
+const DEDUP_MAX_RETRIES = 8;
+
+// ---------------------------------------------------------------------------
+// 型
+// ---------------------------------------------------------------------------
+
+export interface HandStrategy {
+  /** 0-100, または 0-1 のどちらでもよい (hasAnyParticipation は >0 を見るだけ)。 */
   fold: number;
   call: number;
   raise: number;
   allin: number;
 }
+
 interface RawNode {
-  hands: Record<string, RawHand>;
+  hands: Record<string, HandStrategy>;
 }
 
+/** open 戦略 (5 ポジション)。 */
+export type OpenStrategies = Partial<Record<Position, Record<string, HandStrategy>>>;
+/** vs_open 戦略: vsOpen[opener][responder] = hand→strategy。 */
+export type VsOpenStrategies = Partial<Record<Position, Partial<Record<Position, Record<string, HandStrategy>>>>>;
+
 export type CorrectAnswer = 'participate' | 'fold';
+export type Scenario = 'open' | 'vs_open';
 
 export interface PreflopQuestion {
+  scenario: Scenario;
   /** 自分のポジション。 */
   myPosition: Position;
+  /** open シナリオでは null。vs_open では opener。 */
+  opener: Position | null;
+  /** PokerTable で薄表示するポジション集合 (自分より前の fold 済 + opener と自分の間)。 */
+  foldedBefore: ReadonlyArray<Position>;
   /** ハンド表記 (AA / AKs / 72o)。 */
   hand: Hand;
-  /** 出題された 2 枚のカード (UI 表示用、suit は表記から導出)。 */
-  cards: [{ rank: string; suit: 's' | 'h' | 'd' | 'c' }, { rank: string; suit: 's' | 'h' | 'd' | 'c' }];
-  /** 正解。 */
+  /** 表示用カード。 */
+  cards: [
+    { rank: string; suit: 's' | 'h' | 'd' | 'c' },
+    { rank: string; suit: 's' | 'h' | 'd' | 'c' },
+  ];
   correct: CorrectAnswer;
 }
 
-/** モジュールスコープのキャッシュ (再 mount でも保持)。 */
-const rfiCache: Partial<Record<Position, RawNode>> = {};
-let loadingPromise: Promise<void> | null = null;
+// ---------------------------------------------------------------------------
+// 純粋ヘルパー (テスト容易)
+// ---------------------------------------------------------------------------
 
-async function loadAllRFI(): Promise<void> {
-  if (RFI_POSITIONS.every((p) => rfiCache[p])) return;
-  if (loadingPromise) return loadingPromise;
-  loadingPromise = (async () => {
-    try {
-      await Promise.all(
-        RFI_POSITIONS.map(async (pos) => {
-          if (rfiCache[pos]) return;
-          const url = `${PREFLOP_DATA_ROOT}/${pos.toLowerCase()}.json`;
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`failed to load ${pos}: ${res.status}`);
-          rfiCache[pos] = (await res.json()) as RawNode;
-        }),
-      );
-    } finally {
-      loadingPromise = null;
-    }
-  })();
-  return loadingPromise;
+/** (raise + call + allin) > 0 → "participate"。100% fold のみ "fold"。 */
+export function hasAnyParticipation(s: HandStrategy | undefined): boolean {
+  if (!s) return false;
+  return (s.raise ?? 0) + (s.call ?? 0) + (s.allin ?? 0) > 0;
 }
 
-function classifyHand(s: RawHand): CorrectAnswer | null {
-  const opens = (s.raise ?? 0) + (s.allin ?? 0);
-  if (opens >= OPEN_THRESHOLD_PCT) return 'participate';
-  if ((s.fold ?? 0) >= FOLD_THRESHOLD_PCT) return 'fold';
-  return null; // 中間 (出題対象外)
+/** 指定ポジションより前にアクションするポジション一覧 (= 既に fold した可能性のある席)。 */
+export function positionsBefore(pos: Position): Position[] {
+  const idx = PREFLOP_ORDER.indexOf(pos);
+  if (idx < 0) return [];
+  return PREFLOP_ORDER.slice(0, idx) as Position[];
 }
 
-/** ハンド表記 ("AKs" / "QQ" / "72o") から SVG / PlayingCard 用の suit 付きカード 2 枚を生成。 */
-function handToCards(hand: Hand): PreflopQuestion['cards'] {
-  // ペア
-  if (hand.length === 2) {
-    const r = hand[0];
-    return [
-      { rank: r, suit: 's' },
-      { rank: r, suit: 'h' },
-    ];
-  }
-  // suited / offsuit
-  const [r1, r2, kind] = hand.split('') as [string, string, 's' | 'o'];
-  if (kind === 's') {
-    return [
-      { rank: r1, suit: 's' },
-      { rank: r2, suit: 's' },
-    ];
-  }
-  return [
-    { rank: r1, suit: 's' },
-    { rank: r2, suit: 'h' },
-  ];
+/** opener と responder の間 (両端含まず) のポジション = open に call せず fold した席。 */
+export function positionsBetween(opener: Position, responder: Position): Position[] {
+  const oi = PREFLOP_ORDER.indexOf(opener);
+  const ri = PREFLOP_ORDER.indexOf(responder);
+  if (oi < 0 || ri < 0 || oi >= ri) return [];
+  return PREFLOP_ORDER.slice(oi + 1, ri) as Position[];
 }
 
 function pickRandom<T>(arr: ReadonlyArray<T>): T {
@@ -109,44 +139,189 @@ function shuffle<T>(arr: T[]): T[] {
   return arr;
 }
 
-/** 全 RFI データから 20 問を生成 (open:fold ≒ 10:10)。 */
-export async function generatePreflopQuestions(
-  count: number = QUESTION_COUNT,
-): Promise<PreflopQuestion[]> {
-  await loadAllRFI();
+/** ハンド表記 → PlayingCard 用カード 2 枚。 */
+export function handToCards(hand: Hand): PreflopQuestion['cards'] {
+  if (hand.length === 2) {
+    const r = hand[0];
+    return [
+      { rank: r, suit: 's' },
+      { rank: r, suit: 'h' },
+    ];
+  }
+  const [r1, r2, kind] = hand.split('') as [string, string, 's' | 'o'];
+  if (kind === 's') {
+    return [
+      { rank: r1, suit: 's' },
+      { rank: r2, suit: 's' },
+    ];
+  }
+  return [
+    { rank: r1, suit: 's' },
+    { rank: r2, suit: 'h' },
+  ];
+}
 
-  // (position, hand, answer) の pool を構築
-  const openPool: PreflopQuestion[] = [];
-  const foldPool: PreflopQuestion[] = [];
+// ---------------------------------------------------------------------------
+// データロード
+// ---------------------------------------------------------------------------
 
-  for (const pos of RFI_POSITIONS) {
-    const data = rfiCache[pos];
-    if (!data) continue;
-    for (const [hand, s] of Object.entries(data.hands)) {
-      const ans = classifyHand(s);
-      if (!ans) continue;
-      const handTyped = hand as Hand;
-      const q: PreflopQuestion = {
-        myPosition: pos,
-        hand: handTyped,
-        cards: handToCards(handTyped),
-        correct: ans,
-      };
-      if (ans === 'participate') openPool.push(q);
-      else foldPool.push(q);
+const openCache: OpenStrategies = {};
+const vsOpenCache: VsOpenStrategies = {};
+let loadingPromise: Promise<void> | null = null;
+
+async function fetchNode(url: string): Promise<Record<string, HandStrategy>> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`failed to load ${url}: ${res.status}`);
+  const raw = (await res.json()) as RawNode;
+  return raw.hands;
+}
+
+/** 全 open + vs_open 戦略を一括ロード (冪等)。 */
+async function loadAllStrategies(): Promise<void> {
+  const allLoaded =
+    OPEN_POSITIONS.every((p) => openCache[p]) &&
+    VS_OPEN_PAIRS.every(([o, r]) => vsOpenCache[o]?.[r]);
+  if (allLoaded) return;
+  if (loadingPromise) return loadingPromise;
+
+  loadingPromise = (async () => {
+    try {
+      // open: 5 files
+      await Promise.all(
+        OPEN_POSITIONS.map(async (pos) => {
+          if (openCache[pos]) return;
+          const url = `${PREFLOP_DATA_ROOT}/${pos.toLowerCase()}.json`;
+          openCache[pos] = await fetchNode(url);
+        }),
+      );
+      // vs_open: 15 files
+      await Promise.all(
+        VS_OPEN_PAIRS.map(async ([opener, responder]) => {
+          if (vsOpenCache[opener]?.[responder]) return;
+          const url = `${PREFLOP_DATA_ROOT}/${opener.toLowerCase()}r_${responder.toLowerCase()}.json`;
+          const hands = await fetchNode(url);
+          if (!vsOpenCache[opener]) vsOpenCache[opener] = {};
+          vsOpenCache[opener]![responder] = hands;
+        }),
+      );
+    } finally {
+      loadingPromise = null;
+    }
+  })();
+  return loadingPromise;
+}
+
+/** 有効な (opener, responder) ペア (opener が responder より前)。 */
+export const VS_OPEN_PAIRS: ReadonlyArray<[Position, Position]> = (() => {
+  const pairs: [Position, Position][] = [];
+  for (let oi = 0; oi < PREFLOP_ORDER.length; oi++) {
+    const opener = PREFLOP_ORDER[oi];
+    if (!OPEN_POSITIONS.includes(opener)) continue;  // BB は open しない
+    for (let ri = oi + 1; ri < PREFLOP_ORDER.length; ri++) {
+      const responder = PREFLOP_ORDER[ri];
+      if (!VS_OPEN_RESPONDERS.includes(responder)) continue;  // UTG 除外
+      pairs.push([opener, responder]);
     }
   }
+  return pairs;
+})();
 
-  if (openPool.length === 0 || foldPool.length === 0) {
-    throw new Error('preflop RFI data insufficient: no open or no fold hands found');
-  }
+// ---------------------------------------------------------------------------
+// 1 問生成 (純粋関数、戦略データを引数で受ける)
+// ---------------------------------------------------------------------------
 
-  // 半々で抽選 (count が奇数なら open を 1 件多く)
-  const openCount = Math.ceil(count / 2);
-  const foldCount = count - openCount;
-  const openSamples: PreflopQuestion[] = [];
-  const foldSamples: PreflopQuestion[] = [];
-  for (let i = 0; i < openCount; i++) openSamples.push(pickRandom(openPool));
-  for (let i = 0; i < foldCount; i++) foldSamples.push(pickRandom(foldPool));
-  return shuffle([...openSamples, ...foldSamples]);
+/** open シナリオの 1 問生成。 */
+export function generateOpenQuestion(
+  open: OpenStrategies,
+): PreflopQuestion {
+  const position = pickRandom(OPEN_POSITIONS);
+  const tiers = OPEN_TIER_RANGES[position];
+  const hand = pickRandomHandFromTiers(tiers);
+  const strategy = open[position]?.[hand];
+  return {
+    scenario: 'open',
+    myPosition: position,
+    opener: null,
+    foldedBefore: positionsBefore(position),
+    hand,
+    cards: handToCards(hand),
+    correct: hasAnyParticipation(strategy) ? 'participate' : 'fold',
+  };
 }
+
+/** vs_open シナリオの 1 問生成。 */
+export function generateVsOpenQuestion(
+  vsOpen: VsOpenStrategies,
+): PreflopQuestion {
+  const responder = pickRandom(VS_OPEN_RESPONDERS);
+  const possibleOpeners = OPEN_POSITIONS.filter(
+    (p) => PREFLOP_ORDER.indexOf(p) < PREFLOP_ORDER.indexOf(responder),
+  );
+  const opener = pickRandom(possibleOpeners);
+  const tiers = VS_OPEN_TIER_RANGES[responder];
+  const hand = pickRandomHandFromTiers(tiers);
+  const strategy = vsOpen[opener]?.[responder]?.[hand];
+
+  // folded = opener より前の全 + opener と自分の間 (open に乗らなかった席)
+  const foldedBefore = [
+    ...positionsBefore(opener),
+    ...positionsBetween(opener, responder),
+  ];
+
+  return {
+    scenario: 'vs_open',
+    myPosition: responder,
+    opener,
+    foldedBefore,
+    hand,
+    cards: handToCards(hand),
+    correct: hasAnyParticipation(strategy) ? 'participate' : 'fold',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 20 問生成
+// ---------------------------------------------------------------------------
+
+function questionKey(q: PreflopQuestion): string {
+  return `${q.scenario}:${q.myPosition}:${q.hand}`;
+}
+
+/** 重複排除付き 10 問を生成 (リトライ上限超過で重複許容)。 */
+function generateDedup(
+  generator: () => PreflopQuestion,
+  count: number,
+): PreflopQuestion[] {
+  const out: PreflopQuestion[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < count; i++) {
+    let q = generator();
+    let retries = 0;
+    while (seen.has(questionKey(q)) && retries < DEDUP_MAX_RETRIES) {
+      q = generator();
+      retries++;
+    }
+    seen.add(questionKey(q));
+    out.push(q);
+  }
+  return out;
+}
+
+/** 20 問生成 (前半 10 = open / 後半 10 = vs_open)。シャッフルせず出題順を維持。 */
+export async function generatePreflopQuestions(
+  count: number = TOTAL_COUNT,
+): Promise<PreflopQuestion[]> {
+  await loadAllStrategies();
+
+  // count が 20 でない場合も比率を保持
+  const openHalf = Math.ceil(count / 2);
+  const vsOpenHalf = count - openHalf;
+
+  const openQs = generateDedup(() => generateOpenQuestion(openCache), openHalf);
+  const vsOpenQs = generateDedup(() => generateVsOpenQuestion(vsOpenCache), vsOpenHalf);
+
+  return [...openQs, ...vsOpenQs];
+}
+
+// テスト用 (Math.random を直接モックする際に shuffle 再現する不要なので未エクスポート)
+export const __testing__ = { shuffle };

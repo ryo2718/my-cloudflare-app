@@ -156,7 +156,11 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
       )}
 
       <main style={mainStyle}>
-        <PokerTable mePosition={q.myPosition} />
+        <PokerTable
+          mePosition={q.myPosition}
+          opener={q.opener}
+          foldedSet={q.foldedBefore}
+        />
 
         <section style={handSectionStyle}>
           <span style={handLabelStyle}>ハンド</span>
