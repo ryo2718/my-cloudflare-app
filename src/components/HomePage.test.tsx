@@ -24,30 +24,36 @@ function render(auth: AuthState): string {
 }
 
 describe('<HomePage />', () => {
-  it('poker_name + Strategy/Quiz リンク表示', () => {
+  it('タイトルは PokerGTO Viewer (サブタイトル無し)', () => {
     const html = render(makeAuth());
-    expect(html).toContain('テスト君');
-    expect(html).toContain('Strategy');
-    expect(html).toContain('Quiz');
-    expect(html).toContain('href="/strategy"');
-    expect(html).toContain('href="/quiz"');
+    expect(html).toContain('PokerGTO Viewer');
   });
 
-  it('一般ユーザー: 管理画面リンクは出ない', () => {
+  it('3 ボタン (戦略 / トレーニング / アカウント情報) と href', () => {
+    const html = render(makeAuth());
+    expect(html).toContain('>戦略<');
+    expect(html).toContain('>トレーニング<');
+    expect(html).toContain('>アカウント情報<');
+    expect(html).toContain('href="/strategy"');
+    expect(html).toContain('href="/quiz"');
+    expect(html).toContain('href="/account"');
+  });
+
+  it('一般ユーザー: AppHeader の「管理画面」リンクは出ない', () => {
     const html = render(makeAuth());
     expect(html).not.toContain('href="/admin"');
   });
 
-  it('admin: 管理画面リンクが出る', () => {
+  it('admin: AppHeader の管理画面リンクが出る', () => {
     const html = render(
       makeAuth({ account: { id: 1, poker_name: 'admin', is_admin: true } }),
     );
     expect(html).toContain('href="/admin"');
-    expect(html).toContain('管理画面');
   });
 
-  it('ヘッダにログアウトボタン', () => {
+  it('ヘッダにログアウトボタンと poker_name', () => {
     const html = render(makeAuth());
     expect(html).toContain('ログアウト');
+    expect(html).toContain('テスト君');
   });
 });

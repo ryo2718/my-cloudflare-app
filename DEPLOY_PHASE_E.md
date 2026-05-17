@@ -53,7 +53,7 @@ npm run d1:migrate:remote
 確認:
 ```bash
 npx wrangler d1 execute poker-app-db --remote --command "SELECT poker_name FROM accounts; SELECT key_value FROM group_keys;"
-# → テスト君 / 2818 が出れば OK
+# → テスト君 / 現行 Group Key が出れば OK
 ```
 
 ---
@@ -85,13 +85,13 @@ production URL: `https://my-cloudflare-app-5mb.pages.dev/` (デフォルト prod
 | # | 動作 | 期待 |
 |---|---|---|
 | 1 | 初回アクセス | LoginGate が出る |
-| 2 | ログイン: テスト君 / test / 2818 | Home (Strategy / Quiz 選択) に遷移 |
+| 2 | ログイン: テスト君 / test / <Group Key (運営から提供)> | Home (Strategy / Quiz 選択) に遷移 |
 | 3 | `/strategy` に遷移 | 既存の Preflop / Flop タブ表示 |
 | 4 | Flop タブ → R2 から flop データ fetch | 表示成功 (CORS OK な production origin) |
 | 5 | `/quiz` に遷移 | "実装中" placeholder |
 | 6 | header の「管理画面」リンク | `/admin` Dashboard 表示 |
 | 7 | `/admin/accounts` | テスト君が一覧に表示 (パスワードはトグル) |
-| 8 | `/admin/group-key` | 現在 "2818" が表示、新 key 発行で履歴に追加 |
+| 8 | `/admin/group-key` | 現在の Group Key が表示、新 key 発行で履歴に追加 |
 | 9 | ログアウト → 再ログイン | LocalStorage の session が更新 |
 | 10 | 一般ユーザーで signup → admin 画面アクセス試行 | `/admin` でホームに redirect (非 admin 保護) |
 

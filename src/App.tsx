@@ -15,6 +15,7 @@
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { navigate, useRoute } from './router/router-core';
+import { AccountPage } from './components/AccountPage';
 import { HomePage } from './components/HomePage';
 import { QuizPage } from './components/QuizPage';
 import { StrategyPage } from './components/StrategyPage';
@@ -36,6 +37,7 @@ export default function App() {
 
   if (path === '/strategy') return <StrategyPage />;
   if (path === '/quiz') return <QuizPage />;
+  if (path === '/account') return <AccountPage />;
 
   if (path === '/admin' || path === '/admin/') {
     return account?.is_admin ? <AdminDashboard /> : <HomePage />;

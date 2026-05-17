@@ -10,6 +10,22 @@ export interface AccountRow {
   is_admin: number; // 0 or 1
   created_at: number;
   last_login_at: number | null;
+  /** migration 0003 で追加。 */
+  points: number;
+}
+
+export interface TrainingResultRow {
+  id: number;
+  account_id: number;
+  training_type: string;
+  score: number;
+  completed_at: number;
+}
+
+export interface AccountDetail {
+  poker_name: string;
+  points: number;
+  training_results: TrainingResultRow[];
 }
 
 export interface SessionRow {

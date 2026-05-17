@@ -7,6 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# --- Wrangler (Pages Functions / D1 local state) ---
+.wrangler/
+
 # --- Build artifacts ---
 node_modules
 dist
