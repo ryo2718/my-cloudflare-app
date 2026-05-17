@@ -1,0 +1,117 @@
+// POST /api/account/training-result
+//   Header: Authorization: Bearer <session_id>
+//   Body: { training_type: string, score: number }
+//   Response 200: { is_best, previous_best, current_best, total_attempts }
+//   Response 400: { error: 'invalid_payload' }
+//   Response 401: { error: 'unauthorized' }
+//
+// Upsert ロジック:
+//   1. account_id + training_type で既存検索
+//   2. 無し → 新規 INSERT (best_score=score, total_attempts=1)
+//   3. 有り → total_attempts +=1, score > best_score なら best_score 更新
+//   4. updated_at 常に更新
+//
+// 注: score の妥当性 (0 <= score <= 20 など) は best 数のみ参照するためサーバ側で
+//      ストレージ整合性を破る危険は低いが、明らかな負値や巨大値は拒否。
+
+import { jsonResponse, resolveAccountFromRequest } from '../../lib/auth';
+import type { Env, TrainingResultRow } from '../../lib/types';
+
+interface Body {
+  training_type?: unknown;
+  score?: unknown;
+}
+
+const TRAINING_TYPES = new Set<string>([
+  'preflop_beginner',
+  'preflop_intermediate',
+  'preflop_advanced',
+  'preflop_expert',
+  'flop_beginner',
+  'flop_intermediate',
+  'flop_advanced',
+  'flop_expert',
+]);
+
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  const account = await resolveAccountFromRequest(env.DB, request);
+  if (!account) {
+    return jsonResponse(401, { error: 'unauthorized' });
+  }
+
+  let body: Body;
+  try {
+    body = (await request.json()) as Body;
+  } catch {
+    return jsonResponse(400, { error: 'invalid_payload' });
+  }
+  const trainingType = body.training_type;
+  const score = body.score;
+  if (
+    typeof trainingType !== 'string' ||
+    !TRAINING_TYPES.has(trainingType) ||
+    typeof score !== 'number' ||
+    !Number.isInteger(score) ||
+    score < 0 ||
+    score > 100
+  ) {
+    return jsonResponse(400, { error: 'invalid_payload' });
+  }
+
+  const now = Date.now();
+  const existing = await env.DB
+    .prepare(
+      'SELECT * FROM training_results WHERE account_id = ? AND training_type = ?',
+    )
+    .bind(account.id, trainingType)
+    .first<TrainingResultRow>();
+
+  if (!existing) {
+    await env.DB
+      .prepare(
+        `INSERT INTO training_results
+         (account_id, training_type, best_score, best_score_at, total_attempts, updated_at)
+         VALUES (?, ?, ?, ?, 1, ?)`,
+      )
+      .bind(account.id, trainingType, score, now, now)
+      .run();
+    return jsonResponse(200, {
+      is_best: true,
+      previous_best: 0,
+      current_best: score,
+      total_attempts: 1,
+    });
+  }
+
+  const previousBest = existing.best_score;
+  const isBest = score > previousBest;
+  const newBest = isBest ? score : previousBest;
+  const newAttempts = existing.total_attempts + 1;
+
+  if (isBest) {
+    await env.DB
+      .prepare(
+        `UPDATE training_results
+         SET best_score = ?, best_score_at = ?, total_attempts = ?, updated_at = ?
+         WHERE id = ?`,
+      )
+      .bind(score, now, newAttempts, now, existing.id)
+      .run();
+  } else {
+    await env.DB
+      .prepare(
+        `UPDATE training_results
+         SET total_attempts = ?, updated_at = ?
+         WHERE id = ?`,
+      )
+      .bind(newAttempts, now, existing.id)
+      .run();
+  }
+
+  return jsonResponse(200, {
+    is_best: isBest,
+    previous_best: previousBest,
+    current_best: newBest,
+    total_attempts: newAttempts,
+  });
+};

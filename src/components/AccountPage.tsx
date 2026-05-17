@@ -1,17 +1,16 @@
-// /account: アカウント情報ページ。
+// /account: アカウント情報ページ (Phase 10 で training 成績を詳細化)。
 //
 // レイアウト:
-//   ユーザー: {poker_name}
-//   ポイント: {points}pt
+//   ユーザー: <poker_name>
+//   累計ポイント: <points>pt
 //   ── トレーニング成績 ──
-//   プリフロップトレーニング
-//     初級:   --- /20 (未挑戦)   or   18 /20
-//     中級:   --- /20 (未挑戦)   or   12 /20
-//     上級:   未実装
-//     超上級: 未実装
-//   フロップトレーニング
-//     初級:   未実装
-//     ...
+//   プリフロップ初級
+//     ベスト: 15/20 (75%)
+//     挑戦回数: 3回
+//   プリフロップ中級
+//     未挑戦
+//   プリフロップ上級 ... 未実装
+//   ...
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import {
@@ -24,6 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   TRAINING_CATALOG,
   isPlanned,
+  isPlayable,
   type TrainingLevel,
 } from '../data/trainingCatalog';
 import { AppHeader } from './AppHeader';
@@ -64,7 +64,8 @@ export function AccountPage() {
 
   const fallbackName = auth.account?.poker_name ?? '';
   const pokerName = state.kind === 'ok' ? state.detail.poker_name : fallbackName;
-  const points = state.kind === 'ok' ? state.detail.points : 0;
+  // 累計ポイント: training_results の best_score × points/問 の合計 (実装済 level のみ)
+  const totalPoints = state.kind === 'ok' ? computeTotalPoints(state.trainings) : 0;
   const trainings: TrainingResult[] = state.kind === 'ok' ? state.trainings : [];
 
   return (
@@ -79,9 +80,9 @@ export function AccountPage() {
           <span style={infoValueStyle}>{pokerName}</span>
         </div>
         <div style={infoRowStyle}>
-          <span style={infoLabelStyle}>ポイント</span>
+          <span style={infoLabelStyle}>累計ポイント</span>
           <span style={infoValuePrimaryStyle}>
-            {state.kind === 'loading' ? '…' : `${points}pt`}
+            {state.kind === 'loading' ? '…' : `${totalPoints}pt`}
           </span>
         </div>
 
@@ -98,19 +99,14 @@ export function AccountPage() {
             <section key={cat.key} style={categoryCardStyle}>
               <header style={categoryHeaderStyle}>{cat.label}</header>
               <ul style={levelListStyle}>
-                {cat.levels.map((lv) => {
-                  const record = trainings.find(
-                    (t) => t.training_type === lv.key,
-                  );
-                  return (
-                    <li key={lv.key} style={levelRowStyle}>
-                      <span style={levelLabelStyle}>{renderLevelLabel(lv)}</span>
-                      <span style={levelScoreStyle}>
-                        {renderScore(lv, record)}
-                      </span>
-                    </li>
-                  );
-                })}
+                {cat.levels.map((lv) => (
+                  <li key={lv.key} style={levelRowStyle}>
+                    <LevelStat
+                      level={lv}
+                      record={trainings.find((t) => t.training_type === lv.key)}
+                    />
+                  </li>
+                ))}
               </ul>
             </section>
           ))}
@@ -119,15 +115,66 @@ export function AccountPage() {
   );
 }
 
-function renderLevelLabel(lv: TrainingLevel): string {
-  return lv.label;
+function LevelStat({
+  level,
+  record,
+}: {
+  level: TrainingLevel;
+  record: TrainingResult | undefined;
+}) {
+  if (!isPlanned(level)) {
+    return (
+      <div style={levelStatGroupStyle}>
+        <span style={levelLabelStyle}>{level.label}</span>
+        <span style={statusUnimplementedStyle}>未実装</span>
+      </div>
+    );
+  }
+  if (!isPlayable(level)) {
+    return (
+      <div style={levelStatGroupStyle}>
+        <span style={levelLabelStyle}>{level.label}</span>
+        <span style={statusUnimplementedStyle}>準備中</span>
+      </div>
+    );
+  }
+  if (!record) {
+    return (
+      <div style={levelStatGroupStyle}>
+        <span style={levelLabelStyle}>{level.label}</span>
+        <span style={statusInfoStyle}>未挑戦</span>
+      </div>
+    );
+  }
+  const total = level.questionCount ?? 20;
+  const pct = Math.round((record.best_score / total) * 100);
+  return (
+    <div style={levelStatGroupStyle}>
+      <span style={levelLabelStyle}>{level.label}</span>
+      <div style={levelDetailColStyle}>
+        <span style={levelDetailRowStyle}>
+          ベスト: <strong>{record.best_score}/{total}</strong> ({pct}%)
+        </span>
+        <span style={levelDetailSubStyle}>挑戦回数: {record.total_attempts}回</span>
+      </div>
+    </div>
+  );
 }
 
-function renderScore(lv: TrainingLevel, record: TrainingResult | undefined): string {
-  if (!isPlanned(lv)) return '未実装';
-  const total = lv.questionCount ?? 20;
-  if (!record) return `--- /${total} (未挑戦)`;
-  return `${record.best_score} /${total}`;
+function computeTotalPoints(trainings: TrainingResult[]): number {
+  // 各 level の points/問 を catalog から引いて、best_score × points/問 を集計
+  const ptMap = new Map<string, number>();
+  for (const cat of TRAINING_CATALOG) {
+    for (const lv of cat.levels) {
+      if (lv.points !== null) ptMap.set(lv.key, lv.points);
+    }
+  }
+  let total = 0;
+  for (const t of trainings) {
+    const p = ptMap.get(t.training_type) ?? 0;
+    total += p * t.best_score;
+  }
+  return total;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +227,7 @@ const infoValueStyle: CSSProperties = {
   color: THEME.textPrimary,
 };
 const infoValuePrimaryStyle: CSSProperties = {
-  fontSize: '1.05rem',
+  fontSize: '1.1rem',
   fontWeight: 700,
   color: THEME.accent,
   fontVariantNumeric: 'tabular-nums',
@@ -225,22 +272,51 @@ const levelListStyle: CSSProperties = {
 };
 
 const levelRowStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'baseline',
-  fontSize: '0.88rem',
-  padding: '0.25rem 0',
+  padding: '0.3rem 0',
   borderBottom: `1px dashed ${THEME.border}`,
+  fontSize: '0.88rem',
+};
+
+const levelStatGroupStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: '0.65rem',
 };
 
 const levelLabelStyle: CSSProperties = {
   color: THEME.textPrimary,
+  fontWeight: 500,
 };
 
-const levelScoreStyle: CSSProperties = {
+const levelDetailColStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-end',
+  gap: '0.15rem',
+  textAlign: 'right',
+};
+
+const levelDetailRowStyle: CSSProperties = {
+  color: THEME.textPrimary,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  color: THEME.textSecondary,
   fontSize: '0.85rem',
+};
+
+const levelDetailSubStyle: CSSProperties = {
+  color: THEME.textMuted,
+  fontSize: '0.78rem',
+};
+
+const statusInfoStyle: CSSProperties = {
+  color: THEME.textMuted,
+  fontSize: '0.85rem',
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+};
+
+const statusUnimplementedStyle: CSSProperties = {
+  color: THEME.textFaint,
+  fontSize: '0.78rem',
 };
 
 const errorStyle: CSSProperties = {

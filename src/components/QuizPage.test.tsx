@@ -47,24 +47,25 @@ describe('<QuizPage /> (トレーニングメニュー)', () => {
     expect(expertCount).toBe(2);
   });
 
-  it('レベル ラベル以外の補足表記 (1pt / × 20問 / 制限時間 / 括弧サブタイトル) を出さない', () => {
+  it('プリフロップ初級: subtitle "オープンレンジ" + "1pt × 20問・制限時間なし"', () => {
     const html = render();
-    expect(html).not.toContain('1pt');
-    expect(html).not.toContain('3pt');
-    expect(html).not.toContain('× 20問');
-    expect(html).not.toContain('制限時間');
-    expect(html).not.toContain('(オープンレンジ)');
-    expect(html).not.toContain('(vs open)');
+    expect(html).toContain('(オープンレンジ)');
+    expect(html).toContain('1pt × 20問・制限時間なし');
   });
 
-  it('not-planned (points=null) level は「未実装」バッジ表示 (preflop 2 + flop 4 = 6)', () => {
+  it('プリフロップ中級: subtitle "vs open" + "3pt × 20問・制限時間 20s"', () => {
+    const html = render();
+    expect(html).toContain('(vs open)');
+    expect(html).toContain('3pt × 20問・制限時間 20s');
+  });
+
+  it('未実装 level は「未実装」バッジ表示 (preflop 上級/超上級 + flop 全 = 6 枚)', () => {
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    // バッジ + tooltip 等で複数回ヒット得るため、最低 6 件以上で planned/not-planned 整合確認
     expect(matches.length).toBeGreaterThanOrEqual(6);
   });
 
-  it('planned (preflop 初級・中級) には「挑戦する」ボタン', () => {
+  it('実装済 (preflop 初級・中級) には「挑戦する」ボタン', () => {
     const html = render();
     const matches = html.match(/>挑戦する</g) ?? [];
     expect(matches.length).toBe(2);

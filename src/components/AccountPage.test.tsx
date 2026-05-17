@@ -43,10 +43,9 @@ describe('<AccountPage />', () => {
     expect(html).toContain('トレーニング成績');
     expect(html).toContain('プリフロップトレーニング');
     expect(html).toContain('フロップトレーニング');
-    // planned levels は --- /20 (未挑戦)
-    expect(html).toContain('--- /20');
-    expect(html).toContain('(未挑戦)');
-    // not-planned (上級/超上級/フロップ全) は 未実装
+    // 実装済 + 未挑戦 → "未挑戦"
+    expect(html).toContain('未挑戦');
+    // 未実装 (上級/超上級/フロップ全) → "未実装"
     expect(html).toContain('未実装');
   });
 

@@ -18,6 +18,13 @@ export interface AccountDetail {
   training_results: TrainingResult[];
 }
 
+export interface TrainingResultSubmission {
+  is_best: boolean;
+  previous_best: number;
+  current_best: number;
+  total_attempts: number;
+}
+
 interface ErrorBody { error?: string }
 
 async function fetchJsonAuthed<T>(url: string, sessionId: string): Promise<T> {
@@ -47,4 +54,29 @@ export async function apiAccountTrainingResults(
     sessionId,
   );
   return res.training_results;
+}
+
+export async function apiSubmitTrainingResult(
+  sessionId: string,
+  body: { training_type: string; score: number },
+): Promise<TrainingResultSubmission> {
+  const res = await fetch('/api/account/training-result', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionId}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let code: string | undefined;
+    try {
+      const j = (await res.json()) as { error?: string };
+      code = typeof j.error === 'string' ? j.error : undefined;
+    } catch {
+      // ignore
+    }
+    throw new AuthApiError(code ?? `http_${res.status}`, res.status);
+  }
+  return (await res.json()) as TrainingResultSubmission;
 }

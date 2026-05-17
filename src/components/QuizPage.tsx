@@ -1,20 +1,17 @@
 // /quiz: トレーニングメニュー画面。
 //
-// レイアウト (シンプル化、ユーザー指示):
-//   ▼ プリフロップトレーニング (default open)
-//     - カード: 難易度ラベル + [挑戦する] / [未実装] のみ
-//   ▼ フロップトレーニング (同上)
-//
-// 挙動:
-//   - 全レベル現状 implemented=false。[挑戦する] タップで「未実装です」通知
-//   - questionCount=null の level は灰色 + [未実装] バッジ (タップ無効)
+// プリフロップ初級・中級は実装済 (挑戦するボタンで /training/preflop-{beginner,intermediate}/confirm へ)。
+// それ以外は「未実装」バッジ。
 
 import { useState, type CSSProperties } from 'react';
 import {
   TRAINING_CATALOG,
-  isPlanned,
+  formatLevelInfo,
+  isPlayable,
+  trainingPath,
   type TrainingLevel,
 } from '../data/trainingCatalog';
+import { navigate } from '../router/router-core';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
@@ -34,6 +31,10 @@ export function QuizPage() {
   };
 
   const handleChallenge = (level: TrainingLevel) => {
+    if (isPlayable(level)) {
+      navigate(trainingPath(level.key, 'confirm'));
+      return;
+    }
     setNotice(`${level.label} は未実装です。リリースをお待ちください。`);
     window.setTimeout(() => setNotice(null), 3000);
   };
@@ -95,18 +96,32 @@ function LevelCard({
   level: TrainingLevel;
   onChallenge: () => void;
 }) {
-  const planned = isPlanned(level);
-  const cardStyle: CSSProperties = planned ? plannedCardStyle : unimplementedCardStyle;
+  const playable = isPlayable(level);
+  const planned = level.questionCount !== null;
+  const cardStyle: CSSProperties = playable ? plannedCardStyle : unimplementedCardStyle;
+  const info = planned ? formatLevelInfo(level) : '';
 
   return (
     <div style={cardStyle}>
-      <span style={cardLevelStyle}>{level.label}</span>
-      {planned ? (
-        <button type="button" onClick={onChallenge} style={challengeBtnStyle}>
-          挑戦する
-        </button>
-      ) : (
-        <span style={unimplementedBadgeStyle}>未実装</span>
+      <div style={cardTopRowStyle}>
+        <div style={cardTitleColStyle}>
+          <span style={cardLevelStyle}>{level.label}</span>
+          {level.subtitle && (
+            <span style={cardSubtitleStyle}>({level.subtitle})</span>
+          )}
+        </div>
+        {!playable && <span style={unimplementedBadgeStyle}>未実装</span>}
+      </div>
+
+      {playable && (
+        <>
+          <div style={cardInfoStyle}>{info}</div>
+          <div style={cardActionRowStyle}>
+            <button type="button" onClick={onChallenge} style={challengeBtnStyle}>
+              挑戦する
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -178,9 +193,8 @@ const levelListStyle: CSSProperties = {
 
 const cardBase: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: '0.6rem',
+  flexDirection: 'column',
+  gap: '0.4rem',
   padding: '0.85rem 1rem',
   border: `1px solid ${THEME.border}`,
   borderRadius: '0.5rem',
@@ -197,10 +211,39 @@ const unimplementedCardStyle: CSSProperties = {
   opacity: 0.72,
 };
 
+const cardTopRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '0.6rem',
+};
+
+const cardTitleColStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: '0.35rem',
+  flexWrap: 'wrap',
+};
+
 const cardLevelStyle: CSSProperties = {
   fontSize: '1rem',
   fontWeight: 700,
   color: THEME.accent,
+};
+
+const cardSubtitleStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textSecondary,
+};
+
+const cardInfoStyle: CSSProperties = {
+  fontSize: '0.8rem',
+  color: THEME.textMuted,
+};
+
+const cardActionRowStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
 };
 
 const challengeBtnStyle: CSSProperties = {
