@@ -17,11 +17,12 @@ import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
+import { TrainingRules } from './components/training/TrainingRules';
 
 const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
 
 type TrainingMatch =
-  | { level: TrainingLevel; screen: 'confirm' | 'play' | 'result' }
+  | { level: TrainingLevel; screen: 'confirm' | 'play' | 'result' | 'rules' }
   | { level: TrainingLevel; screen: 'review'; index: number };
 
 function matchTrainingRoute(path: string): TrainingMatch | null {
@@ -37,10 +38,10 @@ function matchTrainingRoute(path: string): TrainingMatch | null {
     return { level, screen: 'review', index };
   }
   // /training/<slug>/<screen>
-  const m = path.match(/^\/training\/([a-z_-]+)\/(confirm|play|result)\/?$/);
+  const m = path.match(/^\/training\/([a-z_-]+)\/(confirm|play|result|rules)\/?$/);
   if (!m) return null;
   const slug = m[1];
-  const screen = m[2] as 'confirm' | 'play' | 'result';
+  const screen = m[2] as 'confirm' | 'play' | 'result' | 'rules';
   const key = slug.replace(/-/g, '_');
   const level = TRAINING_LEVELS_FLAT.find((lv) => lv.key === key);
   if (!level) return null;
@@ -68,6 +69,7 @@ export default function App() {
       return null;
     }
     if (screen === 'confirm') return <TrainingConfirm level={level} />;
+    if (screen === 'rules') return <TrainingRules level={level} />;
     if (screen === 'play') {
       // 中級は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
       return level.key === 'preflop_intermediate'

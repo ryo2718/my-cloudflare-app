@@ -23,44 +23,59 @@ describe('cellHand (row, col) → canonical hand', () => {
   });
 });
 
-describe('paintCell (fold ハンドは描画しない)', () => {
-  it('100% fold → background null (= fold ハンド描画されない、薄い灰色)', () => {
+describe('paintCell (頻度比率の縦積み gradient)', () => {
+  it('100% fold → background null (play 系 0 → 描画しない)', () => {
     const p = paintCell(s(0, 0, 0, 100));
     expect(p.background).toBeNull();
-    expect(p.secondary).toBeNull();
   });
 
-  it('100% raise → 赤 (#E24B4A)', () => {
+  it('100% raise → gradient に赤 100%', () => {
     const p = paintCell(s(0, 100, 0, 0));
-    expect(p.background).toBe('#E24B4A');
-    expect(p.secondary).toBeNull();
+    expect(p.background).toContain('#E24B4A 0.00%');
+    expect(p.background).toContain('#E24B4A 100.00%');
   });
 
-  it('100% call → 緑 (#639922)', () => {
+  it('100% call → gradient に緑のみ', () => {
     const p = paintCell(s(0, 0, 100, 0));
-    expect(p.background).toBe('#639922');
+    expect(p.background).toContain('#639922');
+    expect(p.background).not.toContain('#E24B4A');
+    expect(p.background).not.toContain('#993C9D');
   });
 
-  it('100% allin → 紫 (#993C9D)', () => {
+  it('100% allin → gradient に紫のみ', () => {
     const p = paintCell(s(100, 0, 0, 0));
-    expect(p.background).toBe('#993C9D');
+    expect(p.background).toContain('#993C9D');
   });
 
-  it('60% raise / 40% fold → 赤 (raise 主要)', () => {
+  it('Q4s = {0, 0, 24, 76}: 緑 24% + fold(transparent) 76% の縦積み', () => {
+    const p = paintCell(s(0, 0, 24, 76));
+    // transparent 0% → 76% (fold 下), 緑 76% → 100% (call 上)
+    expect(p.background).toContain('transparent 0.00%');
+    expect(p.background).toContain('transparent 76.00%');
+    expect(p.background).toContain('#639922 76.00%');
+    expect(p.background).toContain('#639922 100.00%');
+  });
+
+  it('60% raise / 40% fold → 赤 60% + fold 40% (積上)', () => {
     const p = paintCell(s(0, 60, 0, 40));
-    expect(p.background).toBe('#E24B4A');
+    expect(p.background).toContain('transparent 0.00%');
+    expect(p.background).toContain('transparent 40.00%');
+    expect(p.background).toContain('#E24B4A 40.00%');
+    expect(p.background).toContain('#E24B4A 100.00%');
   });
 
-  it('混合 (50% raise / 30% call) → 主要 2 つ: primary=赤, secondary=緑', () => {
+  it('混合 (50% raise / 30% call / 20% fold) → 3 色積み', () => {
     const p = paintCell(s(0, 50, 30, 20));
-    expect(p.background).toBe('#E24B4A');
-    expect(p.secondary).toBe('#639922');
+    // 下から: fold transparent 0-20%, call 緑 20-50%, raise 赤 50-100%
+    expect(p.background).toContain('transparent 0.00%');
+    expect(p.background).toContain('#639922 20.00%');
+    expect(p.background).toContain('#E24B4A 50.00%');
   });
 
-  it('5% raise / 95% fold (微小 play、主要なし) → 薄表示で赤', () => {
+  it('5% raise / 95% fold (微小 play) → 描画される (play_total >= MIN_FREQ)', () => {
     const p = paintCell(s(0, 5, 0, 95));
-    expect(p.background).toBe('#E24B4A');
-    expect(p.secondary).toBeNull();
+    expect(p.background).toContain('#E24B4A');
+    expect(p.background).toContain('transparent');
   });
 
   it('未定義戦略 → background null', () => {

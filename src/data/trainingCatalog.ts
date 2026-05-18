@@ -101,8 +101,8 @@ export function formatScorePct(score: number, max: number): string {
   return pct % 1 === 0 ? `${pct}%` : `${pct.toFixed(1)}%`;
 }
 
-/** Routing 用: level key → confirm path */
-export function trainingPath(key: string, screen: 'confirm' | 'play' | 'result'): string {
+/** Routing 用: level key → confirm/play/result/rules path */
+export function trainingPath(key: string, screen: 'confirm' | 'play' | 'result' | 'rules'): string {
   // 'preflop_beginner' → '/training/preflop-beginner/confirm'
   const slug = key.replace(/_/g, '-');
   return `/training/${slug}/${screen}`;

@@ -1,54 +1,70 @@
 // HandRangeMatrix 用の純粋ヘルパー (react-refresh の only-export-components 規約回避のため分離)。
 
-import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
+import { type Action } from '../../data/training/preflopIntermediate';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 
 export const MATRIX_RANKS: ReadonlyArray<string> = [
   'A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2',
 ];
 
-/** アクションごとのセル色 (主要戦略の表示)。 */
+/**
+ * アクションごとのセル色。
+ *  - allin: 紫
+ *  - raise: 赤
+ *  - call:  緑
+ *  - fold:  transparent (親要素の薄灰背景を透かす = "白枠" 凡例と一致)
+ */
 export const ACTION_BG: Record<Action, string> = {
-  allin: '#993C9D',     // 紫
-  raise: '#E24B4A',     // 赤
-  call:  '#639922',     // 緑
-  fold:  'transparent', // fold は描画しない
+  allin: '#993C9D',
+  raise: '#E24B4A',
+  call:  '#639922',
+  fold:  'transparent',
 };
 
-const MAJOR_THRESHOLD = 20;
 const MIN_FREQ = 0.01;
 
 export interface CellPaint {
+  /** linear-gradient string、または描画しない場合 null。 */
   background: string | null;
-  secondary: string | null;
 }
 
-/** 戦略 → セル塗り色を決定。fold が主要なら background null (= 描画しない)。 */
+/**
+ * 戦略 → セル塗り (頻度比率の縦積み gradient)。
+ *  - play 系合計 < MIN_FREQ → 描画しない (= 親ノードに来ない or 100% fold)
+ *  - それ以外: linear-gradient(to top, fold→call→raise→allin) で各 freq 比率を縦に積む
+ *    例: Q4s = {0, 0, 24, 76} → 下 76% transparent + 上 24% 緑 → "緑 24% + 白 76%"
+ */
 export function paintCell(strategy: HandStrategy | undefined): CellPaint {
-  if (!strategy) return { background: null, secondary: null };
-  const playMajors: { a: Action; freq: number }[] = [];
-  for (const a of ACTIONS) {
-    if (a === 'fold') continue;
-    const f = strategy[a] ?? 0;
-    if (f >= MAJOR_THRESHOLD) playMajors.push({ a, freq: f });
+  if (!strategy) return { background: null };
+  const allin = strategy.allin ?? 0;
+  const raise = strategy.raise ?? 0;
+  const call = strategy.call ?? 0;
+  const fold = strategy.fold ?? 0;
+  const total = allin + raise + call + fold;
+  if (total < MIN_FREQ) return { background: null };
+  // play 系 0 → 親ノードに来てない / 100% fold とみなして描画スキップ
+  const playTotal = allin + raise + call;
+  if (playTotal < MIN_FREQ) return { background: null };
+
+  // gradient 順序: 下 (fold transparent) → 上 (allin 紫)。
+  // linear-gradient(to top, ...) で配列の先頭から順に下から積まれる。
+  const segments: Array<{ color: string; freq: number }> = [
+    { color: ACTION_BG.fold, freq: fold },
+    { color: ACTION_BG.call, freq: call },
+    { color: ACTION_BG.raise, freq: raise },
+    { color: ACTION_BG.allin, freq: allin },
+  ];
+  const stops: string[] = [];
+  let cursor = 0;
+  for (const seg of segments) {
+    if (seg.freq <= 0) continue;
+    const start = (cursor / total) * 100;
+    cursor += seg.freq;
+    const end = (cursor / total) * 100;
+    stops.push(`${seg.color} ${start.toFixed(2)}%, ${seg.color} ${end.toFixed(2)}%`);
   }
-  if (playMajors.length === 0) {
-    const totalPlay = (strategy.allin ?? 0) + (strategy.raise ?? 0) + (strategy.call ?? 0);
-    if (totalPlay < MIN_FREQ) return { background: null, secondary: null };
-    const dominant = ACTIONS.filter((a) => a !== 'fold').reduce<{ a: Action; freq: number }>(
-      (acc, a) => {
-        const f = strategy[a] ?? 0;
-        return f > acc.freq ? { a, freq: f } : acc;
-      },
-      { a: 'raise', freq: 0 },
-    );
-    if (dominant.freq < MIN_FREQ) return { background: null, secondary: null };
-    return { background: ACTION_BG[dominant.a], secondary: null };
-  }
-  playMajors.sort((a, b) => b.freq - a.freq);
-  const background = ACTION_BG[playMajors[0].a];
-  const secondary = playMajors.length >= 2 ? ACTION_BG[playMajors[1].a] : null;
-  return { background, secondary };
+  if (stops.length === 0) return { background: null };
+  return { background: `linear-gradient(to top, ${stops.join(', ')})` };
 }
 
 /** (row, col) → ハンド表記。 */

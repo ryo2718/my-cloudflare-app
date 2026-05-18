@@ -33,14 +33,13 @@ export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatr
           MATRIX_RANKS.map((__, col) => {
             const hand = cellHand(row, col);
             const strategy = hands[hand];
-            const { background, secondary } = paintCell(strategy);
+            const { background } = paintCell(strategy);
             const isHighlight = hand === highlightHand;
             return (
               <Cell
                 key={`${row}-${col}`}
                 hand={hand}
                 background={background}
-                secondary={secondary}
                 highlight={isHighlight}
               />
             );
@@ -55,27 +54,26 @@ export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatr
 function Cell({
   hand,
   background,
-  secondary,
   highlight,
 }: {
   hand: string;
   background: string | null;
-  secondary: string | null;
   highlight: boolean;
 }) {
-  // 主要 2 つ以上の場合、左右ハーフで色分け (混合戦略の可視化)。
+  // background が null = 描画なし (薄灰 + 文字薄)
+  // それ以外は linear-gradient 文字列を直接 background に
   const styleBase: CSSProperties = {
     ...cellBase,
     background: background ?? '#f5f1ea',
-    color: background ? '#fff' : '#b0a18e',
+    color: background ? '#3d2f1f' : '#b0a18e',
+    textShadow: background
+      ? '0 1px 2px rgba(255,255,255,0.6), 0 0 1px rgba(255,255,255,0.8)'
+      : 'none',
     outline: highlight ? '3px solid #FFEB3B' : 'none',
     outlineOffset: highlight ? '-2px' : undefined,
     fontWeight: highlight ? 700 : 500,
     zIndex: highlight ? 1 : undefined,
   };
-  if (secondary && background) {
-    styleBase.background = `linear-gradient(90deg, ${background} 50%, ${secondary} 50%)`;
-  }
   return (
     <div style={styleBase} role="gridcell" aria-label={hand}>
       {hand}
