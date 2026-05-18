@@ -1,17 +1,20 @@
-// 各レベルのルール説明セクション (QuizPage のアコーディオン内に展開)。
+// 各レベルのルール説明セクション (TrainingRules ページに描画)。
 //
-// 初級: HJ で QJs (raise 100%) → 参加する
-// 中級: BB vs HJ open で Q4s (call 24% / fold 76%) → コール + フォールド
-//
-// レンジ表は中級用に既に作った HandRangeMatrix を流用 (4 アクション色 + ハイライト)。
+// セクション構造:
+//   1. 問題の例 (opener / 自分 / ハンドカード)
+//   2. テーブル俯瞰図 (実際の問題画面と同じ PokerTable を流用)
+//   3. どう応答する? (選択肢 disabled プレビュー)
+//   4. 今回の答え (中級はビジュアルバー + 正解強調 / 初級はテキスト)
+//   5. 採点ルール (中級のみ)
+//   6. レンジ表 (HandRangeMatrix を流用、出題ハンドをハイライト)
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { HandRangeMatrix } from './HandRangeMatrix';
 import { PokerTable } from './PokerTable';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
 import type { Rank, Suit } from '../../types/card';
-import { THEME } from '../../styles/theme';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
 
@@ -34,15 +37,9 @@ function useHands(file: string): Record<string, HandStrategy> | null {
   useEffect(() => {
     let cancelled = false;
     fetchHands(file)
-      .then((h) => {
-        if (!cancelled) setHands(h);
-      })
-      .catch(() => {
-        // silent fallback
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((h) => { if (!cancelled) setHands(h); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [file]);
   return hands;
 }
@@ -58,19 +55,18 @@ export function RuleExplanation({ levelKey }: { levelKey: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// 初級用ルール
+// 初級
 // ---------------------------------------------------------------------------
 
 function BeginnerRule() {
   const hands = useHands('hj.json');
   return (
-    <section style={sectionStyle} aria-label="初級ルール説明">
-      <h3 style={titleStyle}>ルール説明</h3>
-
-      <Block label="問題の例">
-        <p style={lineStyle}>ポジション: HJ</p>
-        <PokerTable mePosition="HJ" opener={null} foldedSet={['UTG']} />
-        <p style={lineStyle}>ハンド: Q♠ J♠</p>
+    <div>
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="ポジション" value="HJ" />
+        <LabelValue label="シナリオ" value="オープン(open 判定)" />
+        <Divider />
         <div style={handBoxStyle}>
           <CardSet
             cards={[
@@ -81,32 +77,39 @@ function BeginnerRule() {
             gap={4}
           />
         </div>
-        <p style={lineStyle}>[参加する] [参加しない]</p>
-      </Block>
+      </Card>
 
-      <Block label="選び方">
-        <p style={lineStyle}>
-          コール または レイズすることのほうが多い場合、「参加する」を選んでください。
+      <SectionTitle>テーブル</SectionTitle>
+      <Card>
+        <PokerTable mePosition="HJ" opener={null} foldedSet={['UTG']} />
+      </Card>
+
+      <SectionTitle>どう応答する?</SectionTitle>
+      <Card>
+        <BinaryChoicesPreview />
+      </Card>
+
+      <SectionTitle>今回の答え</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          今回はレイズ 100% なので「参加する」が正解。
         </p>
-      </Block>
+      </Card>
 
-      <Block label="今回の答え">
-        <p style={lineStyle}>今回はレイズ100%なので「参加する」が正解。</p>
-      </Block>
-
-      <Block label="レンジ表(HJ オープン)">
+      <SectionTitle>レンジ表(HJ オープン)</SectionTitle>
+      <Card>
         {hands ? (
           <HandRangeMatrix hands={hands} highlightHand="QJs" />
         ) : (
-          <div style={loadingStyle}>レンジ読み込み中…</div>
+          <div style={mutedStyle}>レンジ読み込み中…</div>
         )}
-      </Block>
-    </section>
+      </Card>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// 中級用ルール
+// 中級
 // ---------------------------------------------------------------------------
 
 function IntermediateRule() {
@@ -114,19 +117,12 @@ function IntermediateRule() {
   const q4s = hands?.['Q4s'];
 
   return (
-    <section style={sectionStyle} aria-label="中級ルール説明">
-      <h3 style={titleStyle}>ルール説明</h3>
-
-      <Block label="問題の例">
-        <p style={lineStyle}>opener: HJ raise 2.5BB</p>
-        <p style={lineStyle}>自分: BB</p>
-        <PokerTable
-          mePosition="BB"
-          opener="HJ"
-          openSize={2.5}
-          foldedSet={['UTG', 'CO', 'BTN', 'SB']}
-        />
-        <p style={lineStyle}>ハンド: Q♣ 4♣</p>
+    <div>
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="opener" value="HJ raise 2.5BB" />
+        <LabelValue label="自分" value="BB" />
+        <Divider />
         <div style={handBoxStyle}>
           <CardSet
             cards={[
@@ -137,63 +133,245 @@ function IntermediateRule() {
             gap={4}
           />
         </div>
-        <p style={lineStyle}>どう応答する?(複数選択可)</p>
-        <ul style={choiceListStyle}>
-          <li>☐ オールイン</li>
-          <li>☐ レイズ</li>
-          <li>☐ コール</li>
-          <li>☐ フォールド</li>
-        </ul>
-      </Block>
+      </Card>
 
-      <Block label="選び方">
-        <p style={lineStyle}>頻度の高い戦略を選んでください。</p>
-      </Block>
+      <SectionTitle>テーブル</SectionTitle>
+      <Card>
+        <PokerTable
+          mePosition="BB"
+          opener="HJ"
+          openSize={2.5}
+          foldedSet={['UTG', 'CO', 'BTN', 'SB']}
+        />
+      </Card>
 
-      <Block label="今回の答え">
-        <p style={lineStyle}>GTO 戦略:</p>
-        <ul style={strategyListStyle}>
-          <li>オールイン: {q4s ? formatPct(q4s.allin) : '—'}</li>
-          <li>レイズ: {q4s ? formatPct(q4s.raise) : '—'}</li>
-          <li>コール: {q4s ? formatPct(q4s.call) : '—'}</li>
-          <li>フォールド: {q4s ? formatPct(q4s.fold) : '—'}</li>
-        </ul>
-        <p style={lineStyle}>
-          主要戦略 = 20%以上 = コール と フォールド → コール と フォールド を選ぶのが正解。
-        </p>
-      </Block>
+      <SectionTitle>どう応答する?</SectionTitle>
+      <Card>
+        <FourChoicesPreview />
+      </Card>
 
-      <Block label="採点ルール">
-        <ul style={ruleListStyle}>
-          <li>主要戦略(20%以上)を選ぶと +pt(頻度に応じて段階的)</li>
-          <li>5%未満の頻度を選ぶと -1pt(即ペナルティ)</li>
-          <li>例: Q4s でレイズ(0%)を選ぶと -1pt</li>
-        </ul>
-      </Block>
+      <SectionTitle>今回の答え</SectionTitle>
+      <Card>
+        {q4s ? (
+          <StrategyAnswer strategy={q4s} />
+        ) : (
+          <div style={mutedStyle}>戦略読み込み中…</div>
+        )}
+      </Card>
 
-      <Block label="レンジ表(BB vs HJ open)">
+      <SectionTitle>採点ルール</SectionTitle>
+      <ScoringRulesBox />
+
+      <SectionTitle>レンジ表(BB vs HJ open)</SectionTitle>
+      <Card>
         {hands ? (
           <HandRangeMatrix hands={hands} highlightHand="Q4s" />
         ) : (
-          <div style={loadingStyle}>レンジ読み込み中…</div>
+          <div style={mutedStyle}>レンジ読み込み中…</div>
         )}
-      </Block>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 共通ブロック / フォーマッタ
-// ---------------------------------------------------------------------------
-
-function Block({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={blockStyle}>
-      <div style={blockLabelStyle}>【{label}】</div>
-      <div style={blockBodyStyle}>{children}</div>
+      </Card>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// 共通パーツ
+// ---------------------------------------------------------------------------
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <h2 style={sectionTitleStyle}>{children}</h2>;
+}
+
+function Card({ children }: { children: ReactNode }) {
+  return <div style={cardStyle}>{children}</div>;
+}
+
+function LabelValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={labelValueRowStyle}>
+      <div style={labelStyle}>{label}</div>
+      <div style={valueStyle}>{value}</div>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div style={dividerStyle} />;
+}
+
+// ---------------------------------------------------------------------------
+// 初級: 2択 disabled プレビュー
+// ---------------------------------------------------------------------------
+
+function BinaryChoicesPreview() {
+  return (
+    <div style={binaryRowStyle}>
+      <button type="button" disabled style={binaryJoinStyle}>参加する</button>
+      <button type="button" disabled style={binaryFoldStyle}>参加しない</button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 中級: 4 アクション disabled プレビュー
+// ---------------------------------------------------------------------------
+
+const ACTION_LABEL_JA: Record<Action, string> = {
+  allin: 'オールイン',
+  raise: 'レイズ',
+  call: 'コール',
+  fold: 'フォールド',
+};
+
+const ACTION_BORDER_LIGHT: Record<Action, string> = {
+  allin: '#CECBF6',
+  raise: '#F7C1C1',
+  call: '#C0DD97',
+  fold: '#B5D4F4',
+};
+
+const ACTION_BASE: Record<Action, string> = {
+  allin: '#993C9D',
+  raise: '#E24B4A',
+  call: '#639922',
+  fold: '#378ADD',
+};
+
+function FourChoicesPreview() {
+  return (
+    <ul style={fourListStyle}>
+      {ACTIONS.map((a) => (
+        <li
+          key={a}
+          style={{
+            ...fourRowStyle,
+            border: `1.5px solid ${ACTION_BORDER_LIGHT[a]}`,
+          }}
+        >
+          <span style={{ ...checkboxStyle, color: ACTION_BORDER_LIGHT[a] }} aria-hidden>☐</span>
+          <span>{ACTION_LABEL_JA[a]}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 中級: ビジュアルバー + 戦略リスト + 正解ボックス
+// ---------------------------------------------------------------------------
+
+const MAJOR_THRESHOLD = 20;
+
+function StrategyAnswer({ strategy }: { strategy: HandStrategy }) {
+  const total =
+    (strategy.allin ?? 0) +
+    (strategy.raise ?? 0) +
+    (strategy.call ?? 0) +
+    (strategy.fold ?? 0);
+
+  return (
+    <div style={strategyAnswerStyle}>
+      <div style={mutedSmallStyle}>GTO 戦略(頻度)</div>
+      <StrategyBar strategy={strategy} total={total} />
+      <ul style={strategyListStyle}>
+        {ACTIONS.map((a) => {
+          const freq = strategy[a] ?? 0;
+          const isMajor = freq >= MAJOR_THRESHOLD;
+          return (
+            <li key={a} style={strategyListRowStyle}>
+              <span style={{ ...dotStyle, background: ACTION_BASE[a] }} aria-hidden />
+              <span style={isMajor ? strategyNameBoldStyle : strategyNameStyle}>
+                {ACTION_LABEL_JA[a]}
+              </span>
+              <span style={isMajor ? strategyPctBoldStyle : strategyPctStyle}>
+                {formatPct(freq)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <AnswerPills strategy={strategy} />
+    </div>
+  );
+}
+
+function StrategyBar({ strategy, total }: { strategy: HandStrategy; total: number }) {
+  if (total <= 0) return null;
+  const segments: Array<{ key: Action; freq: number; color: string }> = [
+    { key: 'allin', freq: strategy.allin ?? 0, color: '#7F77DD' },
+    { key: 'raise', freq: strategy.raise ?? 0, color: '#E24B4A' },
+    { key: 'call', freq: strategy.call ?? 0, color: '#639922' },
+    { key: 'fold', freq: strategy.fold ?? 0, color: '#ffffff' },
+  ];
+  return (
+    <div style={barOuterStyle} aria-label="戦略の頻度バー">
+      {segments.map((seg) => {
+        if (seg.freq <= 0) return null;
+        const pct = (seg.freq / total) * 100;
+        return (
+          <div
+            key={seg.key}
+            style={{
+              ...barSegmentStyle,
+              width: `${pct}%`,
+              background: seg.color,
+              color: seg.key === 'fold' ? '#5F5E5A' : '#fff',
+              borderLeft: seg.key === 'fold' ? '1px solid #D3D1C7' : 'none',
+            }}
+          >
+            {pct >= 10 ? `${Math.round(seg.freq)}%` : ''}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnswerPills({ strategy }: { strategy: HandStrategy }) {
+  const majors = ACTIONS.filter((a) => (strategy[a] ?? 0) >= MAJOR_THRESHOLD);
+  return (
+    <div style={answerBoxStyle}>
+      <div style={answerLeadStyle}>正解 = 主要戦略(20%以上)を全部</div>
+      <div style={pillRowStyle}>
+        {majors.map((a) => (
+          <span key={a} style={pillSelectedStyle}>{ACTION_LABEL_JA[a]}</span>
+        ))}
+        {ACTIONS.filter((a) => !majors.includes(a)).map((a) => (
+          <span key={a} style={pillUnselectedStyle}>{ACTION_LABEL_JA[a]}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 採点ルール (中級専用)
+// ---------------------------------------------------------------------------
+
+function ScoringRulesBox() {
+  return (
+    <div style={scoringBoxStyle}>
+      <p style={scoringRowStyle}>
+        <span style={bullet}>●</span>
+        主要戦略(20%以上)を選ぶ →{' '}
+        <span style={ptGreenStyle}>+pt</span>(頻度に応じて段階的)
+      </p>
+      <p style={scoringRowStyle}>
+        <span style={bullet}>●</span>
+        5%未満の頻度を選ぶ →{' '}
+        <span style={ptRedStyle}>-1pt</span>(即ペナルティ)
+      </p>
+      <div style={scoringDividerStyle} />
+      <p style={scoringExampleStyle}>
+        例: Q4s でレイズ(0%)を選ぶと <span style={ptRedStyle}>-1pt</span>
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// utils
+// ---------------------------------------------------------------------------
 
 function formatPct(pct: number): string {
   if (Math.abs(pct - Math.round(pct)) < 0.01) return `${Math.round(pct)}%`;
@@ -204,66 +382,252 @@ function formatPct(pct: number): string {
 // Styles
 // ---------------------------------------------------------------------------
 
-const sectionStyle: CSSProperties = {
+const sectionTitleStyle: CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 500,
+  color: '#993C1D',
+  margin: '16px 0 8px',
+  padding: '0 0 0 8px',
+  borderLeft: '3px solid #993C1D',
+};
+
+const cardStyle: CSSProperties = {
+  background: '#ffffff',
+  border: '0.5px solid #D3D1C7',
+  borderRadius: '8px',
+  padding: '12px',
+  marginBottom: '8px',
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.7rem',
-  marginTop: '0.6rem',
-  paddingTop: '0.6rem',
-  borderTop: `1px dashed ${THEME.border}`,
+  gap: '6px',
 };
-const titleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: '0.95rem',
+
+const labelValueRowStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+};
+const labelStyle: CSSProperties = {
+  fontSize: '11px',
+  color: '#5F5E5A',
+};
+const valueStyle: CSSProperties = {
+  fontSize: '14px',
   fontWeight: 700,
-  color: THEME.textPrimary,
+  color: '#2C2C2A',
 };
-const blockStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.25rem',
+
+const dividerStyle: CSSProperties = {
+  height: 1,
+  background: '#D3D1C7',
+  margin: '4px 0',
 };
-const blockLabelStyle: CSSProperties = {
-  fontSize: '0.8rem',
-  fontWeight: 700,
-  color: THEME.textSecondary,
-};
-const blockBodyStyle: CSSProperties = {
-  fontSize: '0.85rem',
-  color: THEME.textPrimary,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.3rem',
-};
-const lineStyle: CSSProperties = {
-  margin: 0,
-};
+
 const handBoxStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
-  padding: '0.3rem 0',
+  padding: '4px 0',
 };
-const choiceListStyle: CSSProperties = {
+
+const bodyTextStyle: CSSProperties = {
+  margin: 0,
+  fontSize: '14px',
+  color: '#2C2C2A',
+};
+
+const mutedStyle: CSSProperties = {
+  fontSize: '12px',
+  color: '#8c7d6a',
+};
+
+const mutedSmallStyle: CSSProperties = {
+  fontSize: '11px',
+  color: '#5F5E5A',
+};
+
+// 初級 2 択 preview
+const binaryRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '8px',
+};
+const binaryBase: CSSProperties = {
+  padding: '12px 8px',
+  borderRadius: '6px',
+  fontSize: '14px',
+  fontWeight: 700,
+  border: 'none',
+  cursor: 'not-allowed',
+  fontFamily: 'inherit',
+};
+const binaryJoinStyle: CSSProperties = {
+  ...binaryBase,
+  background: '#FDE6CC',
+  color: '#993C1D',
+};
+const binaryFoldStyle: CSSProperties = {
+  ...binaryBase,
+  background: '#ffffff',
+  color: '#2C2C2A',
+  border: '1.5px solid #D3D1C7',
+};
+
+// 中級 4 択 preview
+const fourListStyle: CSSProperties = {
+  listStyle: 'none',
   margin: 0,
   padding: 0,
-  listStyle: 'none',
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.15rem',
-  color: THEME.textSecondary,
+  gap: '6px',
+};
+const fourRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '8px 12px',
+  borderRadius: '6px',
+  fontSize: '14px',
+  color: '#5F5E5A',
+  background: '#ffffff',
+};
+const checkboxStyle: CSSProperties = {
+  fontSize: '16px',
+  minWidth: '1rem',
+};
+
+// 戦略バー + リスト + 正解ピル
+const strategyAnswerStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+};
+const barOuterStyle: CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  height: '24px',
+  borderRadius: '4px',
+  overflow: 'hidden',
+  border: '1px solid #D3D1C7',
+};
+const barSegmentStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '11px',
+  fontWeight: 700,
 };
 const strategyListStyle: CSSProperties = {
+  listStyle: 'none',
   margin: 0,
-  paddingLeft: '1rem',
+  padding: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '3px',
+};
+const strategyListRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '14px 1fr auto',
+  alignItems: 'center',
+  gap: '8px',
+  fontSize: '13px',
+  color: '#2C2C2A',
+};
+const dotStyle: CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: '50%',
+  display: 'inline-block',
+};
+const strategyNameStyle: CSSProperties = {
+  fontWeight: 400,
+};
+const strategyNameBoldStyle: CSSProperties = {
+  fontWeight: 700,
+};
+const strategyPctStyle: CSSProperties = {
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  fontSize: '0.85rem',
+  fontWeight: 400,
 };
-const ruleListStyle: CSSProperties = {
+const strategyPctBoldStyle: CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  fontWeight: 700,
+};
+
+// 正解ボックス
+const answerBoxStyle: CSSProperties = {
+  background: '#EAF3DE',
+  borderLeft: '3px solid #3B6D11',
+  padding: '10px 12px',
+  borderRadius: '6px',
+  marginTop: '6px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+};
+const answerLeadStyle: CSSProperties = {
+  fontSize: '12px',
+  color: '#3B6D11',
+  fontWeight: 700,
+};
+const pillRowStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+};
+const pillBase: CSSProperties = {
+  padding: '3px 10px',
+  borderRadius: '999px',
+  fontSize: '12px',
+  fontWeight: 700,
+};
+const pillSelectedStyle: CSSProperties = {
+  ...pillBase,
+  background: '#3B6D11',
+  color: '#ffffff',
+};
+const pillUnselectedStyle: CSSProperties = {
+  ...pillBase,
+  background: '#ffffff',
+  color: '#5F5E5A',
+  border: '1px solid #D3D1C7',
+};
+
+// 採点ルール
+const scoringBoxStyle: CSSProperties = {
+  background: '#FAEEDA',
+  borderLeft: '3px solid #BA7517',
+  padding: '10px 12px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  color: '#2C2C2A',
+  marginBottom: '8px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+};
+const scoringRowStyle: CSSProperties = {
   margin: 0,
-  paddingLeft: '1.1rem',
-  lineHeight: 1.55,
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: '6px',
+  flexWrap: 'wrap',
 };
-const loadingStyle: CSSProperties = {
-  fontSize: '0.8rem',
-  color: THEME.textMuted,
+const bullet: CSSProperties = {
+  color: '#BA7517',
+  fontSize: '10px',
+};
+const scoringDividerStyle: CSSProperties = {
+  borderTop: '1px dashed #BA7517',
+};
+const scoringExampleStyle: CSSProperties = {
+  margin: 0,
+};
+const ptGreenStyle: CSSProperties = {
+  color: '#3B6D11',
+  fontWeight: 700,
+};
+const ptRedStyle: CSSProperties = {
+  color: '#A32D2D',
+  fontWeight: 700,
 };
