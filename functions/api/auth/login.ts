@@ -17,6 +17,7 @@ import {
 } from '../../lib/auth';
 import {
   createSession,
+  deleteAccountSessions,
   findAccountByName,
   findActiveGroupKey,
   touchLastLogin,
@@ -63,6 +64,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // 微小遅延 (失敗時の総当たり緩和)
     await new Promise((resolve) => setTimeout(resolve, 150));
     return jsonResponse(401, { error: 'invalid_credentials' });
+  }
+
+  // 単一端末ログイン制限: 一般ユーザーは新規ログイン前に旧セッションを全削除する。
+  //   admin (is_admin=1) と ryoji 等 (is_ranking_excluded=1) はデバッグ用途で複数端末許可。
+  const isExempt = account.is_admin === 1 || account.is_ranking_excluded === 1;
+  if (!isExempt) {
+    await deleteAccountSessions(env.DB, account.id);
   }
 
   // session 発行

@@ -27,6 +27,7 @@ function makeAuth(overrides: Partial<AuthState> = {}): AuthState {
     status: 'unauthenticated',
     account: null,
     sessionId: null,
+    signedOutReason: null,
     login: async () => {},
     signup: async () => {},
     logout: async () => {},

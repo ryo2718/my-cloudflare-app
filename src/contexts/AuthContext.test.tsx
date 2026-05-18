@@ -42,6 +42,7 @@ describe('AuthProvider — 初期マウント', () => {
     expect(captured!.status).toBe('loading');
     expect(captured!.account).toBeNull();
     expect(captured!.sessionId).toBeNull();
+    expect(captured!.signedOutReason).toBeNull();
     // API surface (関数群) は揃っている
     expect(typeof captured!.login).toBe('function');
     expect(typeof captured!.signup).toBe('function');

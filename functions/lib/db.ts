@@ -89,6 +89,17 @@ export async function deleteSession(db: D1Database, sessionId: string): Promise<
   await db.prepare('DELETE FROM sessions WHERE id = ?').bind(sessionId).run();
 }
 
+/**
+ * 指定 account の全セッションを削除。
+ * 単一端末ログイン制限 (一般ユーザーのみ、admin / is_ranking_excluded は例外) で使用。
+ */
+export async function deleteAccountSessions(
+  db: D1Database,
+  accountId: number,
+): Promise<void> {
+  await db.prepare('DELETE FROM sessions WHERE account_id = ?').bind(accountId).run();
+}
+
 // ---------------------------------------------------------------------------
 // group_keys
 // ---------------------------------------------------------------------------

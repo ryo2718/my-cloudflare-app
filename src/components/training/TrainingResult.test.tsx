@@ -17,6 +17,7 @@ function fakeAuth(): AuthState {
     status: 'authenticated',
     account: { id: 1, poker_name: 'テスト君', is_admin: false, is_ranking_excluded: false },
     sessionId: 'sid',
+    signedOutReason: null,
     login: async () => {},
     signup: async () => {},
     logout: async () => {},

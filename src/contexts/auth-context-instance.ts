@@ -9,10 +9,18 @@ import type { AccountPublic } from '../api/auth';
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
 
+/**
+ * 'kicked' = 他端末で同じアカウントが新規ログインしたためサーバー側でセッションを削除された。
+ *   LoginGate で「他の端末でログインされました。再度ログインしてください。」を表示する。
+ * null    = 通常の未ログイン状態。
+ */
+export type SignedOutReason = 'kicked' | null;
+
 export interface AuthState {
   status: AuthStatus;
   account: AccountPublic | null;
   sessionId: string | null;
+  signedOutReason: SignedOutReason;
   login: (args: { pokerName: string; privatePass: string; groupKey: string }) => Promise<void>;
   signup: (args: { pokerName: string; privatePass: string; groupKey: string }) => Promise<void>;
   logout: () => Promise<void>;

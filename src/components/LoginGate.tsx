@@ -62,6 +62,12 @@ export function LoginGate({ children }: Props) {
           <h1 style={titleStyle}>PokerGTO Viewer</h1>
         </header>
 
+        {auth.signedOutReason === 'kicked' && (
+          <div style={kickedNoticeStyle} role="status">
+            他の端末でログインされました。再度ログインしてください。
+          </div>
+        )}
+
         <div style={tabRowStyle} role="tablist">
           {hasSaved && (
             <TabButton active={tab === 'saved'} onClick={() => setTab('saved')}>
@@ -283,6 +289,14 @@ const errorStyle: CSSProperties = {
   border: `1px solid ${THEME.errorBorder}`,
   borderRadius: '0.3rem',
   padding: '0.4rem 0.6rem',
+};
+const kickedNoticeStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: '#7B5A3E',
+  background: '#FAEEDA',
+  border: '1px solid #E5A551',
+  borderRadius: '0.35rem',
+  padding: '0.5rem 0.7rem',
 };
 const submitStyle: CSSProperties = {
   marginTop: '0.3rem',

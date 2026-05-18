@@ -18,11 +18,13 @@ import {
   AuthContext,
   type AuthState,
   type AuthStatus,
+  type SignedOutReason,
 } from './auth-context-instance';
+import { AuthApiError } from '../api/auth';
 
 // 再 export (既存 import パスの互換維持: 'AuthContext', 'AuthState', 'AuthStatus')
 export { AuthContext };
-export type { AuthState, AuthStatus };
+export type { AuthState, AuthStatus, SignedOutReason };
 
 const STORAGE_KEY = 'pokergto.session_id';
 
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: ProviderProps) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [account, setAccount] = useState<AccountPublic | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [signedOutReason, setSignedOutReason] = useState<SignedOutReason>(null);
 
   // 初期化: LocalStorage から session 取り出して /api/auth/me で検証
   useEffect(() => {
@@ -73,12 +76,18 @@ export function AuthProvider({ children }: ProviderProps) {
         setAccount(res.account);
         setStatus('authenticated');
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
         writeStoredSessionId(null);
         setSessionId(null);
         setAccount(null);
         setStatus('unauthenticated');
+        // 旧 session_id があったのに 401 (unauthorized) で弾かれた = 他端末ログインで
+        // セッション削除された可能性が高い (期限切れでも同じ症状だが、 単一端末制限の
+        // 主な経路として「他端末ログイン」を案内する)。
+        if (err instanceof AuthApiError && err.status === 401) {
+          setSignedOutReason('kicked');
+        }
       });
 
     return () => {
@@ -96,6 +105,7 @@ export function AuthProvider({ children }: ProviderProps) {
       setSessionId(result.session_id);
       setAccount(result.account);
       setStatus('authenticated');
+      setSignedOutReason(null);
     },
     [],
   );
@@ -109,6 +119,7 @@ export function AuthProvider({ children }: ProviderProps) {
       setSessionId(result.session_id);
       setAccount(result.account);
       setStatus('authenticated');
+      setSignedOutReason(null);
     },
     [],
   );
@@ -122,11 +133,12 @@ export function AuthProvider({ children }: ProviderProps) {
     setSessionId(null);
     setAccount(null);
     setStatus('unauthenticated');
+    setSignedOutReason(null);
   }, [sessionId]);
 
   const value = useMemo<AuthState>(
-    () => ({ status, account, sessionId, login, signup, logout }),
-    [status, account, sessionId, login, signup, logout],
+    () => ({ status, account, sessionId, signedOutReason, login, signup, logout }),
+    [status, account, sessionId, signedOutReason, login, signup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
