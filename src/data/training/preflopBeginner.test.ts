@@ -403,6 +403,62 @@ describe('混合戦略フィルタの実動作 (generateOpenQuestion / generateV
 // 10. VS_OPEN_PAIRS 整合性
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// handToCards スート分布 (バグ修正: ♠♥ 固定 → 4 スートランダム)
+// ---------------------------------------------------------------------------
+
+import { handToCards } from './preflopBeginner';
+
+describe('handToCards スート分布', () => {
+  it('ペア (AA): 300 回で 4 スート全て出現、かつ 2 枚は常に異なる', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      const [c1, c2] = handToCards('AA');
+      seen.add(c1.suit);
+      seen.add(c2.suit);
+      expect(c1.suit).not.toBe(c2.suit);
+    }
+    expect(seen.size).toBe(4); // s/h/d/c 全部
+  });
+
+  it('スーテッド (AKs): 2 枚は常に同じスート + 300 回で 4 スート全部出現', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      const [c1, c2] = handToCards('AKs');
+      expect(c1.suit).toBe(c2.suit);
+      seen.add(c1.suit);
+    }
+    expect(seen.size).toBe(4);
+  });
+
+  it('オフスート (AKo): 2 枚は常に異なるスート + 300 回で 4 スート全部出現', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      const [c1, c2] = handToCards('AKo');
+      expect(c1.suit).not.toBe(c2.suit);
+      seen.add(c1.suit);
+      seen.add(c2.suit);
+    }
+    expect(seen.size).toBe(4);
+  });
+
+  it('rank は常にハンド表記と一致 (AKs → A & K)', () => {
+    for (let i = 0; i < 50; i++) {
+      const [c1, c2] = handToCards('AKs');
+      expect(c1.rank).toBe('A');
+      expect(c2.rank).toBe('K');
+    }
+  });
+
+  it('ペアの rank はどちらも同じ (QQ → Q & Q)', () => {
+    for (let i = 0; i < 50; i++) {
+      const [c1, c2] = handToCards('QQ');
+      expect(c1.rank).toBe('Q');
+      expect(c2.rank).toBe('Q');
+    }
+  });
+});
+
 describe('VS_OPEN_PAIRS', () => {
   it('15 ペア (UTG×5 + HJ×4 + CO×3 + BTN×2 + SB×1)', () => {
     expect(VS_OPEN_PAIRS).toHaveLength(15);

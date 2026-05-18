@@ -1,0 +1,69 @@
+// トレーニングレベルのアンロック判定 (純粋関数)。
+//
+// アンロックルール:
+//   - 初級 (preflop_beginner): 常にアンロック
+//   - 中級 (preflop_intermediate): 初級 best_score >= 20 (= 全問正解)
+//   - 上級 (preflop_advanced): 中級 best_score >= 20 (= 40 点満点中 50%)
+//   - 超上級 (preflop_expert): 上級が未実装のため常にロック
+//
+// API レスポンス (apiAccountTrainingResults) の TrainingResult[] を入力に、
+// QuizPage の各 LevelAccordion でロック状態を判定する。
+
+import type { TrainingResult } from '../../api/account';
+
+/** 中級アンロックに必要な初級ベストスコア。 */
+export const INTERMEDIATE_UNLOCK_THRESHOLD = 20;
+/** 上級アンロックに必要な中級ベストスコア (40 点満点の 50%)。 */
+export const ADVANCED_UNLOCK_THRESHOLD = 20;
+
+export interface UnlockStatus {
+  beginnerUnlocked: boolean;        // 常に true
+  intermediateUnlocked: boolean;
+  advancedUnlocked: boolean;
+  superAdvancedUnlocked: boolean;   // 常に false (未実装)
+}
+
+/** training_results 配列からアンロック状態を計算 (純粋関数)。 */
+export function computeUnlockStatus(records: ReadonlyArray<TrainingResult>): UnlockStatus {
+  const bestOf = (type: string): number => {
+    const r = records.find((x) => x.training_type === type);
+    return r?.best_score ?? 0;
+  };
+  return {
+    beginnerUnlocked: true,
+    intermediateUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
+    advancedUnlocked: bestOf('preflop_intermediate') >= ADVANCED_UNLOCK_THRESHOLD,
+    superAdvancedUnlocked: false,
+  };
+}
+
+/** level.key から UnlockStatus の対応プロパティを取得。未対応 key は false。 */
+export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean {
+  switch (levelKey) {
+    case 'preflop_beginner':
+      return status.beginnerUnlocked;
+    case 'preflop_intermediate':
+      return status.intermediateUnlocked;
+    case 'preflop_advanced':
+      return status.advancedUnlocked;
+    case 'preflop_expert':
+      return status.superAdvancedUnlocked;
+    // flop はすべて未実装 / ロック扱い
+    default:
+      return false;
+  }
+}
+
+/** ロック中のレベルにユーザーへ表示するヒント文。 */
+export function lockHintFor(levelKey: string): string | null {
+  switch (levelKey) {
+    case 'preflop_intermediate':
+      return `初級で ${INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
+    case 'preflop_advanced':
+      return `中級で ${ADVANCED_UNLOCK_THRESHOLD}pt 取るとアンロック`;
+    case 'preflop_expert':
+      return '未実装';
+    default:
+      return null;
+  }
+}

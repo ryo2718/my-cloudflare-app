@@ -15,6 +15,11 @@ import {
   apiAccountTrainingResults,
   type TrainingResult,
 } from '../api/account';
+import {
+  computeUnlockStatus,
+  isLevelUnlocked,
+  lockHintFor,
+} from '../data/training/unlockStatus';
 import { useAuth } from '../hooks/useAuth';
 import { navigate } from '../router/router-core';
 import { AppHeader } from './AppHeader';
@@ -42,6 +47,8 @@ export function QuizPage() {
     };
   }, [auth.sessionId]);
 
+  const unlockStatus = computeUnlockStatus(records);
+
   const toggle = (key: string) => {
     setOpenKey((prev) => (prev === key ? null : key));
   };
@@ -67,6 +74,8 @@ export function QuizPage() {
                   category={cat.label}
                   record={records.find((r) => r.training_type === lv.key)}
                   open={openKey === lv.key}
+                  unlocked={isLevelUnlocked(lv.key, unlockStatus)}
+                  lockHint={lockHintFor(lv.key)}
                   onToggle={() => toggle(lv.key)}
                   onStart={() => start(lv)}
                 />
@@ -88,6 +97,8 @@ function LevelAccordion({
   category,
   record,
   open,
+  unlocked,
+  lockHint,
   onToggle,
   onStart,
 }: {
@@ -95,10 +106,22 @@ function LevelAccordion({
   category: string;
   record: TrainingResult | undefined;
   open: boolean;
+  unlocked: boolean;
+  lockHint: string | null;
   onToggle: () => void;
   onStart: () => void;
 }) {
   const playable = isPlayable(level);
+
+  // ロック中の playable level (例: 中級が初級未達成): アコーディオン展開不可
+  if (playable && !unlocked) {
+    return (
+      <div style={lockedCardStyle}>
+        <span style={cardLevelStyle}>🔒 {level.label}</span>
+        {lockHint && <span style={lockHintStyle}>{lockHint}</span>}
+      </div>
+    );
+  }
 
   if (!playable) {
     return (
@@ -171,11 +194,16 @@ function DetailPanel({
         ? `${level.timeLimitSec}秒`
         : '—';
 
+  const isIntermediate = level.key === 'preflop_intermediate';
+
   return (
     <div style={detailColStyle}>
       <DetailRow label={category} />
       <DetailRow label="レベル" value={level.label} />
       <DetailRow label="制限時間" value={timeLimitLabel} />
+      {isIntermediate && (
+        <DetailRow label="スコア" value="全問2pt、最大40pt" />
+      )}
       <div style={noteHeaderStyle}>注意:</div>
       <ul style={noteListStyle}>
         <li>スタック: 100BB</li>
@@ -272,6 +300,25 @@ const unimplementedCardStyle: CSSProperties = {
   justifyContent: 'space-between',
   background: '#f5f1ea',
   opacity: 0.72,
+};
+
+const lockedCardStyle: CSSProperties = {
+  ...cardBase,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  background: '#f5f1ea',
+  borderStyle: 'dashed',
+  opacity: 0.9,
+  cursor: 'not-allowed',
+};
+
+const lockHintStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  color: THEME.textSecondary,
+  fontStyle: 'italic',
+  textAlign: 'right',
+  maxWidth: '60%',
 };
 
 const cardHeaderBtnStyle: CSSProperties = {

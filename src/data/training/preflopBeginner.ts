@@ -167,25 +167,47 @@ function shuffle<T>(arr: T[]): T[] {
   return arr;
 }
 
-/** ハンド表記 → PlayingCard 用カード 2 枚。 */
+type SuitChar = 's' | 'h' | 'd' | 'c';
+const ALL_SUITS: ReadonlyArray<SuitChar> = ['s', 'h', 'd', 'c'];
+
+function pickSuit(): SuitChar {
+  return ALL_SUITS[Math.floor(Math.random() * ALL_SUITS.length)];
+}
+
+function pickTwoDifferentSuits(): [SuitChar, SuitChar] {
+  const s1 = pickSuit();
+  let s2 = pickSuit();
+  while (s2 === s1) s2 = pickSuit();
+  return [s1, s2];
+}
+
+/**
+ * ハンド表記 → PlayingCard 用カード 2 枚。
+ *  - ペア (AA / KK 等): 4 スートからランダムに 2 つ、必ず異なるスート
+ *  - スーテッド (AKs): 4 スートからランダムに 1 つ、両カード同じスート
+ *  - オフスート (AKo): 4 スートからランダムに 2 つ、必ず異なるスート
+ */
 export function handToCards(hand: Hand): PreflopQuestion['cards'] {
   if (hand.length === 2) {
     const r = hand[0];
+    const [s1, s2] = pickTwoDifferentSuits();
     return [
-      { rank: r, suit: 's' },
-      { rank: r, suit: 'h' },
+      { rank: r, suit: s1 },
+      { rank: r, suit: s2 },
     ];
   }
   const [r1, r2, kind] = hand.split('') as [string, string, 's' | 'o'];
   if (kind === 's') {
+    const s = pickSuit();
     return [
-      { rank: r1, suit: 's' },
-      { rank: r2, suit: 's' },
+      { rank: r1, suit: s },
+      { rank: r2, suit: s },
     ];
   }
+  const [s1, s2] = pickTwoDifferentSuits();
   return [
-    { rank: r1, suit: 's' },
-    { rank: r2, suit: 'h' },
+    { rank: r1, suit: s1 },
+    { rank: r2, suit: s2 },
   ];
 }
 

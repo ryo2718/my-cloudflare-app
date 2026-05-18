@@ -34,47 +34,53 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(html).toContain('フロップトレーニング');
   });
 
-  it('4 レベル × 2 カテゴリ = 8 カード分のラベル', () => {
+  it('4 レベル × 2 カテゴリ = 8 カード分のラベル (ロック表示の "🔒 中級" も含む)', () => {
     const html = render();
-    const beginnerCount = (html.match(/>初級</g) ?? []).length;
-    const intermediateCount = (html.match(/>中級</g) ?? []).length;
-    const advancedCount = (html.match(/>上級</g) ?? []).length;
-    const expertCount = (html.match(/>超上級</g) ?? []).length;
-    expect(beginnerCount).toBe(2);
-    expect(intermediateCount).toBe(2);
-    expect(advancedCount).toBe(2);
-    expect(expertCount).toBe(2);
+    // ロック中は "🔒 中級" のように prefix が付くため、 ">" 直後ではなく ">.*中級<" でカウント
+    const countText = (label: string) =>
+      (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
+    expect(countText('初級')).toBe(2);
+    expect(countText('中級')).toBe(2);
+    expect(countText('上級')).toBe(2);
+    expect(countText('超上級')).toBe(2);
   });
 
-  it('プリフロップ初級・中級 subtitle: "(オープンレンジ)" "(vs open)" が collapsed 状態でも見える', () => {
+  it('初期 (records 空) は中級ロック中: 初級 subtitle のみ表示', () => {
     const html = render();
     expect(html).toContain('(オープンレンジ)');
-    expect(html).toContain('(vs open)');
+    // 中級はロック中なので subtitle 非表示
+    expect(html).not.toContain('(vs open)');
   });
 
-  it('未挑戦の playable level は "未挑戦" 表示 (collapsed 状態)', () => {
+  it('未挑戦の初級は "未挑戦" 表示 (collapsed 状態)', () => {
     const html = render();
-    // 認証ありだが SSR で fetch 結果は来ないので、両 playable level は未挑戦扱い
     const matches = html.match(/未挑戦/g) ?? [];
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it('未実装 level は「未実装」バッジ表示 (preflop 上級/超上級 + flop 全 = 6 枚)', () => {
+    // preflop_advanced / preflop_expert は implemented=false なので unlocked 判定より
+    // 先に「未実装」ブランチに入る。中級のみがロック扱い (playable + !unlocked)。
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
     expect(matches.length).toBe(6);
   });
 
-  it('collapsed 初期状態では [スタート] ボタンは含まれない (展開時のみ表示)', () => {
+  it('ロック中 level は "🔒" + ヒント文を表示 (中級: "初級で 20/20 取るとアンロック")', () => {
     const html = render();
-    // 詳細パネルは展開時のみ。初期 SSR では全 level collapsed → スタート 0件
+    expect(html).toContain('🔒');
+    expect(html).toContain('初級で 20/20 取るとアンロック');
+  });
+
+  it('collapsed 初期状態では [スタート] ボタンは含まれない', () => {
+    const html = render();
     expect(html).not.toContain('>スタート<');
   });
 
-  it('playable level はアコーディオン展開可能 (aria-expanded="false" を持つボタンが 2 つ)', () => {
+  it('records 空 → 初級だけがアンロック・アコーディオン展開可 (aria-expanded="false" 1 件)', () => {
     const html = render();
     const matches = html.match(/aria-expanded="false"/g) ?? [];
-    expect(matches.length).toBe(2);
+    expect(matches.length).toBe(1);
   });
 
   it('「← ホーム」リンク (AppHeader showBack)', () => {

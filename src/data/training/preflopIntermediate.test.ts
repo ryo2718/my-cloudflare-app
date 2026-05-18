@@ -356,6 +356,51 @@ describe('generateIntermediateQuestion (合成データで分布検証)', () => 
 // ACTIONS 整合性
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// シナリオ invariant: 全 20 問が vs_open_bb / myPosition=BB であること (初級混入バグ防止)
+// ---------------------------------------------------------------------------
+
+describe('中級ジェネレータ invariant', () => {
+  function mkData(): VsOpenBbStrategies {
+    const eligible: Record<string, HandStrategy> = {
+      KK: s(5, 90, 5, 0),
+      QQ: s(10, 75, 15, 0),
+      JJ: s(0, 60, 30, 10),
+      TT: s(0, 40, 42, 18),
+      '88': s(0, 30, 40, 30),
+      A5s: s(25, 0, 55, 20),
+    };
+    const data: VsOpenBbStrategies = {};
+    for (const op of VS_OPEN_OPENERS) data[op] = { ...eligible };
+    return data;
+  }
+
+  it('100 回生成しても scenario は常に "vs_open_bb"', () => {
+    const data = mkData();
+    for (let i = 0; i < 100; i++) {
+      const q = generateIntermediateQuestion(data);
+      expect(q.scenario).toBe('vs_open_bb');
+    }
+  });
+
+  it('100 回生成しても myPosition は常に "BB" (初級の他ポジ問題が紛れ込まない)', () => {
+    const data = mkData();
+    for (let i = 0; i < 100; i++) {
+      const q = generateIntermediateQuestion(data);
+      expect(q.myPosition).toBe('BB');
+    }
+  });
+
+  it('opener は常に 5 ポジション (UTG/HJ/CO/BTN/SB)、BB を含まない', () => {
+    const data = mkData();
+    for (let i = 0; i < 100; i++) {
+      const q = generateIntermediateQuestion(data);
+      expect(VS_OPEN_OPENERS).toContain(q.opener);
+      expect(q.opener).not.toBe('BB');
+    }
+  });
+});
+
 describe('ACTIONS 配列', () => {
   it('順序は allin → raise → call → fold', () => {
     expect(ACTIONS).toEqual(['allin', 'raise', 'call', 'fold']);

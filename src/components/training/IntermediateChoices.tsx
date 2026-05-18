@@ -15,7 +15,15 @@ const ACTION_LABEL: Record<Action, string> = {
   allin: 'オールイン',
   raise: 'レイズ',
   call: 'コール',
-  fold: 'フォルド',
+  fold: 'フォールド',
+};
+
+/** アクションごとの基調色 (off=ボーダー・on=背景)。 */
+const ACTION_COLOR: Record<Action, { base: string; on: string; onText: string }> = {
+  allin: { base: '#993C9D', on: '#993C9D', onText: '#fff' },   // 紫
+  raise: { base: '#E24B4A', on: '#E24B4A', onText: '#fff' },   // 赤
+  call:  { base: '#639922', on: '#639922', onText: '#fff' },   // 緑
+  fold:  { base: '#378ADD', on: '#378ADD', onText: '#fff' },   // 青
 };
 
 export interface IntermediateChoicesProps {
@@ -51,16 +59,34 @@ export function IntermediateChoices({ onSubmit, disabled = false }: Intermediate
       <ul style={listStyle}>
         {ACTIONS.map((a) => {
           const isOn = selected.includes(a);
+          const color = ACTION_COLOR[a];
+          const baseRow: CSSProperties = {
+            ...rowBase,
+            borderColor: color.base,
+          };
+          const onRow: CSSProperties = {
+            ...rowBase,
+            background: color.on,
+            color: color.onText,
+            borderColor: color.base,
+            fontWeight: 700,
+          };
           return (
             <li key={a}>
               <button
                 type="button"
                 onClick={() => toggle(a)}
                 disabled={disabled}
-                style={isOn ? rowOnStyle : rowOffStyle}
+                style={isOn ? onRow : baseRow}
                 aria-pressed={isOn}
               >
-                <span style={isOn ? checkboxOnStyle : checkboxOffStyle} aria-hidden>
+                <span
+                  style={{
+                    ...checkboxBase,
+                    color: isOn ? color.onText : color.base,
+                  }}
+                  aria-hidden
+                >
                   {isOn ? '☑' : '☐'}
                 </span>
                 <span>{ACTION_LABEL[a]}</span>
@@ -114,7 +140,7 @@ const rowBase: CSSProperties = {
   width: '100%',
   padding: '0.65rem 0.85rem',
   background: '#fff',
-  border: `1.5px solid ${THEME.border}`,
+  border: `2px solid ${THEME.border}`,
   borderRadius: '0.4rem',
   fontSize: '0.98rem',
   fontFamily: 'inherit',
@@ -123,23 +149,12 @@ const rowBase: CSSProperties = {
   color: THEME.textPrimary,
 };
 
-const rowOffStyle: CSSProperties = rowBase;
-
-const rowOnStyle: CSSProperties = {
-  ...rowBase,
-  background: '#FAEEDA',
-  borderColor: '#E5A551',
-  fontWeight: 700,
-};
-
 const checkboxBase: CSSProperties = {
   fontSize: '1.1rem',
   width: '1.2rem',
   display: 'inline-block',
   textAlign: 'center',
 };
-const checkboxOffStyle: CSSProperties = { ...checkboxBase, color: THEME.textMuted };
-const checkboxOnStyle: CSSProperties = { ...checkboxBase, color: '#993C1D' };
 
 const submitStyle: CSSProperties = {
   padding: '0.85rem 1rem',

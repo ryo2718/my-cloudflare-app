@@ -133,9 +133,6 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
           <span style={{ ...scoreSummaryValueStyle, color: scoreColor }}>
             {current.finalScore >= 0 ? `+${current.finalScore}` : current.finalScore}pt
           </span>
-          <span style={scoreSummarySubStyle}>
-            (理論最高 +2pt / 基礎点 raw={current.rawScore}, max={current.theoreticalMax})
-          </span>
           {current.timedOut && <span style={timeoutBadgeStyle}>⏱ 時間切れ</span>}
         </div>
 
@@ -294,10 +291,6 @@ const scoreSummaryValueStyle: CSSProperties = {
   fontSize: '1.25rem',
   fontWeight: 800,
   fontVariantNumeric: 'tabular-nums',
-};
-const scoreSummarySubStyle: CSSProperties = {
-  fontSize: '0.72rem',
-  color: THEME.textMuted,
 };
 const timeoutBadgeStyle: CSSProperties = {
   fontSize: '0.78rem',
