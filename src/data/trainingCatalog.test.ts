@@ -28,10 +28,10 @@ describe('TRAINING_CATALOG', () => {
     expect(beginner.implemented).toBe(true);
   });
 
-  it('preflop 中級: points=3, timeLimitSec=20, subtitle=vs open, implemented=true', () => {
+  it('preflop 中級: points=1 (best_score がそのまま pt), timeLimitSec=20, subtitle=vs open, implemented=true', () => {
     const intermediate = TRAINING_CATALOG[0].levels[1];
     expect(intermediate.key).toBe('preflop_intermediate');
-    expect(intermediate.points).toBe(3);
+    expect(intermediate.points).toBe(1);
     expect(intermediate.questionCount).toBe(20);
     expect(intermediate.timeLimitSec).toBe(20);
     expect(intermediate.subtitle).toBe('vs open');
@@ -70,8 +70,8 @@ describe('helpers', () => {
     expect(formatLevelInfo(TRAINING_CATALOG[0].levels[0])).toBe('1pt × 20問・制限時間なし');
   });
 
-  it('formatLevelInfo: "3pt × 20問・制限時間 20s"', () => {
-    expect(formatLevelInfo(TRAINING_CATALOG[0].levels[1])).toBe('3pt × 20問・制限時間 20s');
+  it('formatLevelInfo: 中級は "20問・最大 40pt・制限時間 20s" 形式', () => {
+    expect(formatLevelInfo(TRAINING_CATALOG[0].levels[1])).toBe('20問・最大 40pt・制限時間 20s');
   });
 
   it('trainingPath: snake_case → kebab-case slug', () => {

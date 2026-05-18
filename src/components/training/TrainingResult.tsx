@@ -13,8 +13,11 @@ import {
   type TrainingLevel,
 } from '../../data/trainingCatalog';
 import {
+  loadIntermediateRecords,
   loadRecords,
+  missedIntermediateRecords,
   missedRecords,
+  type IntermediateRecord,
   type ProblemRecord,
 } from '../../data/training/recordsStore';
 import { CardSet } from '../CardSet';
@@ -32,13 +35,14 @@ type SaveState =
   | { kind: 'ok'; submission: TrainingResultSubmission }
   | { kind: 'error'; message: string };
 
-function parseQueryScore(): { score: number; total: number } | null {
+function parseQueryScore(): { score: number; total: number; mode: 'beginner' | 'intermediate' } | null {
   if (typeof window === 'undefined') return null;
   const sp = new URLSearchParams(window.location.search);
   const s = Number(sp.get('score'));
   const t = Number(sp.get('total'));
   if (!Number.isFinite(s) || !Number.isFinite(t) || t <= 0) return null;
-  return { score: s, total: t };
+  const mode = sp.get('mode') === 'intermediate' ? 'intermediate' : 'beginner';
+  return { score: s, total: t, mode };
 }
 
 export function TrainingResult({ level }: TrainingResultProps) {
@@ -48,18 +52,31 @@ export function TrainingResult({ level }: TrainingResultProps) {
   // records は遷移時に確定する (sessionStorage + in-mem) ので、初回マウント時に取得して
   // state に格納する (useMemo より useEffect+setState の方が再 render を確実に trigger できる)。
   // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
+  const mode = scoreInfo?.mode ?? 'beginner';
   const [missed, setMissed] = useState<ProblemRecord[]>(() => {
+    if (mode === 'intermediate') return [];
     const records = loadRecords(level.key);
     return records ? missedRecords(records) : [];
   });
+  const [missedIntermediate, setMissedIntermediate] = useState<IntermediateRecord[]>(() => {
+    if (mode !== 'intermediate') return [];
+    const records = loadIntermediateRecords(level.key);
+    return records ? missedIntermediateRecords(records) : [];
+  });
   useEffect(() => {
-    // クライアントマウント後に再度フェッチ (SSR / 初期 state が空でも復元できる)。
-    const records = loadRecords(level.key);
-    if (records) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setMissed(missedRecords(records));
+    if (mode === 'intermediate') {
+      const records = loadIntermediateRecords(level.key);
+      if (records) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMissedIntermediate(missedIntermediateRecords(records));
+      }
+    } else {
+      const records = loadRecords(level.key);
+      if (records) {
+        setMissed(missedRecords(records));
+      }
     }
-  }, [level.key]);
+  }, [level.key, mode]);
 
   useEffect(() => {
     if (!scoreInfo || !auth.sessionId) return;
@@ -67,9 +84,12 @@ export function TrainingResult({ level }: TrainingResultProps) {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSave({ kind: 'saving' });
+    // 中級は finalSum が負になりうるが、DB の best_score は 0-100 制約。
+    // 0 未満は 0 にクリップしてサーバーへ送る (実質「ベスト未更新」扱い)。
+    const submitScore = Math.max(0, scoreInfo.score);
     apiSubmitTrainingResult(sid, {
       training_type: level.key,
-      score: scoreInfo.score,
+      score: submitScore,
     })
       .then((submission) => {
         if (cancelled) return;
@@ -104,7 +124,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
   }
 
   const { score, total } = scoreInfo;
-  const pct = Math.round((score / total) * 100);
+  const displayPct = total > 0 ? Math.round((Math.max(0, score) / total) * 100) : 0;
   const pointsPerQ = level.points ?? 0;
 
   return (
@@ -116,24 +136,50 @@ export function TrainingResult({ level }: TrainingResultProps) {
 
         <div style={scoreCardStyle}>
           <div style={scoreCellStyle}>
-            <span style={scoreLabelStyle}>正解数</span>
+            <span style={scoreLabelStyle}>
+              {mode === 'intermediate' ? 'スコア' : '正解数'}
+            </span>
             <span style={scoreValueStyle}>{score}/{total}</span>
           </div>
           <div style={scoreCellStyle}>
-            <span style={scoreLabelStyle}>正答率</span>
-            <span style={scoreValueStyle}>{pct}%</span>
+            <span style={scoreLabelStyle}>
+              {mode === 'intermediate' ? '達成率' : '正答率'}
+            </span>
+            <span style={scoreValueStyle}>{displayPct}%</span>
           </div>
         </div>
 
-        <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} />
+        {mode === 'intermediate' ? (
+          <IntermediatePtCard save={save} score={score} total={total} />
+        ) : (
+          <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} />
+        )}
 
-        {missed.length > 0 && (
+        {mode === 'beginner' && missed.length > 0 && (
           <section style={missedSectionStyle} aria-label="間違えた問題">
             <header style={missedHeaderStyle}>間違えた問題 ({missed.length}問)</header>
             <ul style={missedListStyle}>
               {missed.map((rec, idx) => (
                 <li key={rec.id} style={{ listStyle: 'none' }}>
                   <MissedCard
+                    record={rec}
+                    onReview={() => navigate(trainingReviewPath(level.key, idx + 1))}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {mode === 'intermediate' && missedIntermediate.length > 0 && (
+          <section style={missedSectionStyle} aria-label="満点未達成の問題">
+            <header style={missedHeaderStyle}>
+              満点未達成の問題 ({missedIntermediate.length}問)
+            </header>
+            <ul style={missedListStyle}>
+              {missedIntermediate.map((rec, idx) => (
+                <li key={rec.id} style={{ listStyle: 'none' }}>
+                  <IntermediateMissedCard
                     record={rec}
                     onReview={() => navigate(trainingReviewPath(level.key, idx + 1))}
                   />
@@ -156,6 +202,46 @@ export function TrainingResult({ level }: TrainingResultProps) {
           </Link>
         </div>
       </main>
+    </div>
+  );
+}
+
+function IntermediateMissedCard({
+  record,
+  onReview,
+}: {
+  record: IntermediateRecord;
+  onReview: () => void;
+}) {
+  const scoreColor =
+    record.finalScore < 0 ? '#7A2A26'
+      : record.finalScore === 0 ? '#5F5E5A'
+      : record.finalScore === 1 ? '#6B5A48'
+      : '#1F4D11';
+  return (
+    <div style={missedCardStyle}>
+      <div style={missedCardLeftStyle}>
+        <span style={missedScenarioStyle}>vs {record.opener} open</span>
+        <CardSet
+          cards={record.cards.map((c) => ({
+            rank: c.rank as Rank,
+            suit: c.suit as Suit,
+          }))}
+          size="md"
+          gap={4}
+        />
+        <div style={missedAnswerLineStyle}>
+          獲得点:{' '}
+          <span style={{ ...correctAnswerStyle, color: scoreColor }}>
+            {record.finalScore >= 0 ? `+${record.finalScore}` : record.finalScore}pt
+          </span>
+          {' / 理論最高 +'}{record.theoreticalMax > 0 ? 2 : 0}pt
+          {record.timedOut && <span style={{ marginLeft: 6, color: '#b91c1c' }}>⏱ 時間切れ</span>}
+        </div>
+      </div>
+      <button type="button" onClick={onReview} style={reviewBtnStyle}>
+        問題へ
+      </button>
     </div>
   );
 }
@@ -202,6 +288,68 @@ function MissedCard({
  *
  * saving / error 中は中間メッセージのみ表示する。
  */
+/**
+ * 中級用 pt カード。 total=40 (20 問 × 2pt 満点)。
+ *  is_best=true → "🎉 自己ベスト更新!" (前回スコア → 今回スコア)
+ *  is_best=false → "※ 自己ベスト未更新" (今回スコア / 過去ベスト)
+ */
+function IntermediatePtCard({
+  save,
+  score,
+  total,
+}: {
+  save: SaveState;
+  score: number;
+  total: number;
+}) {
+  if (save.kind === 'saving' || save.kind === 'idle') {
+    return (
+      <div style={ptCardStyle}>
+        <span style={subInfoStyle}>結果を保存中…</span>
+      </div>
+    );
+  }
+  if (save.kind === 'error') {
+    return (
+      <div style={ptCardStyle}>
+        <span style={subErrorStyle}>結果保存失敗: {save.message}</span>
+      </div>
+    );
+  }
+  const sub = save.submission;
+  const submittedScore = Math.max(0, score);
+  if (sub.is_best && sub.previous_best === 0) {
+    return (
+      <div style={ptCardStyle}>
+        <span style={celebrateStyle}>🎉 初挑戦お疲れさま!</span>
+        <span style={ptBigStyle}>{submittedScore} / {total} 点獲得</span>
+      </div>
+    );
+  }
+  if (sub.is_best) {
+    return (
+      <div style={ptCardStyle}>
+        <span style={celebrateStyle}>🎉 自己ベスト更新!</span>
+        <span style={subInfoStyle}>
+          {sub.previous_best} → {sub.current_best} 点 (おめでとう!)
+        </span>
+        <span style={ptBigStyle}>満点 {total} 点中</span>
+      </div>
+    );
+  }
+  return (
+    <div style={ptCardNoUpdateStyle}>
+      <span style={noUpdateHeadStyle}>※ 自己ベストは更新できませんでした</span>
+      <span style={subInfoStyle}>
+        今回スコア: {score} / {total} 点
+      </span>
+      <span style={subInfoStyle}>
+        過去ベスト: {sub.current_best} / {total} 点 (試行 #{sub.total_attempts})
+      </span>
+    </div>
+  );
+}
+
 export function ResultPtCard({
   save,
   score,

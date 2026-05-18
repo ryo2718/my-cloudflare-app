@@ -36,7 +36,8 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'プリフロップトレーニング',
     levels: [
       { key: 'preflop_beginner',     label: '初級',   subtitle: 'オープンレンジ', points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      { key: 'preflop_intermediate', label: '中級',   subtitle: 'vs open',        points: 3,    questionCount: 20,   timeLimitSec: 20,     implemented: true  },
+      // 中級は best_score が finalSum (0-40) を直接表す pt 値。 points=1 で累計と整合。
+      { key: 'preflop_intermediate', label: '中級',   subtitle: 'vs open',        points: 1,    questionCount: 20,   timeLimitSec: 20,     implemented: true  },
       { key: 'preflop_advanced',     label: '上級',   subtitle: '3bet',           points: null, questionCount: null, timeLimitSec: null,   implemented: false },
       { key: 'preflop_expert',       label: '超上級', subtitle: '4bet+',          points: null, questionCount: null, timeLimitSec: null,   implemented: false },
     ],
@@ -65,6 +66,11 @@ export function isPlanned(level: TrainingLevel): boolean {
 
 /** "1pt × 20問・制限時間なし" 形式の補助情報。 */
 export function formatLevelInfo(level: TrainingLevel): string {
+  // 中級 (preflop_intermediate) は満点 40pt 表記 (1問 -1〜+2pt の合計)。
+  if (level.key === 'preflop_intermediate') {
+    const max = (level.questionCount ?? 20) * 2;
+    return `20問・最大 ${max}pt・制限時間 20s`;
+  }
   const parts: string[] = [];
   if (level.points !== null) parts.push(`${level.points}pt`);
   if (level.questionCount !== null) parts.push(`${level.questionCount}問`);

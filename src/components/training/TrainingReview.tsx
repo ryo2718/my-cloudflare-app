@@ -26,6 +26,7 @@ import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
 import { scenarioLabel } from './scenarioLabel';
+import { TrainingReviewIntermediate } from './TrainingReviewIntermediate';
 import type { Suit, Rank } from '../../types/card';
 
 export interface TrainingReviewProps {
@@ -48,6 +49,10 @@ function buildResultPath(
 }
 
 export function TrainingReview({ level, index }: TrainingReviewProps) {
+  // 中級は別コンポーネント (戦略数値テーブル + 獲得点を表示)
+  if (level.key === 'preflop_intermediate') {
+    return <TrainingReviewIntermediate level={level} index={index} />;
+  }
   const records = loadRecords(level.key);
   const missed = records ? missedRecords(records) : [];
   const resultPath = buildResultPath(level.key, records);

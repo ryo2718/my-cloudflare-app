@@ -13,6 +13,7 @@ import { AccountsList } from './components/admin/AccountsList';
 import { GroupKeyForm } from './components/admin/GroupKeyForm';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
+import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 
@@ -66,7 +67,12 @@ export default function App() {
       return null;
     }
     if (screen === 'confirm') return <TrainingConfirm level={level} />;
-    if (screen === 'play') return <TrainingPlay level={level} />;
+    if (screen === 'play') {
+      // 中級は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
+      return level.key === 'preflop_intermediate'
+        ? <TrainingPlayIntermediate level={level} />
+        : <TrainingPlay level={level} />;
+    }
     if (screen === 'result') return <TrainingResult level={level} />;
     if (screen === 'review') return <TrainingReview level={level} index={trainingMatch.index} />;
   }

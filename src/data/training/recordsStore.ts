@@ -13,6 +13,8 @@
 // 鍵: training_records:{levelKey} (例: training_records:preflop_beginner)
 
 import type { PreflopQuestion, CorrectAnswer } from './preflopBeginner';
+import type { Action, IntermediateQuestion } from './preflopIntermediate';
+import type { HandStrategy } from './preflopBeginner';
 
 export interface ProblemRecord extends PreflopQuestion {
   /** 1〜20 (1-indexed)。出題順。 */
@@ -21,6 +23,23 @@ export interface ProblemRecord extends PreflopQuestion {
   userAnswer: CorrectAnswer;
   /** 正解と一致するか。 */
   isCorrect: boolean;
+}
+
+/** 中級トレーニング用の問題記録。 */
+export interface IntermediateRecord extends IntermediateQuestion {
+  id: number;
+  /** プレイヤーが選んだアクション (0-4 個)。 */
+  selections: ReadonlyArray<Action>;
+  /** タイマー切れで自動回答だった場合 true。 */
+  timedOut: boolean;
+  /** 基礎点合計 (floor 後)。 */
+  rawScore: number;
+  /** 正規化後の最終スコア (-1 / 0 / 1 / 2)。 */
+  finalScore: number;
+  /** 理論最高点 (>=5% の戦略を全部選んだ時の floor)。 */
+  theoreticalMax: number;
+  /** 振り返り用に保存する戦略 (= question.strategy と同じ、UI ロード簡略化)。 */
+  strategySnapshot: HandStrategy;
 }
 
 const STORAGE_KEY_PREFIX = 'training_records:';
@@ -82,4 +101,63 @@ export function clearRecords(levelKey: string): void {
 /** 間違えた問題だけを抽出 (id 順)。 */
 export function missedRecords(records: ReadonlyArray<ProblemRecord>): ProblemRecord[] {
   return records.filter((r) => !r.isCorrect);
+}
+
+// ---------------------------------------------------------------------------
+// 中級用ストア (キーが衝突しないよう prefix を変える)
+// ---------------------------------------------------------------------------
+
+const INTERMEDIATE_KEY_PREFIX = 'training_records_intermediate:';
+const memStoreIntermediate = new Map<string, IntermediateRecord[]>();
+
+function intermediateKeyOf(levelKey: string): string {
+  return INTERMEDIATE_KEY_PREFIX + levelKey;
+}
+
+export function saveIntermediateRecords(
+  levelKey: string,
+  records: ReadonlyArray<IntermediateRecord>,
+): void {
+  memStoreIntermediate.set(levelKey, [...records]);
+  const ss = getSessionStorage();
+  if (!ss) return;
+  try {
+    ss.setItem(intermediateKeyOf(levelKey), JSON.stringify(records));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadIntermediateRecords(levelKey: string): IntermediateRecord[] | null {
+  const inMem = memStoreIntermediate.get(levelKey);
+  if (inMem) return [...inMem];
+  const ss = getSessionStorage();
+  if (!ss) return null;
+  try {
+    const raw = ss.getItem(intermediateKeyOf(levelKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as IntermediateRecord[];
+    memStoreIntermediate.set(levelKey, parsed);
+    return [...parsed];
+  } catch {
+    return null;
+  }
+}
+
+export function clearIntermediateRecords(levelKey: string): void {
+  memStoreIntermediate.delete(levelKey);
+  const ss = getSessionStorage();
+  if (!ss) return;
+  try {
+    ss.removeItem(intermediateKeyOf(levelKey));
+  } catch {
+    // ignore
+  }
+}
+
+/** 中級用「振り返り対象」= finalScore < 2 (満点以外)。 */
+export function missedIntermediateRecords(
+  records: ReadonlyArray<IntermediateRecord>,
+): IntermediateRecord[] {
+  return records.filter((r) => r.finalScore < 2);
 }
