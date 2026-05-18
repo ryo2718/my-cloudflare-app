@@ -50,7 +50,14 @@ export function RankingPage() {
           <div style={errorStyle}>取得失敗: {state.message}</div>
         )}
         {state.kind === 'ok' && (
-          <RankingList data={state.data} myAccountName={auth.account?.poker_name ?? ''} />
+          <>
+            {auth.account?.is_admin && (
+              <div style={adminNoteStyle}>
+                ※ 管理者アカウントはランキング対象外です。
+              </div>
+            )}
+            <RankingList data={state.data} myAccountName={auth.account?.poker_name ?? ''} />
+          </>
         )}
       </main>
     </div>
@@ -159,6 +166,15 @@ const infoStyle: CSSProperties = {
   color: THEME.textMuted,
   fontSize: '0.9rem',
 };
+const adminNoteStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  color: THEME.textSecondary,
+  background: '#FAEEDA',
+  border: '1px dashed #E5A551',
+  borderRadius: '0.35rem',
+  padding: '0.4rem 0.6rem',
+};
+
 const errorStyle: CSSProperties = {
   fontSize: '0.85rem',
   color: THEME.errorText,

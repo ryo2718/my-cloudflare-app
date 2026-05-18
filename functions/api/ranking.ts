@@ -6,6 +6,8 @@
 // 採点累計 (= 各 training_type の best_score 合計) で降順ソート。
 // pt 数値はレスポンスに含めない (順位と名前のみ)。同点は accounts.id 昇順でタイブレイク。
 // 未挑戦者 (training_results が無いユーザー) も 0pt として一覧に含まれる。
+//
+// 除外: admin (is_admin=1) はランキング対象外。 admin 自身が叩いた場合 my_rank=null。
 
 import { jsonResponse, resolveAccountFromRequest } from '../lib/auth';
 import type { Env } from '../lib/types';
@@ -21,6 +23,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!me) return jsonResponse(401, { error: 'unauthorized' });
 
   // 各 account について training_results.best_score の合計を集計、未挑戦者は 0pt。
+  // admin はランキング対象外 (WHERE a.is_admin = 0)。
   const result = await env.DB
     .prepare(
       `SELECT
@@ -29,6 +32,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
          COALESCE(SUM(t.best_score), 0) AS total_points
        FROM accounts a
        LEFT JOIN training_results t ON a.id = t.account_id
+       WHERE a.is_admin = 0
        GROUP BY a.id, a.poker_name
        ORDER BY total_points DESC, a.id ASC`,
     )
