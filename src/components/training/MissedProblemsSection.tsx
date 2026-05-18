@@ -19,9 +19,11 @@ import { THEME } from '../../styles/theme';
 
 const LIMIT_OPTIONS = [10, 20, 50, 100] as const;
 type LimitOption = (typeof LIMIT_OPTIONS)[number];
+type ReviewLevel = 'beginner' | 'intermediate';
 
 export function MissedProblemsSection() {
   const auth = useAuth();
+  const [level, setLevel] = useState<ReviewLevel>('intermediate');
   const [limit, setLimit] = useState<LimitOption>(10);
   const [items, setItems] = useState<MissedProblemRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -30,7 +32,10 @@ export function MissedProblemsSection() {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    apiGetMissedProblems(sid, { level: 'intermediate', limit: 20 })
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setItems(null);
+    setLoadError(null);
+    apiGetMissedProblems(sid, { level, limit: 20 })
       .then((rows) => {
         if (!cancelled) setItems(rows);
       })
@@ -39,21 +44,15 @@ export function MissedProblemsSection() {
         setLoadError(err instanceof Error ? err.message : String(err));
       });
     return () => { cancelled = true; };
-  }, [auth.sessionId]);
+  }, [auth.sessionId, level]);
 
   const startBulkReview = () => {
-    const params = new URLSearchParams({
-      level: 'intermediate',
-      limit: String(limit),
-    });
+    const params = new URLSearchParams({ level, limit: String(limit) });
     navigate(`/training/review/play?${params.toString()}`);
   };
 
   const startSingleReview = (problemId: number) => {
-    const params = new URLSearchParams({
-      level: 'intermediate',
-      problem_id: String(problemId),
-    });
+    const params = new URLSearchParams({ level, problem_id: String(problemId) });
     navigate(`/training/review/play?${params.toString()}`);
   };
 
@@ -72,6 +71,17 @@ export function MissedProblemsSection() {
       <header style={headerStyle}>間違えた問題から復習</header>
 
       <div style={controlRowStyle}>
+        <label style={labelStyle}>
+          レベル
+          <select
+            value={level}
+            onChange={(e) => setLevel(e.target.value as ReviewLevel)}
+            style={selectStyle}
+          >
+            <option value="intermediate">中級</option>
+            <option value="beginner">初級</option>
+          </select>
+        </label>
         <label style={labelStyle}>
           問題数
           <select
@@ -145,6 +155,10 @@ function labelFor(row: MissedProblemRow): string {
       return `${row.hero_position} → vs ${row.opener_position ?? '?'} 4bet`;
     case 'risky_open':
       return `${row.hero_position} open`;
+    case 'beginner_open':
+      return `${row.hero_position} open`;
+    case 'beginner_vs_open':
+      return `vs ${row.opener_position ?? '?'} open`;
     default:
       return row.scenario_type;
   }

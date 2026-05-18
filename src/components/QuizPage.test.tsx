@@ -34,13 +34,14 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(html).toContain('フロップトレーニング');
   });
 
-  it('4 レベル × 2 カテゴリ = 8 カード分のラベル (ロック表示の "🔒 中級" も含む)', () => {
+  it('4 レベル × 2 カテゴリ = 8 カード分のラベル (ロック表示 + MissedProblemsSection の select option 含む)', () => {
     const html = render();
-    // ロック中は "🔒 中級" のように prefix が付くため、 ">" 直後ではなく ">.*中級<" でカウント
+    // ロック中は "🔒 中級" の prefix。
+    // 加えて MissedProblemsSection の <option>初級</option><option>中級</option> でそれぞれ +1。
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
-    expect(countText('初級')).toBe(2);
-    expect(countText('中級')).toBe(2);
+    expect(countText('初級')).toBe(3);   // カード 2 + select option 1
+    expect(countText('中級')).toBe(3);   // カード 2 + select option 1
     expect(countText('上級')).toBe(2);
     expect(countText('超上級')).toBe(2);
   });

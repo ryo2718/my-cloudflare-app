@@ -11,6 +11,12 @@ import {
   positionsBetween,
 } from './preflopBeginner';
 import type {
+  CorrectAnswer,
+  PreflopQuestion,
+  Scenario,
+  HandStrategy,
+} from './preflopBeginner';
+import type {
   ChipExtra,
   IntermediateQuestion,
   IntermediateScenarioType,
@@ -139,6 +145,66 @@ export function recordsToQuestions(
   const out: IntermediateQuestion[] = [];
   for (const r of rows) {
     const q = recordToIntermediateQuestion(r);
+    if (q) out.push(q);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 初級復習用 (Step 3a)
+// ---------------------------------------------------------------------------
+
+const BEGINNER_SCENARIOS = ['beginner_open', 'beginner_vs_open'] as const;
+
+/**
+ * missed_problems の 1 行を PreflopQuestion (初級) に変換。
+ *  - beginner_open    → scenario='open' (opener=null)
+ *  - beginner_vs_open → scenario='vs_open' (opener=record.opener_position)
+ *  - correct は gto_strategy の fold 比率で判定 (50% 超なら fold、それ以外 participate)
+ */
+export function recordToBeginnerQuestion(row: MissedProblemRow): PreflopQuestion | null {
+  if (row.training_type !== 'preflop_beginner') return null;
+  if (!(BEGINNER_SCENARIOS as ReadonlyArray<string>).includes(row.scenario_type)) return null;
+  const myPosition = row.hero_position as Position;
+  const opener = row.opener_position ? (row.opener_position as Position) : null;
+  const hand = row.hand as Hand;
+  const strategy: HandStrategy = parseStrategy(row.gto_strategy);
+  const scenario: Scenario = row.scenario_type === 'beginner_open' ? 'open' : 'vs_open';
+
+  // 初級 vs_open の整合性: opener が必須
+  if (scenario === 'vs_open' && !opener) return null;
+
+  const fold = strategy.fold ?? 0;
+  const correct: CorrectAnswer = fold > 50 ? 'fold' : 'participate';
+
+  let foldedBefore: Position[];
+  if (scenario === 'open') {
+    foldedBefore = positionsBefore(myPosition);
+  } else {
+    foldedBefore = [
+      ...positionsBefore(opener!),
+      ...positionsBetween(opener!, myPosition),
+    ];
+  }
+
+  return {
+    scenario,
+    myPosition,
+    opener,
+    foldedBefore,
+    hand,
+    cards: handToCards(hand),
+    correct,
+    strategy,
+  };
+}
+
+export function recordsToBeginnerQuestions(
+  rows: ReadonlyArray<MissedProblemRow>,
+): PreflopQuestion[] {
+  const out: PreflopQuestion[] = [];
+  for (const r of rows) {
+    const q = recordToBeginnerQuestion(r);
     if (q) out.push(q);
   }
   return out;

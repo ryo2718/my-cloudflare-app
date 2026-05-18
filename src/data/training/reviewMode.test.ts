@@ -115,3 +115,85 @@ describe('recordsToQuestions (batch)', () => {
     expect(out).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 初級復習 (Step 3a)
+// ---------------------------------------------------------------------------
+
+import { recordToBeginnerQuestion, recordsToBeginnerQuestions } from './reviewMode';
+
+describe('recordToBeginnerQuestion (初級復習用)', () => {
+  it('beginner_open: scenario=open, opener=null, correct=participate (raise>fold)', () => {
+    const q = recordToBeginnerQuestion(row({
+      training_type: 'preflop_beginner',
+      scenario_type: 'beginner_open',
+      hero_position: 'HJ',
+      opener_position: null,
+      gto_strategy: JSON.stringify({ allin: 0, raise: 100, call: 0, fold: 0 }),
+      hand: 'AKs',
+    }));
+    expect(q).not.toBeNull();
+    expect(q!.scenario).toBe('open');
+    expect(q!.opener).toBeNull();
+    expect(q!.myPosition).toBe('HJ');
+    expect(q!.correct).toBe('participate');
+    expect(q!.foldedBefore).toEqual(['UTG']);
+  });
+
+  it('beginner_open: fold 100% → correct=fold', () => {
+    const q = recordToBeginnerQuestion(row({
+      training_type: 'preflop_beginner',
+      scenario_type: 'beginner_open',
+      hero_position: 'UTG',
+      opener_position: null,
+      gto_strategy: JSON.stringify({ allin: 0, raise: 0, call: 0, fold: 100 }),
+      hand: '72o',
+    }));
+    expect(q!.correct).toBe('fold');
+    expect(q!.foldedBefore).toEqual([]);
+  });
+
+  it('beginner_vs_open: scenario=vs_open, opener 復元、foldedBefore は前 + 間', () => {
+    const q = recordToBeginnerQuestion(row({
+      training_type: 'preflop_beginner',
+      scenario_type: 'beginner_vs_open',
+      hero_position: 'BB',
+      opener_position: 'HJ',
+      gto_strategy: JSON.stringify({ allin: 0, raise: 100, call: 0, fold: 0 }),
+      hand: 'AKs',
+    }));
+    expect(q!.scenario).toBe('vs_open');
+    expect(q!.opener).toBe('HJ');
+    expect(q!.foldedBefore).toEqual(['UTG', 'CO', 'BTN', 'SB']);
+  });
+
+  it('preflop_intermediate → null (誤った training_type)', () => {
+    const q = recordToBeginnerQuestion(row({
+      training_type: 'preflop_intermediate',
+      scenario_type: 'beginner_open',
+    }));
+    expect(q).toBeNull();
+  });
+
+  it('beginner_vs_open で opener=null → null (整合性チェック)', () => {
+    const q = recordToBeginnerQuestion(row({
+      training_type: 'preflop_beginner',
+      scenario_type: 'beginner_vs_open',
+      opener_position: null,
+    }));
+    expect(q).toBeNull();
+  });
+});
+
+describe('recordsToBeginnerQuestions (batch)', () => {
+  it('有効な row のみ抽出', () => {
+    const rows = [
+      row({ id: 1, training_type: 'preflop_beginner', scenario_type: 'beginner_open', opener_position: null }),
+      row({ id: 2, training_type: 'preflop_intermediate' }),  // 除外
+      row({ id: 3, training_type: 'preflop_beginner', scenario_type: 'beginner_vs_open', opener_position: 'HJ', hero_position: 'BB' }),
+      row({ id: 4, training_type: 'preflop_beginner', scenario_type: 'invalid' }),  // 除外
+    ];
+    const out = recordsToBeginnerQuestions(rows);
+    expect(out).toHaveLength(2);
+  });
+});

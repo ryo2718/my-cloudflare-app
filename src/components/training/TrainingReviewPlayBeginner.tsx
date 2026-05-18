@@ -1,48 +1,37 @@
-// トレーニング問題画面 (初級・中級共有)。
+// /training/review/play?level=beginner: 初級復習プレイ画面 (Step 3a)。
 //
-// フロー:
-//   1. マウント時に generatePreflopQuestions() で 20 問生成
-//   2. 1 問ずつ表示: PokerTable + 2 枚のハンド (PlayingCard) + [参加] [参加しない]
-//   3. 選択 → 即次の問題へ (正誤表示なし)
-//   4. 中級 (timeLimitSec=20) の場合、各問題で countdown、time-out は "fold" 扱い
-//   5. 20 問完了 → result 画面へ score を query string で渡す
-//
-// 途中離脱対策:
-//   - LocalStorage には何も保存しない (リロード = 全リセット)
-//   - beforeunload で確認ダイアログ (誤タップ防止)
-//   - logout / ホーム遷移 等の SPA 内遷移は AppHeader を使わないことで防止
-//
-// 結果画面の保存は TrainingPlay が直接やらず、 TrainingResult 側で POST する。
+// 動作:
+//   - GET /api/account/missed-problems?level=beginner で fetch
+//   - recordsToBeginnerQuestions で PreflopQuestion[] に復元
+//   - 既存初級 UI と同じ (PokerTable + 2 択 [参加]/[参加しない])
+//   - 採点: userAnswer === correct (1 or 0 ベース)
+//   - 完了時 navigate /training/preflop-beginner/result?mode=review_beginner
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
-import {
-  generatePreflopQuestions,
-  type CorrectAnswer,
-  type PreflopQuestion,
-} from '../../data/training/preflopBeginner';
+import type { CorrectAnswer, PreflopQuestion } from '../../data/training/preflopBeginner';
+import { recordsToBeginnerQuestions } from '../../data/training/reviewMode';
 import {
   clearRecords,
   saveRecords,
   type ProblemRecord,
 } from '../../data/training/recordsStore';
 import {
-  trainingPath,
-  type TrainingLevel,
-} from '../../data/trainingCatalog';
-import { apiPostMissedProblems, type MissedProblemInput } from '../../api/missedProblems';
-import { useAuth } from '../../hooks/useAuth';
+  apiGetMissedProblems,
+  type MissedProblemRow,
+} from '../../api/missedProblems';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
-import type { Suit, Rank } from '../../types/card';
+import { useAuth } from '../../hooks/useAuth';
+import type { Rank, Suit } from '../../types/card';
 
-export interface TrainingPlayProps {
-  level: TrainingLevel;
-}
+/** 初級復習用の records 保存キー (通常記録 'preflop_beginner' と衝突しない)。 */
+export const REVIEW_BEGINNER_LEVEL_KEY = 'preflop_beginner__review';
 
 type LoadState =
   | { kind: 'loading' }
+  | { kind: 'empty' }
   | { kind: 'error'; message: string }
   | {
       kind: 'ready';
@@ -52,12 +41,26 @@ type LoadState =
       records: ProblemRecord[];
     };
 
-export function TrainingPlay({ level }: TrainingPlayProps) {
+interface UrlParams {
+  limit: number;
+  problemId: number | null;
+}
+
+function parseUrlParams(): UrlParams {
+  if (typeof window === 'undefined') return { limit: 10, problemId: null };
+  const sp = new URLSearchParams(window.location.search);
+  const limitRaw = parseInt(sp.get('limit') ?? '10', 10);
+  const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, limitRaw)) : 10;
+  const pidRaw = sp.get('problem_id');
+  const pid = pidRaw ? parseInt(pidRaw, 10) : NaN;
+  return { limit, problemId: Number.isFinite(pid) ? pid : null };
+}
+
+export function TrainingReviewPlayBeginner() {
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
 
-  // beforeunload: 途中離脱の警告
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (state.kind !== 'ready' || state.current >= state.questions.length) return;
@@ -69,27 +72,45 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
   }, [state]);
 
   useEffect(() => {
+    if (!auth.sessionId) return;
+    const sid = auth.sessionId;
+    const { limit, problemId } = parseUrlParams();
     let cancelled = false;
-    // 旧セッションの記録があれば破棄してから生成 (中断後再開で混在を防ぐ)
-    clearRecords(level.key);
+    clearRecords(REVIEW_BEGINNER_LEVEL_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: 'loading' });
-    generatePreflopQuestions(level.questionCount ?? 20)
-      .then((questions) => {
+    (async () => {
+      try {
+        let rows: MissedProblemRow[];
+        if (problemId !== null) {
+          const all = await apiGetMissedProblems(sid, {
+            level: 'beginner',
+            limit: 100,
+            includeRemoved: true,
+          });
+          rows = all.filter((r) => r.id === problemId);
+        } else {
+          rows = await apiGetMissedProblems(sid, { level: 'beginner', limit });
+        }
         if (cancelled) return;
+        const questions = recordsToBeginnerQuestions(rows);
+        if (questions.length === 0) {
+          setState({ kind: 'empty' });
+          return;
+        }
         setState({ kind: 'ready', questions, current: 0, correctCount: 0, records: [] });
-      })
-      .catch((err: unknown) => {
+      } catch (err) {
         if (cancelled) return;
         setState({
           kind: 'error',
           message: err instanceof Error ? err.message : String(err),
         });
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [level.key, level.questionCount]);
+  }, [auth.sessionId]);
 
   const advance = (chosen: CorrectAnswer, prev: LoadState) => {
     if (prev.kind !== 'ready') return;
@@ -108,49 +129,13 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
     const newRecords = [...prev.records, newRecord];
 
     if (next >= prev.questions.length) {
-      // 全問終了: 記録を保存してから result 画面へ navigate
-      saveRecords(level.key, newRecords);
-      // Step 3a: 初級でも満点未達 (isCorrect=false) の問題を DB に記録。
-      // 戦略データがある record のみ送信 (古いキャッシュ等で strategy なしの場合 skip)。
-      if (auth.sessionId) {
-        const missed: MissedProblemInput[] = newRecords
-          .filter((r) => !r.isCorrect && r.strategy)
-          .map((r) => {
-            const scenarioType = r.scenario === 'open' ? 'beginner_open' : 'beginner_vs_open';
-            // 初級 UI の 2 択を DB 形式 (4 アクション系) に変換
-            const selections =
-              r.userAnswer === 'participate'
-                ? (r.strategy!.call > r.strategy!.raise ? ['call'] : ['raise'])
-                : ['fold'];
-            return {
-              training_type: 'preflop_beginner' as const,
-              scenario_type: scenarioType,
-              hero_position: r.myPosition,
-              opener_position: r.opener,
-              three_bettor_position: null,
-              hand: r.hand,
-              user_selections: selections,
-              gto_strategy: {
-                allin: r.strategy!.allin ?? 0,
-                raise: r.strategy!.raise ?? 0,
-                call: r.strategy!.call ?? 0,
-                fold: r.strategy!.fold ?? 0,
-              },
-              score_obtained: r.isCorrect ? 1 : -1,
-              is_timeout: false,
-            };
-          });
-        if (missed.length > 0) {
-          void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
-            /* silent fallback */
-          });
-        }
-      }
+      saveRecords(REVIEW_BEGINNER_LEVEL_KEY, newRecords);
       const params = new URLSearchParams({
         score: String(newCorrectCount),
         total: String(prev.questions.length),
+        mode: 'review_beginner',
       });
-      navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
+      navigate(`/training/preflop-beginner/result?${params.toString()}`);
       return;
     }
     setState({
@@ -160,29 +145,34 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
       correctCount: newCorrectCount,
       records: newRecords,
     });
-    // 次の問題でも advance できるよう、microtask 後にロック解除
     Promise.resolve().then(() => {
       advancingRef.current = false;
     });
   };
 
   if (state.kind === 'loading') {
+    return <div style={pageStyle}><div style={infoStyle}>復習問題を読み込み中…</div></div>;
+  }
+  if (state.kind === 'empty') {
     return (
       <div style={pageStyle}>
-        <div style={loadingStyle}>問題を生成中…</div>
+        <div style={infoColStyle}>
+          <p>復習対象の問題がありません。</p>
+          <button type="button" onClick={() => navigate('/quiz')} style={btnStyle}>
+            トレーニングに戻る
+          </button>
+        </div>
       </div>
     );
   }
   if (state.kind === 'error') {
     return (
       <div style={pageStyle}>
-        <div style={errorStyle}>
-          問題の生成に失敗しました: {state.message}
-          <div>
-            <button type="button" onClick={() => navigate('/quiz')} style={errorBtnStyle}>
-              トレーニングに戻る
-            </button>
-          </div>
+        <div style={errorBoxStyle}>
+          取得失敗: {state.message}
+          <button type="button" onClick={() => navigate('/quiz')} style={btnStyle}>
+            トレーニングに戻る
+          </button>
         </div>
       </div>
     );
@@ -195,9 +185,7 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
     <div style={pageStyle}>
       <header style={headerBarStyle}>
         <div style={progressTopStyle}>
-          <span style={progressLabelStyle}>
-            {level.label}
-          </span>
+          <span style={progressLabelStyle}>復習 (初級)</span>
           <span style={progressCountStyle}>
             {state.current + 1} / {state.questions.length}
           </span>
@@ -206,14 +194,6 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
         </div>
       </header>
-
-      {typeof level.timeLimitSec === 'number' && (
-        <Countdown
-          key={`${state.current}-${q.hand}`}
-          seconds={level.timeLimitSec}
-          onTimeUp={() => advance('fold', state)}
-        />
-      )}
 
       <main style={mainStyle}>
         <PokerTable
@@ -253,51 +233,7 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Countdown
-// ---------------------------------------------------------------------------
-
-function Countdown({
-  seconds,
-  onTimeUp,
-}: {
-  seconds: number;
-  onTimeUp: () => void;
-}) {
-  const [remaining, setRemaining] = useState(seconds);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRemaining(seconds);
-    const startedAt = Date.now();
-    const tick = window.setInterval(() => {
-      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-      const newRemaining = Math.max(0, seconds - elapsedSec);
-      setRemaining(newRemaining);
-      if (newRemaining <= 0) {
-        window.clearInterval(tick);
-        onTimeUp();
-      }
-    }, 200);
-    return () => window.clearInterval(tick);
-  }, [seconds, onTimeUp]);
-
-  const danger = remaining <= 5;
-  return (
-    <div
-      style={{
-        ...timerStyle,
-        color: danger ? '#b91c1c' : THEME.textPrimary,
-        borderColor: danger ? '#b91c1c' : THEME.border,
-      }}
-      aria-live="polite"
-    >
-      残り {remaining}s
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Styles
+// Styles (TrainingPlay と同等)
 // ---------------------------------------------------------------------------
 
 const pageStyle: CSSProperties = {
@@ -306,7 +242,6 @@ const pageStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
 };
-
 const headerBarStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -340,7 +275,6 @@ const progressBarInnerStyle: CSSProperties = {
   background: THEME.accent,
   transition: 'width 0.2s',
 };
-
 const mainStyle: CSSProperties = {
   flex: 1,
   padding: '1rem',
@@ -351,14 +285,12 @@ const mainStyle: CSSProperties = {
   flexDirection: 'column',
   gap: '1rem',
 };
-
 const handSectionStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   gap: '0.4rem',
 };
-
 const handLabelStyle: CSSProperties = {
   fontSize: '0.72rem',
   color: THEME.textSecondary,
@@ -366,14 +298,12 @@ const handLabelStyle: CSSProperties = {
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
 };
-
 const actionRowStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: '0.7rem',
   marginTop: 'auto',
 };
-
 const joinBtnStyle: CSSProperties = {
   padding: '0.85rem 1rem',
   background: THEME.accent,
@@ -385,7 +315,6 @@ const joinBtnStyle: CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
-
 const foldBtnStyle: CSSProperties = {
   padding: '0.85rem 1rem',
   background: '#fff',
@@ -397,39 +326,32 @@ const foldBtnStyle: CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
-
-const timerStyle: CSSProperties = {
-  alignSelf: 'center',
-  margin: '0.5rem 0',
-  padding: '0.3rem 0.8rem',
-  border: '1.5px solid',
-  borderRadius: '999px',
-  fontSize: '0.95rem',
-  fontWeight: 700,
-  fontVariantNumeric: 'tabular-nums',
-};
-
-const loadingStyle: CSSProperties = {
+const infoStyle: CSSProperties = {
   margin: 'auto',
   fontSize: '0.95rem',
   color: THEME.textMuted,
 };
-
-const errorStyle: CSSProperties = {
+const infoColStyle: CSSProperties = {
   margin: 'auto',
-  fontSize: '0.92rem',
-  color: THEME.errorText,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.7rem',
+  color: THEME.textSecondary,
+};
+const errorBoxStyle: CSSProperties = {
+  margin: 'auto',
+  padding: '1rem 1.2rem',
   background: THEME.errorBg,
   border: `1px solid ${THEME.errorBorder}`,
+  color: THEME.errorText,
   borderRadius: '0.4rem',
-  padding: '1rem 1.2rem',
   display: 'flex',
   flexDirection: 'column',
   gap: '0.6rem',
 };
-
-const errorBtnStyle: CSSProperties = {
-  padding: '0.45rem 1rem',
+const btnStyle: CSSProperties = {
+  padding: '0.5rem 1rem',
   background: THEME.accent,
   color: '#fff',
   border: 'none',

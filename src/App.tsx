@@ -18,6 +18,7 @@ import { TrainingPlayIntermediate } from './components/training/TrainingPlayInte
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingReviewPlay } from './components/training/TrainingReviewPlay';
+import { TrainingReviewPlayBeginner } from './components/training/TrainingReviewPlayBeginner';
 import { TrainingRules } from './components/training/TrainingRules';
 
 const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
@@ -59,8 +60,16 @@ export default function App() {
     }
   }, [path, account]);
 
-  // /training/review/play (専用ルート、level に依存しない)
-  if (path === '/training/review/play') return <TrainingReviewPlay />;
+  // /training/review/play (専用ルート、URL クエリ level=beginner/intermediate で分岐)
+  if (path === '/training/review/play') {
+    const reviewLevel =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('level')
+        : null;
+    return reviewLevel === 'beginner'
+      ? <TrainingReviewPlayBeginner />
+      : <TrainingReviewPlay />;
+  }
 
   // training routes
   const trainingMatch = matchTrainingRoute(path);

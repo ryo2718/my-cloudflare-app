@@ -68,7 +68,7 @@ function saveCachedSubmission(key: string, value: TrainingResultSubmission): voi
   }
 }
 
-type ResultMode = 'beginner' | 'intermediate' | 'review';
+type ResultMode = 'beginner' | 'intermediate' | 'review' | 'review_beginner';
 
 function parseQueryScore(): { score: number; total: number; mode: ResultMode } | null {
   if (typeof window === 'undefined') return null;
@@ -80,6 +80,7 @@ function parseQueryScore(): { score: number; total: number; mode: ResultMode } |
   const mode: ResultMode =
     modeRaw === 'intermediate' ? 'intermediate'
       : modeRaw === 'review' ? 'review'
+      : modeRaw === 'review_beginner' ? 'review_beginner'
       : 'beginner';
   return { score: s, total: t, mode };
 }
@@ -94,10 +95,13 @@ export function TrainingResult({ level }: TrainingResultProps) {
   const mode = scoreInfo?.mode ?? 'beginner';
   // review モードは中級レコードと同じ表示ロジックを使うが、別 levelKey から読む
   const isIntermediateLike = mode === 'intermediate' || mode === 'review';
+  const isReviewBeginner = mode === 'review_beginner';
   const intermediateLevelKey = mode === 'review' ? REVIEW_LEVEL_KEY : level.key;
+  // 初級復習は records 用の levelKey を別 key (preflop_beginner__review) に切替。
+  const beginnerLevelKey = isReviewBeginner ? `${level.key}__review` : level.key;
   const [missed, setMissed] = useState<ProblemRecord[]>(() => {
     if (isIntermediateLike) return [];
-    const records = loadRecords(level.key);
+    const records = loadRecords(beginnerLevelKey);
     return records ? missedRecords(records) : [];
   });
   const [intermediateAll, setIntermediateAll] = useState<IntermediateRecord[]>(() => {
@@ -113,19 +117,19 @@ export function TrainingResult({ level }: TrainingResultProps) {
         setIntermediateAll(records);
       }
     } else {
-      const records = loadRecords(level.key);
+      const records = loadRecords(beginnerLevelKey);
       if (records) {
         setMissed(missedRecords(records));
       }
     }
-  }, [level.key, intermediateLevelKey, isIntermediateLike]);
+  }, [level.key, intermediateLevelKey, beginnerLevelKey, isIntermediateLike]);
 
   // submission レスポンスをセッション単位でキャッシュ。
   // 振り返り画面に遷移 → 戻り時に再 submit すると 2 回目は is_best=false になり「更新通知が消える」
   // バグを防止する。同じ (level/score/total) なら 1 回目のレスポンスを再利用。
   useEffect(() => {
     // review モードでは API submit せず、 best_score 更新も発生させない (復習は DB に影響なし)
-    if (mode === 'review') return;
+    if (mode === 'review' || mode === 'review_beginner') return;
     if (!scoreInfo || !auth.sessionId) return;
     const sid = auth.sessionId;
     const submitScore = Math.max(0, scoreInfo.score);
@@ -204,7 +208,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
           </div>
         </div>
 
-        {mode === 'review' ? (
+        {mode === 'review' || mode === 'review_beginner' ? (
           <ReviewPtCard score={score} total={total} />
         ) : mode === 'intermediate' ? (
           <IntermediatePtCard save={save} score={score} total={total} />

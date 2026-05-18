@@ -108,6 +108,12 @@ export interface PreflopQuestion {
     { rank: string; suit: 's' | 'h' | 'd' | 'c' },
   ];
   correct: CorrectAnswer;
+  /**
+   * Step 3a: 該当ハンドの実 GTO 戦略 (missed_problems への記録用)。
+   * eligible 判定済みハンドなら fold が 0% or 100% のどちらか。
+   * 戦略データが取得不能だった場合は undefined (記録しない)。
+   */
+  strategy?: HandStrategy;
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +310,7 @@ export function generateOpenQuestion(
       hand,
       cards: handToCards(hand),
       correct: correctForBeginner(strategy),
+      strategy,
     };
   }
   throw new Error('generateOpenQuestion: no eligible hand after retries');
@@ -341,6 +348,7 @@ export function generateVsOpenQuestion(
       hand,
       cards: handToCards(hand),
       correct: correctForBeginner(strategy),
+      strategy,
     };
   }
   throw new Error('generateVsOpenQuestion: no eligible hand after retries');
