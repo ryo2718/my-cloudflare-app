@@ -17,8 +17,16 @@ import {
   trainingReviewPath,
   type TrainingLevel,
 } from '../../data/trainingCatalog';
-import { ACTIONS } from '../../data/training/preflopIntermediate';
+import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './IntermediateChoices';
+
+/** 4 アクションの統一カラー (チェックボックス・名前・%)。 */
+const STRATEGY_COLORS: Record<Action, { check: string; text: string }> = {
+  allin: { check: '#7F77DD', text: '#534AB7' },
+  raise: { check: '#E24B4A', text: '#A32D2D' },
+  call:  { check: '#639922', text: '#3B6D11' },
+  fold:  { check: '#378ADD', text: '#185FA5' },
+};
 import { CardSet } from '../CardSet';
 import { HandRangeMatrix } from './HandRangeMatrix';
 import {
@@ -124,11 +132,12 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
             {ACTIONS.map((a) => {
               const freq = current.strategySnapshot[a] ?? 0;
               const picked = current.selections.includes(a);
+              const col = STRATEGY_COLORS[a];
               return (
                 <li key={a} style={strategyRowStyle}>
-                  <span style={pickBoxStyle}>{picked ? '☑' : '☐'}</span>
-                  <span style={actionNameStyle}>{ACTION_LABEL[a]}</span>
-                  <span style={freqStyle}>{formatFreq(freq)}%</span>
+                  <span style={{ ...pickBoxStyle, color: col.check }}>{picked ? '☑' : '☐'}</span>
+                  <span style={{ ...actionNameStyle, color: col.text }}>{ACTION_LABEL[a]}</span>
+                  <span style={{ ...freqStyle, color: col.text }}>{formatFreq(freq)}%</span>
                 </li>
               );
             })}

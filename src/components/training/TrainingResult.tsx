@@ -24,6 +24,7 @@ import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
 import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import { judgmentColor, judgmentIcon } from './judgmentIcon';
+import { breakdownPct, computeScoreBreakdown } from './scoreBreakdown';
 import { THEME } from '../../styles/theme';
 
 export interface TrainingResultProps {
@@ -35,6 +36,36 @@ type SaveState =
   | { kind: 'saving' }
   | { kind: 'ok'; submission: TrainingResultSubmission }
   | { kind: 'error'; message: string };
+
+// ---------------------------------------------------------------------------
+// submission キャッシュ (振り返りからの戻りで再 submit させない)
+// ---------------------------------------------------------------------------
+
+const SUBMISSION_CACHE_PREFIX = 'training_submission:';
+
+function submissionCacheKey(levelKey: string, score: number, total: number): string {
+  return `${SUBMISSION_CACHE_PREFIX}${levelKey}:${score}:${total}`;
+}
+
+function loadCachedSubmission(key: string): TrainingResultSubmission | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as TrainingResultSubmission;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedSubmission(key: string, value: TrainingResultSubmission): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore
+  }
+}
 
 function parseQueryScore(): { score: number; total: number; mode: 'beginner' | 'intermediate' } | null {
   if (typeof window === 'undefined') return null;
@@ -80,21 +111,32 @@ export function TrainingResult({ level }: TrainingResultProps) {
     }
   }, [level.key, mode]);
 
+  // submission レスポンスをセッション単位でキャッシュ。
+  // 振り返り画面に遷移 → 戻り時に再 submit すると 2 回目は is_best=false になり「更新通知が消える」
+  // バグを防止する。同じ (level/score/total) なら 1 回目のレスポンスを再利用。
   useEffect(() => {
     if (!scoreInfo || !auth.sessionId) return;
     const sid = auth.sessionId;
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSave({ kind: 'saving' });
-    // 中級は finalSum が負になりうるが、DB の best_score は 0-100 制約。
-    // 0 未満は 0 にクリップしてサーバーへ送る (実質「ベスト未更新」扱い)。
     const submitScore = Math.max(0, scoreInfo.score);
+    const cacheKey = submissionCacheKey(level.key, submitScore, scoreInfo.total);
+
+    // キャッシュヒット → API 呼ばずに即セット
+    const cached = loadCachedSubmission(cacheKey);
+    if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSave({ kind: 'ok', submission: cached });
+      return;
+    }
+
+    let cancelled = false;
+    setSave({ kind: 'saving' });
     apiSubmitTrainingResult(sid, {
       training_type: level.key,
       score: submitScore,
     })
       .then((submission) => {
         if (cancelled) return;
+        saveCachedSubmission(cacheKey, submission);
         setSave({ kind: 'ok', submission });
       })
       .catch((err: unknown) => {
@@ -107,8 +149,6 @@ export function TrainingResult({ level }: TrainingResultProps) {
     return () => {
       cancelled = true;
     };
-    // scoreInfo は parseQueryScore() で同期的に取れるが、依存配列に入れると参照不安定なので
-    // primitive を二つ分入れる。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.sessionId, level.key, scoreInfo?.score, scoreInfo?.total]);
 
@@ -157,6 +197,10 @@ export function TrainingResult({ level }: TrainingResultProps) {
           <IntermediatePtCard save={save} score={score} total={total} />
         ) : (
           <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} />
+        )}
+
+        {mode === 'intermediate' && intermediateAll.length > 0 && (
+          <ScoreBreakdownSection records={intermediateAll} />
         )}
 
         {mode === 'beginner' && missed.length > 0 && (
@@ -208,6 +252,68 @@ export function TrainingResult({ level }: TrainingResultProps) {
       </main>
     </div>
   );
+}
+
+function ScoreBreakdownSection({ records }: { records: IntermediateRecord[] }) {
+  const b = computeScoreBreakdown(records);
+  const COLORS = {
+    perfect: '#3B6D11', // 緑
+    partial: '#EF9F27', // オレンジ
+    zero:    '#B4B2A9', // グレー
+    miss:    '#A32D2D', // 赤
+  };
+  const ROWS: Array<{
+    key: keyof typeof COLORS;
+    icon: string;
+    label: string;
+    count: number;
+  }> = [
+    { key: 'perfect', icon: '◎', label: '2pt(満点)', count: b.perfect },
+    { key: 'partial', icon: '○', label: '1pt(部分点)', count: b.partial },
+    { key: 'zero',    icon: '△', label: '0pt(無回答)', count: b.zero },
+    { key: 'miss',    icon: '✕', label: '-1pt(ミス)', count: b.miss },
+  ];
+  return (
+    <section style={breakdownSectionStyle} aria-label="スコア内訳">
+      <header style={breakdownHeaderStyle}>スコア内訳</header>
+      <div style={breakdownBarStyle} aria-hidden>
+        {ROWS.map((r) => {
+          const pct = breakdownPct(r.count, b.total);
+          if (pct <= 0) return null;
+          return (
+            <div
+              key={r.key}
+              style={{ width: `${pct}%`, height: '100%', background: COLORS[r.key] }}
+            />
+          );
+        })}
+      </div>
+      <ul style={breakdownListStyle}>
+        {ROWS.map((r, i) => {
+          const pct = breakdownPct(r.count, b.total);
+          return (
+            <li
+              key={r.key}
+              style={{
+                ...breakdownRowStyle,
+                borderBottom: i < ROWS.length - 1 ? '0.5px solid #D3D1C7' : 'none',
+              }}
+            >
+              <span style={{ ...breakdownIconStyle, color: COLORS[r.key] }}>{r.icon}</span>
+              <span style={breakdownLabelStyle}>{r.label}</span>
+              <span style={breakdownCountStyle}>{r.count}問</span>
+              <span style={breakdownPctStyle}>{formatPercent(pct)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function formatPercent(pct: number): string {
+  if (Math.abs(pct - Math.round(pct)) < 0.01) return `${Math.round(pct)}%`;
+  return `${pct.toFixed(1)}%`;
 }
 
 function IntermediateReviewCard({
@@ -669,6 +775,66 @@ const reviewBtnStyle: CSSProperties = {
   fontFamily: 'inherit',
   cursor: 'pointer',
   flexShrink: 0,
+};
+
+const breakdownSectionStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.6rem',
+  marginTop: '0.4rem',
+};
+const breakdownHeaderStyle: CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 500,
+  color: '#993C1D',
+  padding: '0 0 0 8px',
+  borderLeft: '3px solid #993C1D',
+};
+const breakdownBarStyle: CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  height: '8px',
+  borderRadius: '4px',
+  overflow: 'hidden',
+  background: '#ECE9E0',
+};
+const breakdownListStyle: CSSProperties = {
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
+  background: '#fff',
+  border: '0.5px solid #D3D1C7',
+  borderRadius: '8px',
+};
+const breakdownRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '28px 1fr auto auto',
+  alignItems: 'baseline',
+  gap: '12px',
+  padding: '8px 12px',
+  fontSize: '13px',
+};
+const breakdownIconStyle: CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 800,
+  textAlign: 'center',
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+};
+const breakdownLabelStyle: CSSProperties = {
+  color: '#2C2C2A',
+};
+const breakdownCountStyle: CSSProperties = {
+  color: '#5F5E5A',
+  fontVariantNumeric: 'tabular-nums',
+  minWidth: '3.5rem',
+  textAlign: 'right',
+};
+const breakdownPctStyle: CSSProperties = {
+  color: '#2C2C2A',
+  fontWeight: 600,
+  fontVariantNumeric: 'tabular-nums',
+  minWidth: '3.5rem',
+  textAlign: 'right',
 };
 
 const iconBadgeStyle: CSSProperties = {
