@@ -27,6 +27,7 @@ import {
   type TrainingLevel,
 } from '../../data/trainingCatalog';
 import { apiPostMissedProblems, type MissedProblemInput } from '../../api/missedProblems';
+import { apiPostProblemAttempts, type ProblemAttemptInput } from '../../api/statistics';
 import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
@@ -145,6 +146,20 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
             /* silent fallback */
           });
         }
+        // Step 3b: 全 20 問を problem_attempts にも記録 (統計集計用)。
+        const attemptRecords: ProblemAttemptInput[] = newRecords.map((r) => ({
+          training_type: 'preflop_intermediate' as const,
+          scenario_type: r.scenarioType,
+          hero_position: r.myPosition,
+          opener_position: r.opener,
+          three_bettor_position: r.threeBettor ?? null,
+          hand: r.hand,
+          score_obtained: r.finalScore,
+          is_timeout: r.timedOut,
+        }));
+        void apiPostProblemAttempts(auth.sessionId, attemptRecords).catch(() => {
+          /* silent fallback */
+        });
       }
       const params = new URLSearchParams({
         score: String(newFinalSum),

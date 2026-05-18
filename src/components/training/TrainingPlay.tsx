@@ -31,6 +31,7 @@ import {
   type TrainingLevel,
 } from '../../data/trainingCatalog';
 import { apiPostMissedProblems, type MissedProblemInput } from '../../api/missedProblems';
+import { apiPostProblemAttempts, type ProblemAttemptInput } from '../../api/statistics';
 import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
@@ -145,6 +146,20 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
             /* silent fallback */
           });
         }
+        // Step 3b: 全 20 問を problem_attempts に記録 (統計集計用)。
+        const attempts: ProblemAttemptInput[] = newRecords.map((r) => ({
+          training_type: 'preflop_beginner' as const,
+          scenario_type: r.scenario === 'open' ? 'beginner_open' : 'beginner_vs_open',
+          hero_position: r.myPosition,
+          opener_position: r.opener,
+          three_bettor_position: null,
+          hand: r.hand,
+          score_obtained: r.isCorrect ? 1 : -1,
+          is_timeout: false,
+        }));
+        void apiPostProblemAttempts(auth.sessionId, attempts).catch(() => {
+          /* silent fallback */
+        });
       }
       const params = new URLSearchParams({
         score: String(newCorrectCount),
