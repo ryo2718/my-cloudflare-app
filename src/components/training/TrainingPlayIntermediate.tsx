@@ -34,6 +34,7 @@ import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
 import { IntermediateChoices } from './IntermediateChoices';
 import { intermediateScenarioLabel } from './intermediateScenarioLabel';
+import { QuitButton } from './QuitButton';
 import type { Suit, Rank } from '../../types/card';
 
 const TIMER_SECONDS = 20;
@@ -216,6 +217,7 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
           <span style={progressCountStyle}>
             {state.current + 1} / {state.questions.length}
           </span>
+          <QuitButton />
         </div>
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />

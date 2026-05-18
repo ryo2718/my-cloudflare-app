@@ -36,6 +36,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
+import { QuitButton } from './QuitButton';
 import type { Suit, Rank } from '../../types/card';
 
 export interface TrainingPlayProps {
@@ -216,6 +217,7 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
           <span style={progressCountStyle}>
             {state.current + 1} / {state.questions.length}
           </span>
+          <QuitButton />
         </div>
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
