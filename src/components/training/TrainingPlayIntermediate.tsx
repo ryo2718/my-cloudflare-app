@@ -166,7 +166,6 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         <div style={progressTopStyle}>
           <span style={progressLabelStyle}>
             {level.label}
-            {level.subtitle && <span style={progressSubtitleStyle}>({level.subtitle})</span>}
           </span>
           <span style={progressCountStyle}>
             {state.current + 1} / {state.questions.length}
@@ -281,11 +280,6 @@ const progressTopStyle: CSSProperties = {
 const progressLabelStyle: CSSProperties = {
   fontWeight: 700,
   color: THEME.textPrimary,
-};
-const progressSubtitleStyle: CSSProperties = {
-  marginLeft: '0.25rem',
-  fontWeight: 400,
-  color: THEME.textSecondary,
 };
 const progressCountStyle: CSSProperties = {
   color: THEME.textSecondary,

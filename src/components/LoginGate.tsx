@@ -60,7 +60,6 @@ export function LoginGate({ children }: Props) {
       <div style={cardStyle}>
         <header style={cardHeaderStyle}>
           <h1 style={titleStyle}>PokerGTO Viewer</h1>
-          <p style={subtitleStyle}>身内向け教材アプリ</p>
         </header>
 
         <div style={tabRowStyle} role="tablist">
@@ -229,12 +228,6 @@ const titleStyle: CSSProperties = {
   fontWeight: 700,
   color: THEME.textPrimary,
 };
-const subtitleStyle: CSSProperties = {
-  margin: '0.2rem 0 0',
-  fontSize: '0.78rem',
-  color: THEME.textSecondary,
-};
-
 const tabRowStyle: CSSProperties = {
   display: 'flex',
   borderBottom: `1px solid ${THEME.border}`,

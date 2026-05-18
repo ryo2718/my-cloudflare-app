@@ -136,6 +136,7 @@ function LevelAccordion({
 
   const max = maxScoreFor(level);
   const pctText = record ? formatScorePct(record.best_score, max) : null;
+  const pt = record ? record.best_score * (level.points ?? 0) : 0;
 
   return (
     <div style={open ? playableCardOpenStyle : playableCardStyle}>
@@ -147,9 +148,6 @@ function LevelAccordion({
       >
         <span style={cardTitleColStyle}>
           <span style={cardLevelStyle}>{level.label}</span>
-          {level.subtitle && (
-            <span style={cardSubtitleStyle}>({level.subtitle})</span>
-          )}
         </span>
         <span style={chevronStyle} aria-hidden>
           {open ? '▲' : '▼'}
@@ -158,8 +156,9 @@ function LevelAccordion({
       <div style={scoreLineStyle}>
         {record ? (
           <>
-            最高スコア {record.best_score}/{max}点{' '}
-            <span style={pctStyle}>({pctText})</span>
+            最高スコア <span style={pctStyle}>{pctText}</span>
+            {'  '}
+            <span style={ptStyle}>{pt}pt</span>
           </>
         ) : (
           '未挑戦'
@@ -356,11 +355,6 @@ const cardLevelStyle: CSSProperties = {
   color: THEME.accent,
 };
 
-const cardSubtitleStyle: CSSProperties = {
-  fontSize: '0.82rem',
-  color: THEME.textSecondary,
-};
-
 const chevronStyle: CSSProperties = {
   fontSize: '0.72rem',
   color: THEME.textMuted,
@@ -377,6 +371,12 @@ const scoreLineStyle: CSSProperties = {
 const pctStyle: CSSProperties = {
   color: '#639922',     // 緑 (既存 call action 色と統一)
   fontWeight: 700,
+};
+
+const ptStyle: CSSProperties = {
+  color: '#639922',
+  fontWeight: 700,
+  fontSize: '1rem', // scoreLineStyle (0.82rem) より大きめ
 };
 
 const dividerStyle: CSSProperties = {

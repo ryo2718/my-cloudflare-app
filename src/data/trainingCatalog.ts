@@ -1,9 +1,9 @@
 // トレーニング種別のカタログ。
-// QuizPage (メニュー) / AccountPage (成績) / Confirm 画面で共有。
+// QuizPage (メニュー) / AccountPage (成績) で共有。
 //
-// 表示仕様 (ユーザ指定):
-//   - subtitle: ("オープンレンジ" 等) 括弧書きで難易度の説明を補足
-//   - points × questionCount: "1pt × 20問" の形で 1 回挑戦の最大スコア
+// 表示仕様:
+//   - label のみ表示 ("初級"/"中級"/"上級"/"超上級")
+//   - points × questionCount から最大 pt を計算
 //   - timeLimitSec: "なし" / "20s" 表記
 //   - implemented=false の場合は「未実装」バッジ + 挑戦不可
 
@@ -12,8 +12,6 @@ export interface TrainingLevel {
   key: string;
   /** "初級" 等の難易度。 */
   label: string;
-  /** 括弧内の補足 (オープンレンジ / vs open / 3bet / 4bet+ 等)。 */
-  subtitle?: string;
   /** 1 問あたりの獲得ポイント (= ベストスコア取得時の 1 問あたり pt 上限)。null = 未計画。 */
   points: number | null;
   /** 出題数。null = 未計画。 */
@@ -35,11 +33,11 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     key: 'preflop',
     label: 'プリフロップトレーニング',
     levels: [
-      { key: 'preflop_beginner',     label: '初級',   subtitle: 'オープンレンジ', points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
+      { key: 'preflop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
       // 中級は best_score が finalSum (0-40) を直接表す pt 値。 points=1 で累計と整合。
-      { key: 'preflop_intermediate', label: '中級',   subtitle: 'vs open',        points: 1,    questionCount: 20,   timeLimitSec: 20,     implemented: true  },
-      { key: 'preflop_advanced',     label: '上級',   subtitle: '3bet',           points: null, questionCount: null, timeLimitSec: null,   implemented: false },
-      { key: 'preflop_expert',       label: '超上級', subtitle: '4bet+',          points: null, questionCount: null, timeLimitSec: null,   implemented: false },
+      { key: 'preflop_intermediate', label: '中級',   points: 1,    questionCount: 20,   timeLimitSec: 20,     implemented: true  },
+      { key: 'preflop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null,   implemented: false },
+      { key: 'preflop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null,   implemented: false },
     ],
   },
   {

@@ -45,11 +45,10 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(countText('超上級')).toBe(2);
   });
 
-  it('初期 (records 空) は中級ロック中: 初級 subtitle のみ表示', () => {
+  it('subtitle (オープンレンジ / vs open 等の装飾文言) を表示しない', () => {
     const html = render();
-    expect(html).toContain('(オープンレンジ)');
-    // 中級はロック中なので subtitle 非表示
-    expect(html).not.toContain('(vs open)');
+    expect(html).not.toContain('オープンレンジ');
+    expect(html).not.toContain('vs open');
   });
 
   it('未挑戦の初級は "未挑戦" 表示 (collapsed 状態)', () => {

@@ -20,23 +20,21 @@ describe('TRAINING_CATALOG', () => {
     }
   });
 
-  it('preflop 初級: points=1, questionCount=20, subtitle=オープンレンジ, implemented=true', () => {
+  it('preflop 初級: points=1, questionCount=20, implemented=true', () => {
     const beginner = TRAINING_CATALOG[0].levels[0];
     expect(beginner.key).toBe('preflop_beginner');
     expect(beginner.points).toBe(1);
     expect(beginner.questionCount).toBe(20);
     expect(beginner.timeLimitSec).toBe('none');
-    expect(beginner.subtitle).toBe('オープンレンジ');
     expect(beginner.implemented).toBe(true);
   });
 
-  it('preflop 中級: points=1 (best_score がそのまま pt), timeLimitSec=20, subtitle=vs open, implemented=true', () => {
+  it('preflop 中級: points=1 (best_score がそのまま pt), timeLimitSec=20, implemented=true', () => {
     const intermediate = TRAINING_CATALOG[0].levels[1];
     expect(intermediate.key).toBe('preflop_intermediate');
     expect(intermediate.points).toBe(1);
     expect(intermediate.questionCount).toBe(20);
     expect(intermediate.timeLimitSec).toBe(20);
-    expect(intermediate.subtitle).toBe('vs open');
     expect(intermediate.implemented).toBe(true);
   });
 

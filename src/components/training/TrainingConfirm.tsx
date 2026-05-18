@@ -47,7 +47,6 @@ export function TrainingConfirm({ level }: TrainingConfirmProps) {
         <div style={headerColStyle}>
           <h1 style={titleStyle}>
             {level.label}
-            {level.subtitle && <span style={subtitleStyle}>({level.subtitle})</span>}
           </h1>
           <p style={taglineStyle}>{formatLevelInfo(level)}</p>
         </div>
@@ -127,12 +126,6 @@ const titleStyle: CSSProperties = {
   color: THEME.textPrimary,
 };
 
-const subtitleStyle: CSSProperties = {
-  marginLeft: '0.35rem',
-  fontSize: '0.9rem',
-  color: THEME.textSecondary,
-  fontWeight: 500,
-};
 
 const taglineStyle: CSSProperties = {
   margin: 0,
