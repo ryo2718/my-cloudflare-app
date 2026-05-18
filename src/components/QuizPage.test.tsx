@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from '../contexts/AuthContext';
 function makeAuth(): AuthState {
   return {
     status: 'authenticated',
-    account: { id: 1, poker_name: 'テスト君', is_admin: false },
+    account: { id: 1, poker_name: 'テスト君', is_admin: false, is_ranking_excluded: false },
     sessionId: 'sid',
     login: async () => {},
     signup: async () => {},

@@ -50,7 +50,7 @@ describe('<LoginGate /> status', () => {
 
   it('authenticated: children をそのまま render', () => {
     const html = render(
-      makeAuth({ status: 'authenticated', account: { id: 1, poker_name: 'a', is_admin: false } }),
+      makeAuth({ status: 'authenticated', account: { id: 1, poker_name: 'a', is_admin: false, is_ranking_excluded: false } }),
       <div>app-content</div>,
     );
     expect(html).toContain('app-content');

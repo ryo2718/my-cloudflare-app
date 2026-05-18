@@ -1,10 +1,17 @@
-// /ranking: 累計 pt の順位表 (pt 数値は非公開、順位と名前のみ表示)。
+// /ranking: 累計 pt の順位表。
 //
-// マウント時に GET /api/ranking → 全アカウントの順位 + my_rank を取得。
-// 自分の行は ★ + 太字 + 背景ハイライトで強調。
+// 表示:
+//   - 通常ランキング: 上位 3 位は pt 公開、4 位以下は順位と名前のみ。同点同順位。
+//   - 参考枠: is_ranking_excluded=1 のユーザー (admin 除外)、 pt は常に公開。
+//   - 自分の行は ★ + 太字 + 背景ハイライト。
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { apiRanking, type RankingResponse } from '../api/ranking';
+import {
+  apiRanking,
+  type RankingEntry,
+  type RankingResponse,
+  type ReferenceEntry,
+} from '../api/ranking';
 import { useAuth } from '../hooks/useAuth';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
@@ -39,6 +46,8 @@ export function RankingPage() {
     };
   }, [auth.sessionId]);
 
+  const myName = auth.account?.poker_name ?? '';
+
   return (
     <div style={pageStyle}>
       <AppHeader showBack />
@@ -56,7 +65,10 @@ export function RankingPage() {
                 ※ 管理者アカウントはランキング対象外です。
               </div>
             )}
-            <RankingList data={state.data} myAccountName={auth.account?.poker_name ?? ''} />
+            <RankingList data={state.data} myAccountName={myName} />
+            {state.data.reference.length > 0 && (
+              <ReferenceSection reference={state.data.reference} myAccountName={myName} />
+            )}
           </>
         )}
       </main>
@@ -76,23 +88,64 @@ function RankingList({
   }
   return (
     <ul style={listStyle}>
-      {data.ranking.map((row) => {
-        const isMe = data.my_rank === row.rank && row.poker_name === myAccountName;
-        return (
-          <li
-            key={`${row.rank}-${row.poker_name}`}
-            style={isMe ? rowMeStyle : rowStyle}
-            aria-label={isMe ? '自分の順位' : undefined}
-          >
-            <span style={rankStyle}>{row.rank}位</span>
-            <span style={isMe ? nameMeStyle : nameStyle}>
-              {isMe && <span style={starStyle}>★ </span>}
-              {row.poker_name}
-            </span>
-          </li>
-        );
-      })}
+      {data.ranking.map((row, idx) => (
+        <RankingRow
+          key={`${row.rank}-${row.poker_name}-${idx}`}
+          row={row}
+          isMe={data.my_rank === row.rank && row.poker_name === myAccountName}
+        />
+      ))}
     </ul>
+  );
+}
+
+function RankingRow({ row, isMe }: { row: RankingEntry; isMe: boolean }) {
+  return (
+    <li
+      style={isMe ? rowMeStyle : rowStyle}
+      aria-label={isMe ? '自分の順位' : undefined}
+    >
+      <span style={rankStyle}>{row.rank}位</span>
+      <span style={isMe ? nameMeStyle : nameStyle}>
+        {isMe && <span style={starStyle}>★ </span>}
+        {row.poker_name}
+      </span>
+      {row.points_visible && row.total_points !== null && (
+        <span style={ptStyle}>{row.total_points}pt</span>
+      )}
+    </li>
+  );
+}
+
+function ReferenceSection({
+  reference,
+  myAccountName,
+}: {
+  reference: ReferenceEntry[];
+  myAccountName: string;
+}) {
+  return (
+    <section style={referenceSectionStyle} aria-label="参考">
+      <header style={referenceHeaderStyle}>参考</header>
+      <ul style={listStyle}>
+        {reference.map((row) => {
+          const isMe = row.poker_name === myAccountName;
+          return (
+            <li
+              key={row.poker_name}
+              style={isMe ? referenceRowMeStyle : referenceRowStyle}
+              aria-label={isMe ? '自分の行 (参考枠)' : undefined}
+            >
+              <span style={referenceNameStyle}>
+                {isMe && <span style={starStyle}>★ </span>}
+                {row.poker_name}
+              </span>
+              <span style={referencePtStyle}>{row.total_points}pt</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -154,13 +207,21 @@ const rankStyle: CSSProperties = {
 };
 const nameStyle: CSSProperties = {
   color: THEME.textPrimary,
+  flex: 1,
 };
 const nameMeStyle: CSSProperties = {
   color: '#993C1D',
   fontWeight: 700,
+  flex: 1,
 };
 const starStyle: CSSProperties = {
   color: '#E5A551',
+};
+const ptStyle: CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  fontWeight: 700,
+  color: '#639922',
+  fontVariantNumeric: 'tabular-nums',
 };
 const infoStyle: CSSProperties = {
   color: THEME.textMuted,
@@ -182,4 +243,46 @@ const errorStyle: CSSProperties = {
   border: `1px solid ${THEME.errorBorder}`,
   borderRadius: '0.3rem',
   padding: '0.5rem 0.7rem',
+};
+
+const referenceSectionStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem',
+  marginTop: '0.4rem',
+  paddingTop: '0.7rem',
+  borderTop: `1px solid ${THEME.border}`,
+};
+const referenceHeaderStyle: CSSProperties = {
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  color: THEME.textSecondary,
+  letterSpacing: '0.04em',
+};
+const referenceRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  justifyContent: 'space-between',
+  gap: '0.85rem',
+  background: '#fafaf7',
+  border: `1px dashed ${THEME.border}`,
+  borderRadius: '0.4rem',
+  padding: '0.6rem 0.9rem',
+  fontSize: '0.9rem',
+};
+const referenceRowMeStyle: CSSProperties = {
+  ...referenceRowStyle,
+  background: '#FAEEDA',
+  borderStyle: 'solid',
+  borderColor: '#E5A551',
+  fontWeight: 700,
+};
+const referenceNameStyle: CSSProperties = {
+  color: THEME.textSecondary,
+};
+const referencePtStyle: CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  fontWeight: 700,
+  color: '#639922',
+  fontVariantNumeric: 'tabular-nums',
 };

@@ -80,3 +80,26 @@ export async function apiSubmitTrainingResult(
   }
   return (await res.json()) as TrainingResultSubmission;
 }
+
+/**
+ * DELETE /api/account/reset-results
+ * 自分の training_results のみ削除 (problem_attempts / missed_problems は残す)。
+ * is_admin=1 or is_ranking_excluded=1 のユーザーのみ実行可、それ以外は 403。
+ */
+export async function apiResetResults(sessionId: string): Promise<{ deleted: number }> {
+  const res = await fetch('/api/account/reset-results', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${sessionId}` },
+  });
+  if (!res.ok) {
+    let code: string | undefined;
+    try {
+      const j = (await res.json()) as { error?: string };
+      code = typeof j.error === 'string' ? j.error : undefined;
+    } catch {
+      // ignore
+    }
+    throw new AuthApiError(code ?? `http_${res.status}`, res.status);
+  }
+  return (await res.json()) as { deleted: number };
+}

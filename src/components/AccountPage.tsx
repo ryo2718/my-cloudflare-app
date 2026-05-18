@@ -16,6 +16,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import {
   apiAccountMe,
   apiAccountTrainingResults,
+  apiResetResults,
   type AccountDetail,
   type TrainingResult,
 } from '../api/account';
@@ -131,6 +132,8 @@ export function AccountPage() {
           title="正答率(シナリオ別)"
           rows={buildScenarioRows(stats)}
         />
+
+        <ResetResultsSection />
       </main>
     </div>
   );
@@ -196,6 +199,45 @@ function buildScenarioRows(stats: StatisticsResponse | null): StatsRow[] {
       correctRate: maxSum > 0 ? (scoreSum / maxSum) * 100 : 0,
     };
   });
+}
+
+function ResetResultsSection() {
+  const auth = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  // is_admin or is_ranking_excluded のユーザーのみ表示
+  if (!auth.account?.is_admin && !auth.account?.is_ranking_excluded) return null;
+
+  const handleReset = async () => {
+    if (!auth.sessionId) return;
+    if (!window.confirm('成績をリセットします。よろしいですか?')) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await apiResetResults(auth.sessionId);
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section style={resetSectionStyle} aria-label="成績リセット">
+      <button
+        type="button"
+        onClick={handleReset}
+        disabled={busy}
+        style={busy ? resetBtnDisabledStyle : resetBtnStyle}
+      >
+        {busy ? 'リセット中…' : '成績をリセット'}
+      </button>
+      <p style={resetNoteStyle}>
+        training_results のみ削除されます。挑戦履歴は残ります。
+      </p>
+      {err && <div style={resetErrorStyle}>失敗: {err}</div>}
+    </section>
+  );
 }
 
 function StatsSection({ title, rows }: { title: string; rows: StatsRow[] }) {
@@ -484,6 +526,41 @@ const statsPctMutedStyle: CSSProperties = {
   ...statsPctStyle,
   color: THEME.textMuted,
   fontWeight: 600,
+};
+
+const resetSectionStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: '0.4rem',
+  marginTop: '0.8rem',
+  paddingTop: '0.8rem',
+  borderTop: `1px solid ${THEME.border}`,
+};
+const resetBtnStyle: CSSProperties = {
+  padding: '0.5rem 0.95rem',
+  background: '#fff',
+  color: THEME.textSecondary,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.35rem',
+  fontSize: '0.85rem',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
+const resetBtnDisabledStyle: CSSProperties = {
+  ...resetBtnStyle,
+  color: THEME.textFaint,
+  cursor: 'not-allowed',
+  opacity: 0.6,
+};
+const resetNoteStyle: CSSProperties = {
+  margin: 0,
+  fontSize: '0.74rem',
+  color: THEME.textMuted,
+};
+const resetErrorStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  color: THEME.errorText,
 };
 const statsCountStyle: CSSProperties = {
   fontSize: '0.78rem',

@@ -6,7 +6,7 @@ import { AuthContext, type AuthState } from '../contexts/AuthContext';
 function makeAuth(overrides: Partial<AuthState> = {}): AuthState {
   return {
     status: 'authenticated',
-    account: { id: 1, poker_name: 'テスト君', is_admin: false },
+    account: { id: 1, poker_name: 'テスト君', is_admin: false, is_ranking_excluded: false },
     sessionId: 'sid',
     login: async () => {},
     signup: async () => {},
@@ -46,7 +46,7 @@ describe('<HomePage />', () => {
 
   it('admin: AppHeader の管理画面リンクが出る', () => {
     const html = render(
-      makeAuth({ account: { id: 1, poker_name: 'admin', is_admin: true } }),
+      makeAuth({ account: { id: 1, poker_name: 'admin', is_admin: true, is_ranking_excluded: false } }),
     );
     expect(html).toContain('href="/admin"');
   });

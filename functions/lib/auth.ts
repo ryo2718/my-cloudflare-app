@@ -36,12 +36,13 @@ export async function resolveAccountFromRequest(
   return await resolveAccountFromSession(db, token);
 }
 
-/** AccountRow → AccountPublic (private_pass を落として is_admin を boolean に揃える)。 */
+/** AccountRow → AccountPublic (private_pass を落として is_admin / is_ranking_excluded を boolean に)。 */
 export function toAccountPublic(row: AccountRow): AccountPublic {
   return {
     id: row.id,
     poker_name: row.poker_name,
     is_admin: row.is_admin === 1,
+    is_ranking_excluded: row.is_ranking_excluded === 1,
   };
 }
 

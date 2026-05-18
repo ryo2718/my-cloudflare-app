@@ -12,6 +12,8 @@ export interface AccountRow {
   last_login_at: number | null;
   /** migration 0003 で追加。 */
   points: number;
+  /** migration 0008 で追加。 ranking から除外 (参考枠表示) + 成績リセット権限。 */
+  is_ranking_excluded: number; // 0 or 1
 }
 
 export interface TrainingResultRow {
@@ -71,6 +73,7 @@ export interface AccountPublic {
   id: number;
   poker_name: string;
   is_admin: boolean;
+  is_ranking_excluded: boolean;
 }
 
 /** Admin 画面用 (平文 private_pass + last_login_at + total_points を含む)。 */

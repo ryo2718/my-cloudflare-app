@@ -10,6 +10,8 @@ export interface AccountPublic {
   id: number;
   poker_name: string;
   is_admin: boolean;
+  /** ranking 除外フラグ。true なら通常ランキングに出さず参考枠に表示。 */
+  is_ranking_excluded: boolean;
 }
 
 export interface AuthSuccess {

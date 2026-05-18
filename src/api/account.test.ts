@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { apiAccountMe } from './account';
+import { apiAccountMe, apiResetResults } from './account';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -69,5 +69,52 @@ describe('apiAccountMe', () => {
     expect(detail.training_results[0].training_type).toBe('preflop_beginner');
     expect(detail.training_results[0].best_score).toBe(18);
     expect(detail.training_results[0].total_attempts).toBe(5);
+  });
+});
+
+describe('apiResetResults', () => {
+  it('DELETE /api/account/reset-results with Bearer → {deleted}', async () => {
+    const spy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ deleted: 4 }),
+    });
+    vi.stubGlobal('fetch', spy);
+    const res = await apiResetResults('sid-1');
+    expect(spy).toHaveBeenCalledWith('/api/account/reset-results', {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer sid-1' },
+    });
+    expect(res.deleted).toBe(4);
+  });
+
+  it('403 → AuthApiError(code=forbidden) (一般ユーザー)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: 'forbidden' }),
+      }),
+    );
+    await expect(apiResetResults('sid-x')).rejects.toMatchObject({
+      code: 'forbidden',
+      status: 403,
+    });
+  });
+
+  it('401 → AuthApiError(code=unauthorized)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'unauthorized' }),
+      }),
+    );
+    await expect(apiResetResults('bad')).rejects.toMatchObject({
+      code: 'unauthorized',
+      status: 401,
+    });
   });
 });
