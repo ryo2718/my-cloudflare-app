@@ -123,22 +123,14 @@ export function AccountPage() {
             </section>
           ))}
 
-        {stats && (stats.by_position.length > 0 || stats.by_scenario.length > 0) && (
-          <>
-            <StatsSection
-              title="正答率(ポジション別)"
-              groups={stats.by_position}
-              ordering={POSITION_ORDER}
-              labelOf={(k) => k}
-            />
-            <StatsSection
-              title="正答率(シナリオ別)"
-              groups={stats.by_scenario}
-              ordering={SCENARIO_ORDER}
-              labelOf={(k) => SCENARIO_LABEL[k] ?? k}
-            />
-          </>
-        )}
+        <StatsSection
+          title="正答率(ポジション別)"
+          rows={buildPositionRows(stats)}
+        />
+        <StatsSection
+          title="正答率(シナリオ別)"
+          rows={buildScenarioRows(stats)}
+        />
       </main>
     </div>
   );
@@ -148,55 +140,81 @@ export function AccountPage() {
 // 統計セクション
 // ---------------------------------------------------------------------------
 
-const POSITION_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-const SCENARIO_ORDER = [
-  'bb_response',
-  'vs_3bet',
-  'vs_4bet',
-  'middle_vs_open',
-  'risky_open',
-  'beginner_open',
-  'beginner_vs_open',
-];
-const SCENARIO_LABEL: Record<string, string> = {
-  bb_response: 'vs open (BB)',
-  vs_3bet: 'vs 3bet',
-  vs_4bet: 'vs 4bet',
-  middle_vs_open: 'vs open (BTN/SB)',
-  risky_open: 'open (際どい)',
-  beginner_open: 'オープン (初級)',
-  beginner_vs_open: 'vs open (初級)',
-};
+const POSITION_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'] as const;
 
-function StatsSection({
-  title,
-  groups,
-  ordering,
-  labelOf,
-}: {
-  title: string;
-  groups: StatGroup[];
-  ordering: string[];
-  labelOf: (key: string) => string;
-}) {
-  if (groups.length === 0) return null;
-  // ordering 順 → 残り (アルファベット順) の順に並べる
-  const orderIndex = (k: string) => {
-    const i = ordering.indexOf(k);
-    return i < 0 ? ordering.length + k.charCodeAt(0) : i;
-  };
-  const sorted = [...groups].sort((a, b) => orderIndex(a.key) - orderIndex(b.key));
+// シナリオ集約: scenario_type を 4 種類にまとめて表示する
+const SCENARIO_GROUPS: { key: string; label: string; types: string[] }[] = [
+  { key: 'open', label: 'オープン', types: ['beginner_open', 'risky_open'] },
+  {
+    key: 'vs_open',
+    label: 'vs オープン',
+    types: ['beginner_vs_open', 'bb_response', 'middle_vs_open'],
+  },
+  { key: 'vs_3bet', label: 'vs 3bet', types: ['vs_3bet'] },
+  { key: 'vs_4bet', label: 'vs 4bet', types: ['vs_4bet'] },
+];
+
+interface StatsRow {
+  key: string;
+  label: string;
+  total: number;
+  correctRate: number;
+}
+
+function buildPositionRows(stats: StatisticsResponse | null): StatsRow[] {
+  const map = new Map<string, StatGroup>();
+  for (const g of stats?.by_position ?? []) map.set(g.key, g);
+  return POSITION_ORDER.map((pos) => {
+    const g = map.get(pos);
+    return {
+      key: pos,
+      label: pos,
+      total: g?.total ?? 0,
+      correctRate: g?.correct_rate ?? 0,
+    };
+  });
+}
+
+function buildScenarioRows(stats: StatisticsResponse | null): StatsRow[] {
+  const map = new Map<string, StatGroup>();
+  for (const g of stats?.by_scenario ?? []) map.set(g.key, g);
+  return SCENARIO_GROUPS.map(({ key, label, types }) => {
+    let total = 0;
+    let scoreSum = 0;
+    let maxSum = 0;
+    for (const t of types) {
+      const g = map.get(t);
+      if (!g) continue;
+      total += g.total;
+      scoreSum += g.score_sum;
+      maxSum += g.max_sum;
+    }
+    return {
+      key,
+      label,
+      total,
+      correctRate: maxSum > 0 ? (scoreSum / maxSum) * 100 : 0,
+    };
+  });
+}
+
+function StatsSection({ title, rows }: { title: string; rows: StatsRow[] }) {
   return (
     <section style={statsSectionStyle} aria-label={title}>
       <header style={statsHeaderStyle}>{title}</header>
       <ul style={statsListStyle}>
-        {sorted.map((g) => (
-          <li key={g.key} style={statsRowStyle}>
-            <span style={statsLabelStyle}>{labelOf(g.key) || g.key}</span>
-            <span style={statsPctStyle}>{g.correct_rate.toFixed(1)}%</span>
-            <span style={statsCountStyle}>({g.total}問)</span>
-          </li>
-        ))}
+        {rows.map((r) => {
+          const isEmpty = r.total === 0;
+          return (
+            <li key={r.key} style={statsRowStyle}>
+              <span style={statsLabelStyle}>{r.label}</span>
+              <span style={isEmpty ? statsPctMutedStyle : statsPctStyle}>
+                {r.correctRate.toFixed(1)}%
+              </span>
+              <span style={statsCountStyle}>({r.total}問)</span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -461,6 +479,11 @@ const statsPctStyle: CSSProperties = {
   color: '#639922',
   minWidth: '3.5rem',
   textAlign: 'right',
+};
+const statsPctMutedStyle: CSSProperties = {
+  ...statsPctStyle,
+  color: THEME.textMuted,
+  fontWeight: 600,
 };
 const statsCountStyle: CSSProperties = {
   fontSize: '0.78rem',
