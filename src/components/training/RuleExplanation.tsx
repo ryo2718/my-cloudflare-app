@@ -7,6 +7,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { HandRangeMatrix } from './HandRangeMatrix';
+import { PokerTable } from './PokerTable';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
 import type { Rank, Suit } from '../../types/card';
@@ -68,6 +69,7 @@ function BeginnerRule() {
 
       <Block label="問題の例">
         <p style={lineStyle}>ポジション: HJ</p>
+        <PokerTable mePosition="HJ" opener={null} foldedSet={['UTG']} />
         <p style={lineStyle}>ハンド: Q♠ J♠</p>
         <div style={handBoxStyle}>
           <CardSet
@@ -118,6 +120,12 @@ function IntermediateRule() {
       <Block label="問題の例">
         <p style={lineStyle}>opener: HJ raise 2.5BB</p>
         <p style={lineStyle}>自分: BB</p>
+        <PokerTable
+          mePosition="BB"
+          opener="HJ"
+          openSize={2.5}
+          foldedSet={['UTG', 'CO', 'BTN', 'SB']}
+        />
         <p style={lineStyle}>ハンド: Q♣ 4♣</p>
         <div style={handBoxStyle}>
           <CardSet
