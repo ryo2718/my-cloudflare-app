@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { HandRangeMatrix } from './HandRangeMatrix';
-import { cellHand, paintCell } from './HandRangeMatrix.helpers';
+import { ACTION_BG, cellHand, paintCell } from './HandRangeMatrix.helpers';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 
 function s(allin: number, raise: number, call: number, fold: number): HandStrategy {
@@ -15,77 +15,94 @@ describe('cellHand (row, col) → canonical hand', () => {
   });
   it('上三角はスーテッド (列 > 行)', () => {
     expect(cellHand(0, 1)).toBe('AKs');
-    expect(cellHand(1, 0)).toBe('AKo'); // 下三角はオフスート
+    expect(cellHand(1, 0)).toBe('AKo');
   });
   it('canonical: 高ランク先頭', () => {
-    // (row=3, col=0) は J/A → 下三角 → "AJo"
     expect(cellHand(3, 0)).toBe('AJo');
   });
 });
 
-describe('paintCell (頻度比率の縦積み gradient)', () => {
-  it('100% fold → background null (play 系 0 → 描画しない)', () => {
+describe('paintCell (頻度比率の縦積みセグメント)', () => {
+  it('100% fold → segments null (play 系 0)', () => {
     const p = paintCell(s(0, 0, 0, 100));
-    expect(p.background).toBeNull();
+    expect(p.segments).toBeNull();
   });
 
-  it('100% raise → gradient に赤 100%', () => {
+  it('100% raise → 赤 100% の 1 セグメント', () => {
     const p = paintCell(s(0, 100, 0, 0));
-    expect(p.background).toContain('#E24B4A 0.00%');
-    expect(p.background).toContain('#E24B4A 100.00%');
+    expect(p.segments).toEqual([{ color: ACTION_BG.raise, ratio: 100 }]);
   });
 
-  it('100% call → gradient に緑のみ', () => {
+  it('100% call → 緑 100% の 1 セグメント', () => {
     const p = paintCell(s(0, 0, 100, 0));
-    expect(p.background).toContain('#639922');
-    expect(p.background).not.toContain('#E24B4A');
-    expect(p.background).not.toContain('#993C9D');
+    expect(p.segments).toEqual([{ color: ACTION_BG.call, ratio: 100 }]);
   });
 
-  it('100% allin → gradient に紫のみ', () => {
+  it('100% allin → 紫 100% の 1 セグメント', () => {
     const p = paintCell(s(100, 0, 0, 0));
-    expect(p.background).toContain('#993C9D');
+    expect(p.segments).toEqual([{ color: ACTION_BG.allin, ratio: 100 }]);
   });
 
-  it('Q4s = {0, 0, 24, 76}: 緑 24% + fold(#ffffff) 76% の縦積み', () => {
+  it('A8s = {0, 0, 58.1, 41.9}: 緑 + 白 の 2 セグメント (浮動小数誤差は許容)', () => {
+    const p = paintCell(s(0, 0, 58.1, 41.9));
+    expect(p.segments).toHaveLength(2);
+    expect(p.segments![0].color).toBe(ACTION_BG.call);
+    expect(p.segments![0].ratio).toBeCloseTo(58.1, 1);
+    expect(p.segments![1].color).toBe(ACTION_BG.fold);
+    expect(p.segments![1].ratio).toBeCloseTo(41.9, 1);
+  });
+
+  it('Q4s = {0, 0, 24, 76}: 緑 24% + 白 76%', () => {
     const p = paintCell(s(0, 0, 24, 76));
-    // #ffffff 0% → 76% (fold 下), 緑 76% → 100% (call 上)
-    expect(p.background).toContain('#ffffff 0.00%');
-    expect(p.background).toContain('#ffffff 76.00%');
-    expect(p.background).toContain('#639922 76.00%');
-    expect(p.background).toContain('#639922 100.00%');
+    expect(p.segments).toEqual([
+      { color: ACTION_BG.call, ratio: 24 },
+      { color: ACTION_BG.fold, ratio: 76 },
+    ]);
   });
 
-  it('60% raise / 40% fold → 赤 60% + fold 40% (積上)', () => {
+  it('60% raise / 40% fold → 赤 60 + 白 40', () => {
     const p = paintCell(s(0, 60, 0, 40));
-    expect(p.background).toContain('#ffffff 0.00%');
-    expect(p.background).toContain('#ffffff 40.00%');
-    expect(p.background).toContain('#E24B4A 40.00%');
-    expect(p.background).toContain('#E24B4A 100.00%');
+    expect(p.segments).toEqual([
+      { color: ACTION_BG.raise, ratio: 60 },
+      { color: ACTION_BG.fold, ratio: 40 },
+    ]);
   });
 
-  it('混合 (50% raise / 30% call / 20% fold) → 3 色積み', () => {
+  it('混合 (50% raise / 30% call / 20% fold) → 3 セグメント', () => {
     const p = paintCell(s(0, 50, 30, 20));
-    // 下から: fold #ffffff 0-20%, call 緑 20-50%, raise 赤 50-100%
-    expect(p.background).toContain('#ffffff 0.00%');
-    expect(p.background).toContain('#639922 20.00%');
-    expect(p.background).toContain('#E24B4A 50.00%');
+    expect(p.segments).toEqual([
+      { color: ACTION_BG.raise, ratio: 50 },
+      { color: ACTION_BG.call, ratio: 30 },
+      { color: ACTION_BG.fold, ratio: 20 },
+    ]);
   });
 
-  it('5% raise / 95% fold (微小 play) → 描画される (play_total >= MIN_FREQ)', () => {
+  it('5% raise / 95% fold → 赤 5 + 白 95', () => {
     const p = paintCell(s(0, 5, 0, 95));
-    expect(p.background).toContain('#E24B4A');
-    expect(p.background).toContain('#ffffff');
+    expect(p.segments).toEqual([
+      { color: ACTION_BG.raise, ratio: 5 },
+      { color: ACTION_BG.fold, ratio: 95 },
+    ]);
   });
 
-  it('未定義戦略 → background null', () => {
+  it('未定義戦略 → segments null', () => {
     const p = paintCell(undefined);
-    expect(p.background).toBeNull();
+    expect(p.segments).toBeNull();
   });
 
-  it('全 0% (レンジ外相当) → background null', () => {
+  it('全 0% (レンジ外相当) → segments null', () => {
     const p = paintCell(s(0, 0, 0, 0));
-    expect(p.background).toBeNull();
+    expect(p.segments).toBeNull();
+  });
+
+  it('4 アクション全部 (25% ずつ) → 4 セグメント、上から allin→raise→call→fold', () => {
+    const p = paintCell(s(25, 25, 25, 25));
+    expect(p.segments).toEqual([
+      { color: ACTION_BG.allin, ratio: 25 },
+      { color: ACTION_BG.raise, ratio: 25 },
+      { color: ACTION_BG.call, ratio: 25 },
+      { color: ACTION_BG.fold, ratio: 25 },
+    ]);
   });
 });
 
@@ -104,17 +121,20 @@ describe('<HandRangeMatrix /> 描画', () => {
     expect(html).toContain('コール');
   });
 
+  it('A8s = {0, 0, 58, 42} で緑 (#639922) と 白 (#ffffff) の両方が描画される', () => {
+    const html = renderToStaticMarkup(
+      <HandRangeMatrix hands={{ A8s: s(0, 0, 58, 42) }} />,
+    );
+    expect(html).toContain('#639922');
+    expect(html).toContain('#ffffff');
+  });
+
   it('highlightHand 指定でそのセルに outline スタイルが付く', () => {
     const html = renderToStaticMarkup(
-      <HandRangeMatrix
-        hands={{ AA: s(0, 100, 0, 0) }}
-        highlightHand="AA"
-      />,
+      <HandRangeMatrix hands={{ AA: s(0, 100, 0, 0) }} highlightHand="AA" />,
     );
-    // outline:3px と aria-label="AA" の両方が含まれること (attribute 順序は気にしない)
     expect(html).toContain('outline:3px solid');
     expect(html).toContain('aria-label="AA"');
-    // 1 セルだけ outline を持つ
     const outlineCount = (html.match(/outline:3px solid/g) ?? []).length;
     expect(outlineCount).toBe(1);
   });

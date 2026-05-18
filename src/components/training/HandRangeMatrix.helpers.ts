@@ -23,48 +23,47 @@ export const ACTION_BG: Record<Action, string> = {
 
 const MIN_FREQ = 0.01;
 
+export interface CellSegment {
+  color: string;
+  /** 0-100 (%): セル内の高さ比率。 */
+  ratio: number;
+}
+
 export interface CellPaint {
-  /** linear-gradient string、または描画しない場合 null。 */
-  background: string | null;
+  /** 縦積みセグメント (上から allin 紫 → raise 赤 → call 緑 → fold 白)。 */
+  segments: CellSegment[] | null;
 }
 
 /**
- * 戦略 → セル塗り (頻度比率の縦積み gradient)。
- *  - play 系合計 < MIN_FREQ → 描画しない (= 親ノードに来ない or 100% fold)
- *  - それ以外: linear-gradient(to top, fold→call→raise→allin) で各 freq 比率を縦に積む
- *    例: Q4s = {0, 0, 24, 76} → 下 76% transparent + 上 24% 緑 → "緑 24% + 白 76%"
+ * 戦略 → セル縦積みセグメント。
+ *  - 各 freq が 0 のセグメントは含まない (描画スキップ)
+ *  - play 系合計 < MIN_FREQ → segments=null (親ノードに来ない or 100% fold)
+ *  - 各 ratio は total で正規化した比率 (合計 100)
+ *
+ * 例: A8s = {allin: 0, raise: 0, call: 58.1, fold: 41.9}
+ *   → segments = [{green, 58.1}, {white, 41.9}]
+ *   (上から: 緑 → 白の縦積み)
  */
 export function paintCell(strategy: HandStrategy | undefined): CellPaint {
-  if (!strategy) return { background: null };
+  if (!strategy) return { segments: null };
   const allin = strategy.allin ?? 0;
   const raise = strategy.raise ?? 0;
   const call = strategy.call ?? 0;
   const fold = strategy.fold ?? 0;
   const total = allin + raise + call + fold;
-  if (total < MIN_FREQ) return { background: null };
-  // play 系 0 → 親ノードに来てない / 100% fold とみなして描画スキップ
+  if (total < MIN_FREQ) return { segments: null };
   const playTotal = allin + raise + call;
-  if (playTotal < MIN_FREQ) return { background: null };
+  if (playTotal < MIN_FREQ) return { segments: null };
 
-  // gradient 順序: 下 (fold transparent) → 上 (allin 紫)。
-  // linear-gradient(to top, ...) で配列の先頭から順に下から積まれる。
-  const segments: Array<{ color: string; freq: number }> = [
-    { color: ACTION_BG.fold, freq: fold },
-    { color: ACTION_BG.call, freq: call },
-    { color: ACTION_BG.raise, freq: raise },
-    { color: ACTION_BG.allin, freq: allin },
-  ];
-  const stops: string[] = [];
-  let cursor = 0;
-  for (const seg of segments) {
-    if (seg.freq <= 0) continue;
-    const start = (cursor / total) * 100;
-    cursor += seg.freq;
-    const end = (cursor / total) * 100;
-    stops.push(`${seg.color} ${start.toFixed(2)}%, ${seg.color} ${end.toFixed(2)}%`);
-  }
-  if (stops.length === 0) return { background: null };
-  return { background: `linear-gradient(to top, ${stops.join(', ')})` };
+  // 上から順: allin (紫) → raise (赤) → call (緑) → fold (白)
+  const segments: CellSegment[] = [];
+  const norm = (v: number) => (v / total) * 100;
+  if (allin > 0) segments.push({ color: ACTION_BG.allin, ratio: norm(allin) });
+  if (raise > 0) segments.push({ color: ACTION_BG.raise, ratio: norm(raise) });
+  if (call > 0) segments.push({ color: ACTION_BG.call, ratio: norm(call) });
+  if (fold > 0) segments.push({ color: ACTION_BG.fold, ratio: norm(fold) });
+  if (segments.length === 0) return { segments: null };
+  return { segments };
 }
 
 /** (row, col) → ハンド表記。 */

@@ -33,13 +33,13 @@ export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatr
           MATRIX_RANKS.map((__, col) => {
             const hand = cellHand(row, col);
             const strategy = hands[hand];
-            const { background } = paintCell(strategy);
+            const { segments } = paintCell(strategy);
             const isHighlight = hand === highlightHand;
             return (
               <Cell
                 key={`${row}-${col}`}
                 hand={hand}
-                background={background}
+                segments={segments}
                 highlight={isHighlight}
               />
             );
@@ -53,30 +53,47 @@ export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatr
 
 function Cell({
   hand,
-  background,
+  segments,
   highlight,
 }: {
   hand: string;
-  background: string | null;
+  segments: import('./HandRangeMatrix.helpers').CellSegment[] | null;
   highlight: boolean;
 }) {
-  // background が null = 描画なし (薄灰 + 文字薄)
-  // それ以外は linear-gradient 文字列を直接 background に
-  const styleBase: CSSProperties = {
+  // segments null → 描画なし (薄灰)
+  // ある → 各セグメントを flex 縦積みで明示的に描画 (上から allin/raise/call/fold)
+  const isEmpty = !segments || segments.length === 0;
+  const baseStyle: CSSProperties = {
     ...cellBase,
-    background: background ?? '#f5f1ea',
-    color: background ? '#3d2f1f' : '#b0a18e',
-    textShadow: background
-      ? '0 1px 2px rgba(255,255,255,0.6), 0 0 1px rgba(255,255,255,0.8)'
-      : 'none',
+    background: isEmpty ? '#f5f1ea' : 'transparent',
+    color: isEmpty ? '#b0a18e' : '#3d2f1f',
+    textShadow: isEmpty
+      ? 'none'
+      : '0 1px 2px rgba(255,255,255,0.6), 0 0 1px rgba(255,255,255,0.8)',
     outline: highlight ? '3px solid #FFEB3B' : 'none',
     outlineOffset: highlight ? '-2px' : undefined,
     fontWeight: highlight ? 700 : 500,
     zIndex: highlight ? 1 : undefined,
+    position: 'relative',
+    overflow: 'hidden',
   };
   return (
-    <div style={styleBase} role="gridcell" aria-label={hand}>
-      {hand}
+    <div style={baseStyle} role="gridcell" aria-label={hand}>
+      {!isEmpty && (
+        <div style={layerStackStyle} aria-hidden>
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              style={{
+                height: `${seg.ratio}%`,
+                background: seg.color,
+                width: '100%',
+              }}
+            />
+          ))}
+        </div>
+      )}
+      <span style={cellLabelStyle}>{hand}</span>
     </div>
   );
 }
@@ -143,6 +160,18 @@ const cellBase: CSSProperties = {
   justifyContent: 'center',
   textAlign: 'center',
   position: 'relative',
+};
+
+const layerStackStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const cellLabelStyle: CSSProperties = {
+  position: 'relative',
+  zIndex: 2,
 };
 const legendStyle: CSSProperties = {
   display: 'flex',

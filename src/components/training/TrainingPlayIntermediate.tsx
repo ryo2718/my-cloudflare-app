@@ -186,7 +186,7 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         <div style={scenarioPillStyle}>{intermediateScenarioLabel(q)}</div>
         <PokerTable
           mePosition={q.myPosition}
-          opener={q.opener}
+          opener={q.scenarioType === 'risky_open' ? null : q.opener}
           foldedSet={q.foldedBefore}
           chipExtras={q.chipExtras}
         />

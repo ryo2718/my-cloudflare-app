@@ -17,18 +17,18 @@ import {
   trainingReviewPath,
   type TrainingLevel,
 } from '../../data/trainingCatalog';
-import {
-  ACTIONS,
-  type VsOpenBbStrategies,
-} from '../../data/training/preflopIntermediate';
+import { ACTIONS } from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './IntermediateChoices';
 import { CardSet } from '../CardSet';
 import { HandRangeMatrix } from './HandRangeMatrix';
-import { intermediateScenarioLabel } from './intermediateScenarioLabel';
+import {
+  intermediateScenarioLabel,
+  rangeCaption,
+  rangeFileFor,
+} from './intermediateScenarioLabel';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
 import type { Suit, Rank } from '../../types/card';
-import type { Position } from '../../types/strategy';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { useEffect, useState } from 'react';
 
@@ -101,7 +101,7 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
 
         <PokerTable
           mePosition={current.myPosition}
-          opener={current.opener}
+          opener={current.scenarioType === 'risky_open' ? null : current.opener}
           foldedSet={current.foldedBefore}
           chipExtras={current.chipExtras}
         />
@@ -143,7 +143,7 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
           {current.timedOut && <span style={timeoutBadgeStyle}>⏱ 時間切れ</span>}
         </div>
 
-        <RangeSection opener={current.opener} highlightHand={current.hand} />
+        <RangeSection record={current} />
 
         <nav style={navRowStyle}>
           <button
@@ -169,55 +169,44 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
 }
 
 /**
- * 該当 opener の vs_open_bb レンジを fetch して 13x13 マトリクスを表示。
- * 取得失敗時は何も描画しない (UX 上は致命的でないので silent fallback)。
+ * シナリオに対応するレンジ JSON を fetch して 13x13 マトリクスを表示。
+ * - bb_response:    {opener}r_bb.json
+ * - middle_vs_open: {opener}r_{me}.json
+ * - vs_3bet:        {opener}r_{3bettor}r_{opener}.json
+ * - vs_4bet:        {opener}r_{3bettor}r_{opener}r_{3bettor}.json
+ * - risky_open:     {me}.json
+ * 取得失敗時は silent fallback (描画しない)。
  */
-function RangeSection({
-  opener,
-  highlightHand,
-}: {
-  opener: Position;
-  highlightHand: string;
-}) {
+function RangeSection({ record }: { record: IntermediateRecord }) {
+  const file = rangeFileFor(record);
+  const caption = rangeCaption(record);
   const [hands, setHands] = useState<Record<string, HandStrategy> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetchOpenerVsBbHands(opener)
-      .then((h) => {
-        if (cancelled) return;
-        setHands(h);
-      })
-      .catch(() => {
-        // silent: 取得失敗時はマトリクスを描画しない
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [opener]);
+    fetchRangeFile(file)
+      .then((h) => { if (!cancelled) setHands(h); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [file]);
 
   if (!hands) return null;
   return (
     <section style={rangeSectionStyle} aria-label="このシナリオのレンジ">
-      <HandRangeMatrix
-        hands={hands}
-        highlightHand={highlightHand}
-        caption={`vs ${opener} open の BB 応答レンジ`}
-      />
+      <HandRangeMatrix hands={hands} highlightHand={record.hand} caption={caption} />
     </section>
   );
 }
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
-const vsBbCache: VsOpenBbStrategies = {};
+const rangeFileCache: Record<string, Record<string, HandStrategy>> = {};
 
-async function fetchOpenerVsBbHands(opener: Position): Promise<Record<string, HandStrategy>> {
-  if (vsBbCache[opener]) return vsBbCache[opener]!;
-  const url = `${PREFLOP_DATA_ROOT}/${opener.toLowerCase()}r_bb.json`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`failed to load ${url}: ${res.status}`);
+async function fetchRangeFile(file: string): Promise<Record<string, HandStrategy>> {
+  if (rangeFileCache[file]) return rangeFileCache[file];
+  const res = await fetch(`${PREFLOP_DATA_ROOT}/${file}`);
+  if (!res.ok) throw new Error(`failed to load ${file}: ${res.status}`);
   const raw = (await res.json()) as { hands: Record<string, HandStrategy> };
-  vsBbCache[opener] = raw.hands;
+  rangeFileCache[file] = raw.hands;
   return raw.hands;
 }
 
