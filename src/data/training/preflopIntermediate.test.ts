@@ -329,24 +329,26 @@ describe('新採点ルール: isMissedMajorAction (>=70% 取りこぼし -1pt)',
   });
 });
 
-describe('generateProblemDistribution', () => {
+describe('generateProblemDistribution (5 タイプ)', () => {
   it('合計が常に 20', () => {
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 1000; i++) {
       const d = generateProblemDistribution();
-      expect(d.bb + d.vs3bet + d.vs4bet + d.riskyOpen).toBe(20);
+      expect(d.bb + d.vs3bet + d.vs4bet + d.middleVsOpen + d.riskyOpen).toBe(20);
     }
   });
-  it('各タイプの範囲遵守: bb/vs3bet/vs4bet が 4-8, riskyOpen が 2-4', () => {
-    for (let i = 0; i < 100; i++) {
+  it('各タイプの範囲遵守: bb 2-5, vs3bet 4-6, vs4bet 4-6, middleVsOpen 3-5, riskyOpen 1-3', () => {
+    for (let i = 0; i < 200; i++) {
       const d = generateProblemDistribution();
-      expect(d.bb).toBeGreaterThanOrEqual(4);
-      expect(d.bb).toBeLessThanOrEqual(8);
+      expect(d.bb).toBeGreaterThanOrEqual(2);
+      expect(d.bb).toBeLessThanOrEqual(5);
       expect(d.vs3bet).toBeGreaterThanOrEqual(4);
-      expect(d.vs3bet).toBeLessThanOrEqual(8);
+      expect(d.vs3bet).toBeLessThanOrEqual(6);
       expect(d.vs4bet).toBeGreaterThanOrEqual(4);
-      expect(d.vs4bet).toBeLessThanOrEqual(8);
-      expect(d.riskyOpen).toBeGreaterThanOrEqual(2);
-      expect(d.riskyOpen).toBeLessThanOrEqual(4);
+      expect(d.vs4bet).toBeLessThanOrEqual(6);
+      expect(d.middleVsOpen).toBeGreaterThanOrEqual(3);
+      expect(d.middleVsOpen).toBeLessThanOrEqual(5);
+      expect(d.riskyOpen).toBeGreaterThanOrEqual(1);
+      expect(d.riskyOpen).toBeLessThanOrEqual(3);
     }
   });
 });

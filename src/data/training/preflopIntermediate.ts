@@ -42,6 +42,7 @@ export type IntermediateScenarioType =
   | 'bb_response'
   | 'vs_3bet'
   | 'vs_4bet'
+  | 'middle_vs_open'
   | 'risky_open';
 
 export const VS_OPEN_OPENERS: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
@@ -102,8 +103,12 @@ export interface ProblemDistribution {
   bb: number;
   vs3bet: number;
   vs4bet: number;
+  middleVsOpen: number;
   riskyOpen: number;
 }
+
+/** middle_vs_open で自分のポジションになり得るのは BTN / SB のみ (混合戦略が豊富)。 */
+export const MIDDLE_VS_OPEN_RESPONDERS: ReadonlyArray<Position> = ['BTN', 'SB'];
 
 // ---------------------------------------------------------------------------
 // 採点
@@ -200,18 +205,22 @@ function randomInt(min: number, max: number): number {
  *  - riskyOpen が 1 以下 NG
  * 上限ループ超過時はデフォルト分布。
  */
+/**
+ * 5 タイプの問題内訳を抽選 (合計 20 問)。
+ *   bb: 2-5, vs3bet: 4-6, vs4bet: 4-6, middleVsOpen: 3-5, riskyOpen: 1-3
+ */
 export function generateProblemDistribution(): ProblemDistribution {
   for (let i = 0; i < DISTRIBUTION_MAX_RETRIES; i++) {
-    const bb = randomInt(4, 8);
-    const vs3bet = randomInt(4, 8);
-    const vs4bet = randomInt(4, 8);
-    const riskyOpen = randomInt(2, 4);
-    if (bb + vs3bet + vs4bet + riskyOpen !== 20) continue;
-    if (bb <= 3 || vs3bet <= 3 || vs4bet <= 3) continue;
-    if (riskyOpen <= 1) continue;
-    return { bb, vs3bet, vs4bet, riskyOpen };
+    const bb = randomInt(2, 5);
+    const vs3bet = randomInt(4, 6);
+    const vs4bet = randomInt(4, 6);
+    const middleVsOpen = randomInt(3, 5);
+    const riskyOpen = randomInt(1, 3);
+    if (bb + vs3bet + vs4bet + middleVsOpen + riskyOpen === 20) {
+      return { bb, vs3bet, vs4bet, middleVsOpen, riskyOpen };
+    }
   }
-  return { bb: 6, vs3bet: 6, vs4bet: 6, riskyOpen: 2 };
+  return { bb: 3, vs3bet: 5, vs4bet: 5, middleVsOpen: 5, riskyOpen: 2 };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +279,21 @@ export function isRiskyOpenHand(strategy: HandStrategy | undefined): boolean {
 // ペア定義
 // ---------------------------------------------------------------------------
 
+/** middle_vs_open 用ペア (responder = BTN or SB)。 */
+export const MIDDLE_VS_OPEN_PAIRS: ReadonlyArray<[Position, Position]> = (() => {
+  const pairs: [Position, Position][] = [];
+  for (let i = 0; i < PREFLOP_ORDER.length; i++) {
+    const op = PREFLOP_ORDER[i];
+    if (!VS_OPEN_OPENERS.includes(op)) continue;
+    for (let j = i + 1; j < PREFLOP_ORDER.length; j++) {
+      const re = PREFLOP_ORDER[j];
+      if (!MIDDLE_VS_OPEN_RESPONDERS.includes(re)) continue;
+      pairs.push([op, re]);
+    }
+  }
+  return pairs;
+})();
+
 /** (opener, responder) の有効ペア (opener < responder)。 */
 export const VS_3BET_PAIRS: ReadonlyArray<[Position, Position]> = (() => {
   const pairs: [Position, Position][] = [];
@@ -295,6 +319,7 @@ export type StrategiesByPair = Record<string, Record<string, HandStrategy>>;
 const cache = {
   openRanges: {} as StrategiesByOpener,        // {opener}.json
   vsOpenBb: {} as StrategiesByOpener,           // {opener}r_bb.json
+  vsOpenMiddle: {} as StrategiesByPair,         // {opener}r_{btn|sb}.json (キー: "opener_responder")
   vs3bet: {} as StrategiesByPair,               // {opener}r_{3bettor}r_{opener}.json
   vs4bet: {} as StrategiesByPair,               // {opener}r_{3bettor}r_{opener}r_{3bettor}.json
 };
@@ -327,6 +352,16 @@ async function loadAllData(): Promise<void> {
           tasks.push(fetchNode(`${op.toLowerCase()}r_bb.json`).then((h) => {
             cache.vsOpenBb[op] = h;
           }));
+        }
+      }
+      for (const [op, re] of MIDDLE_VS_OPEN_PAIRS) {
+        const key = pairKey(op, re);
+        if (!cache.vsOpenMiddle[key]) {
+          tasks.push(
+            fetchNode(`${op.toLowerCase()}r_${re.toLowerCase()}.json`)
+              .then((h) => { cache.vsOpenMiddle[key] = h; })
+              .catch(() => {}),
+          );
         }
       }
       for (const [op, re] of VS_3BET_PAIRS) {
@@ -463,6 +498,39 @@ export function generateVs4betQuestion(data: StrategiesByPair): IntermediateQues
   throw new Error('vs_4bet: no eligible hand after retries');
 }
 
+/**
+ * 中間ポジ vs open シナリオ: 自分=BTN or SB、誰かが open に対する応答。
+ * フィルタは isHandEligible (主要 1〜3 個、単一 100% 除外)。
+ */
+export function generateMiddleVsOpenQuestion(data: StrategiesByPair): IntermediateQuestion {
+  const eligibleKeys = Object.keys(data).filter((k) => !isMonotonicRange(data[k]));
+  if (eligibleKeys.length === 0) throw new Error('middle_vs_open: no eligible pairs');
+  for (let attempt = 0; attempt < GENERATE_MAX_RETRIES; attempt++) {
+    const key = pickRandom(eligibleKeys);
+    const [opener, me] = key.split('_') as [Position, Position];
+    const hands = data[key];
+    const handStr = pickRandom(Object.keys(hands));
+    const hand = handStr as Hand;
+    const strategy = hands[handStr];
+    if (!isHandEligible(hand, strategy)) continue;
+    const foldedBefore = [
+      ...positionsBefore(opener),
+      ...positionsBetween(opener, me),
+    ];
+    return {
+      scenarioType: 'middle_vs_open',
+      myPosition: me,
+      opener,
+      foldedBefore,
+      chipExtras: [{ position: opener, amount: OPEN_SIZE }],
+      hand,
+      cards: handToCards(hand),
+      strategy,
+    };
+  }
+  throw new Error('middle_vs_open: no eligible hand after retries');
+}
+
 /** 際どい open シナリオ: 自分=opener、混合戦略ハンドのみ。 */
 export function generateRiskyOpenQuestion(data: StrategiesByOpener): IntermediateQuestion {
   const eligibleOpeners = VS_OPEN_OPENERS.filter((op) => !!data[op]);
@@ -539,6 +607,7 @@ export async function generateIntermediateQuestions(): Promise<IntermediateQuest
   for (let i = 0; i < dist.bb; i++) addUnique(() => generateBBResponseQuestion(cache.vsOpenBb));
   for (let i = 0; i < dist.vs3bet; i++) addUnique(() => generateVs3betQuestion(cache.vs3bet));
   for (let i = 0; i < dist.vs4bet; i++) addUnique(() => generateVs4betQuestion(cache.vs4bet));
+  for (let i = 0; i < dist.middleVsOpen; i++) addUnique(() => generateMiddleVsOpenQuestion(cache.vsOpenMiddle));
   for (let i = 0; i < dist.riskyOpen; i++) addUnique(() => generateRiskyOpenQuestion(cache.openRanges));
 
   return shuffle(out);
@@ -553,6 +622,7 @@ export const __testing__ = {
   resetCache: () => {
     cache.openRanges = {};
     cache.vsOpenBb = {};
+    cache.vsOpenMiddle = {};
     cache.vs3bet = {};
     cache.vs4bet = {};
   },

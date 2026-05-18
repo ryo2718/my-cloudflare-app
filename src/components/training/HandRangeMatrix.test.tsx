@@ -47,27 +47,27 @@ describe('paintCell (頻度比率の縦積み gradient)', () => {
     expect(p.background).toContain('#993C9D');
   });
 
-  it('Q4s = {0, 0, 24, 76}: 緑 24% + fold(transparent) 76% の縦積み', () => {
+  it('Q4s = {0, 0, 24, 76}: 緑 24% + fold(#ffffff) 76% の縦積み', () => {
     const p = paintCell(s(0, 0, 24, 76));
-    // transparent 0% → 76% (fold 下), 緑 76% → 100% (call 上)
-    expect(p.background).toContain('transparent 0.00%');
-    expect(p.background).toContain('transparent 76.00%');
+    // #ffffff 0% → 76% (fold 下), 緑 76% → 100% (call 上)
+    expect(p.background).toContain('#ffffff 0.00%');
+    expect(p.background).toContain('#ffffff 76.00%');
     expect(p.background).toContain('#639922 76.00%');
     expect(p.background).toContain('#639922 100.00%');
   });
 
   it('60% raise / 40% fold → 赤 60% + fold 40% (積上)', () => {
     const p = paintCell(s(0, 60, 0, 40));
-    expect(p.background).toContain('transparent 0.00%');
-    expect(p.background).toContain('transparent 40.00%');
+    expect(p.background).toContain('#ffffff 0.00%');
+    expect(p.background).toContain('#ffffff 40.00%');
     expect(p.background).toContain('#E24B4A 40.00%');
     expect(p.background).toContain('#E24B4A 100.00%');
   });
 
   it('混合 (50% raise / 30% call / 20% fold) → 3 色積み', () => {
     const p = paintCell(s(0, 50, 30, 20));
-    // 下から: fold transparent 0-20%, call 緑 20-50%, raise 赤 50-100%
-    expect(p.background).toContain('transparent 0.00%');
+    // 下から: fold #ffffff 0-20%, call 緑 20-50%, raise 赤 50-100%
+    expect(p.background).toContain('#ffffff 0.00%');
     expect(p.background).toContain('#639922 20.00%');
     expect(p.background).toContain('#E24B4A 50.00%');
   });
@@ -75,7 +75,7 @@ describe('paintCell (頻度比率の縦積み gradient)', () => {
   it('5% raise / 95% fold (微小 play) → 描画される (play_total >= MIN_FREQ)', () => {
     const p = paintCell(s(0, 5, 0, 95));
     expect(p.background).toContain('#E24B4A');
-    expect(p.background).toContain('transparent');
+    expect(p.background).toContain('#ffffff');
   });
 
   it('未定義戦略 → background null', () => {

@@ -13,7 +13,9 @@ export function intermediateScenarioLabel(rec: Source): string {
       return `${rec.myPosition} → vs ${rec.threeBettor} 3bet`;
     case 'vs_4bet':
       return `${rec.myPosition} → vs ${rec.opener} 4bet`;
+    case 'middle_vs_open':
+      return `${rec.myPosition} vs ${rec.opener} open`;
     case 'risky_open':
-      return `${rec.myPosition} open (際どい)`;
+      return `${rec.myPosition} open`;
   }
 }

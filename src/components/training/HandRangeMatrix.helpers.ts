@@ -12,13 +12,13 @@ export const MATRIX_RANKS: ReadonlyArray<string> = [
  *  - allin: 紫
  *  - raise: 赤
  *  - call:  緑
- *  - fold:  transparent (親要素の薄灰背景を透かす = "白枠" 凡例と一致)
+ *  - fold:  白 (#ffffff、緑+白の縦積みが視覚的に明確になるよう)
  */
 export const ACTION_BG: Record<Action, string> = {
   allin: '#993C9D',
   raise: '#E24B4A',
   call:  '#639922',
-  fold:  'transparent',
+  fold:  '#ffffff',
 };
 
 const MIN_FREQ = 0.01;
