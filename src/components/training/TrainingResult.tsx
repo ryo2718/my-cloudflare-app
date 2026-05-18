@@ -256,14 +256,23 @@ export function TrainingResult({ level }: TrainingResultProps) {
 
 function ScoreBreakdownSection({ records }: { records: IntermediateRecord[] }) {
   const b = computeScoreBreakdown(records);
-  const COLORS = {
-    perfect: '#3B6D11', // 緑
-    partial: '#EF9F27', // オレンジ
-    zero:    '#B4B2A9', // グレー
-    miss:    '#A32D2D', // 赤
+  // 仕様: アイコンと横棒バーで色を分ける。
+  // アイコン: ◎ 緑 / ○ オレンジ濃 / △ グレー濃 / ✕ 赤
+  // バー: 2pt 緑 / 1pt オレンジ明 / 0pt グレー明 / -1pt 赤
+  const ICON_COLORS = {
+    perfect: '#3B6D11',
+    partial: '#BA7517',
+    zero:    '#888780',
+    miss:    '#A32D2D',
+  };
+  const BAR_COLORS = {
+    perfect: '#3B6D11',
+    partial: '#EF9F27',
+    zero:    '#B4B2A9',
+    miss:    '#A32D2D',
   };
   const ROWS: Array<{
-    key: keyof typeof COLORS;
+    key: keyof typeof ICON_COLORS;
     icon: string;
     label: string;
     count: number;
@@ -283,7 +292,7 @@ function ScoreBreakdownSection({ records }: { records: IntermediateRecord[] }) {
           return (
             <div
               key={r.key}
-              style={{ width: `${pct}%`, height: '100%', background: COLORS[r.key] }}
+              style={{ width: `${pct}%`, height: '100%', background: BAR_COLORS[r.key] }}
             />
           );
         })}
@@ -299,7 +308,7 @@ function ScoreBreakdownSection({ records }: { records: IntermediateRecord[] }) {
                 borderBottom: i < ROWS.length - 1 ? '0.5px solid #D3D1C7' : 'none',
               }}
             >
-              <span style={{ ...breakdownIconStyle, color: COLORS[r.key] }}>{r.icon}</span>
+              <span style={{ ...breakdownIconStyle, color: ICON_COLORS[r.key] }}>{r.icon}</span>
               <span style={breakdownLabelStyle}>{r.label}</span>
               <span style={breakdownCountStyle}>{r.count}問</span>
               <span style={breakdownPctStyle}>{formatPercent(pct)}</span>
