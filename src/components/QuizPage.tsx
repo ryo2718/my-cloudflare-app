@@ -5,6 +5,7 @@
 // マウント時に GET /api/account/training-results を取得して最高スコアを表示。
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { MissedProblemsSection } from './training/MissedProblemsSection';
 import {
   TRAINING_CATALOG,
   formatScorePct,
@@ -85,6 +86,8 @@ export function QuizPage() {
             </div>
           </section>
         ))}
+
+        <MissedProblemsSection />
       </main>
     </div>
   );

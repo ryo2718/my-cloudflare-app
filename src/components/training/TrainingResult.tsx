@@ -25,6 +25,7 @@ import { scenarioLabel } from './scenarioLabel';
 import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import { judgmentIcon } from './judgmentIcon';
 import { breakdownPct, computeScoreBreakdown } from './scoreBreakdown';
+import { REVIEW_LEVEL_KEY } from './TrainingReviewPlay';
 import { THEME } from '../../styles/theme';
 
 export interface TrainingResultProps {
@@ -67,13 +68,19 @@ function saveCachedSubmission(key: string, value: TrainingResultSubmission): voi
   }
 }
 
-function parseQueryScore(): { score: number; total: number; mode: 'beginner' | 'intermediate' } | null {
+type ResultMode = 'beginner' | 'intermediate' | 'review';
+
+function parseQueryScore(): { score: number; total: number; mode: ResultMode } | null {
   if (typeof window === 'undefined') return null;
   const sp = new URLSearchParams(window.location.search);
   const s = Number(sp.get('score'));
   const t = Number(sp.get('total'));
   if (!Number.isFinite(s) || !Number.isFinite(t) || t <= 0) return null;
-  const mode = sp.get('mode') === 'intermediate' ? 'intermediate' : 'beginner';
+  const modeRaw = sp.get('mode');
+  const mode: ResultMode =
+    modeRaw === 'intermediate' ? 'intermediate'
+      : modeRaw === 'review' ? 'review'
+      : 'beginner';
   return { score: s, total: t, mode };
 }
 
@@ -85,20 +92,22 @@ export function TrainingResult({ level }: TrainingResultProps) {
   // state に格納する (useMemo より useEffect+setState の方が再 render を確実に trigger できる)。
   // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
   const mode = scoreInfo?.mode ?? 'beginner';
+  // review モードは中級レコードと同じ表示ロジックを使うが、別 levelKey から読む
+  const isIntermediateLike = mode === 'intermediate' || mode === 'review';
+  const intermediateLevelKey = mode === 'review' ? REVIEW_LEVEL_KEY : level.key;
   const [missed, setMissed] = useState<ProblemRecord[]>(() => {
-    if (mode === 'intermediate') return [];
+    if (isIntermediateLike) return [];
     const records = loadRecords(level.key);
     return records ? missedRecords(records) : [];
   });
-  // 中級は全 20 問を振り返り対象として表示 (満点問題も◎で表示)。
   const [intermediateAll, setIntermediateAll] = useState<IntermediateRecord[]>(() => {
-    if (mode !== 'intermediate') return [];
-    const records = loadIntermediateRecords(level.key);
+    if (!isIntermediateLike) return [];
+    const records = loadIntermediateRecords(intermediateLevelKey);
     return records ?? [];
   });
   useEffect(() => {
-    if (mode === 'intermediate') {
-      const records = loadIntermediateRecords(level.key);
+    if (isIntermediateLike) {
+      const records = loadIntermediateRecords(intermediateLevelKey);
       if (records) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIntermediateAll(records);
@@ -109,12 +118,14 @@ export function TrainingResult({ level }: TrainingResultProps) {
         setMissed(missedRecords(records));
       }
     }
-  }, [level.key, mode]);
+  }, [level.key, intermediateLevelKey, isIntermediateLike]);
 
   // submission レスポンスをセッション単位でキャッシュ。
   // 振り返り画面に遷移 → 戻り時に再 submit すると 2 回目は is_best=false になり「更新通知が消える」
   // バグを防止する。同じ (level/score/total) なら 1 回目のレスポンスを再利用。
   useEffect(() => {
+    // review モードでは API submit せず、 best_score 更新も発生させない (復習は DB に影響なし)
+    if (mode === 'review') return;
     if (!scoreInfo || !auth.sessionId) return;
     const sid = auth.sessionId;
     const submitScore = Math.max(0, scoreInfo.score);
@@ -166,8 +177,8 @@ export function TrainingResult({ level }: TrainingResultProps) {
   }
 
   const { score, total } = scoreInfo;
-  // 中級は finalSum が負になり得る。表示上は max(0, score) を採用。
-  const displayScore = mode === 'intermediate' ? Math.max(0, score) : score;
+  // 中級・review は finalSum が負になり得る。表示上は max(0, score) を採用。
+  const displayScore = isIntermediateLike ? Math.max(0, score) : score;
   const displayPct = total > 0 ? Math.round((Math.max(0, score) / total) * 100) : 0;
   const pointsPerQ = level.points ?? 0;
 
@@ -181,25 +192,27 @@ export function TrainingResult({ level }: TrainingResultProps) {
         <div style={scoreCardStyle}>
           <div style={scoreCellStyle}>
             <span style={scoreLabelStyle}>
-              {mode === 'intermediate' ? 'スコア' : '正解数'}
+              {isIntermediateLike ? 'スコア' : '正解数'}
             </span>
             <span style={scoreValueStyle}>{displayScore}/{total}</span>
           </div>
           <div style={scoreCellStyle}>
             <span style={scoreLabelStyle}>
-              {mode === 'intermediate' ? '達成率' : '正答率'}
+              {isIntermediateLike ? '達成率' : '正答率'}
             </span>
             <span style={scoreValueStyle}>{displayPct}%</span>
           </div>
         </div>
 
-        {mode === 'intermediate' ? (
+        {mode === 'review' ? (
+          <ReviewPtCard score={score} total={total} />
+        ) : mode === 'intermediate' ? (
           <IntermediatePtCard save={save} score={score} total={total} />
         ) : (
           <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} />
         )}
 
-        {mode === 'intermediate' && intermediateAll.length > 0 && (
+        {isIntermediateLike && intermediateAll.length > 0 && (
           <ScoreBreakdownSection records={intermediateAll} />
         )}
 
@@ -219,10 +232,12 @@ export function TrainingResult({ level }: TrainingResultProps) {
           </section>
         )}
 
-        {mode === 'intermediate' && intermediateAll.length > 0 && (
+        {isIntermediateLike && intermediateAll.length > 0 && (
           <section style={missedSectionStyle} aria-label="振り返り一覧">
             <header style={missedHeaderStyle}>
-              振り返り一覧 ({intermediateAll.length}問)
+              {mode === 'review'
+                ? `復習結果 (${intermediateAll.length}問)`
+                : `振り返り一覧 (${intermediateAll.length}問)`}
             </header>
             <ul style={missedListStyle}>
               {intermediateAll.map((rec, idx) => (
@@ -416,6 +431,17 @@ function MissedCard({
  *  is_best=true → "🎉 自己ベスト更新!" (前回スコア → 今回スコア)
  *  is_best=false → "※ 自己ベスト未更新" (今回スコア / 過去ベスト)
  */
+function ReviewPtCard({ score, total }: { score: number; total: number }) {
+  const display = Math.max(0, score);
+  return (
+    <div style={ptCardStyle}>
+      <span style={celebrateStyle}>復習結果</span>
+      <span style={ptBigStyle}>{display} / {total} 点</span>
+      <span style={subInfoStyle}>※ 復習なのでベスト/累計 pt は更新されません</span>
+    </div>
+  );
+}
+
 function IntermediatePtCard({
   save,
   score,

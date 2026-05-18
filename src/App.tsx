@@ -17,6 +17,7 @@ import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
+import { TrainingReviewPlay } from './components/training/TrainingReviewPlay';
 import { TrainingRules } from './components/training/TrainingRules';
 
 const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
@@ -57,6 +58,9 @@ export default function App() {
       navigate('/');
     }
   }, [path, account]);
+
+  // /training/review/play (専用ルート、level に依存しない)
+  if (path === '/training/review/play') return <TrainingReviewPlay />;
 
   // training routes
   const trainingMatch = matchTrainingRoute(path);
