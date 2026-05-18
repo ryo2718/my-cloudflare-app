@@ -71,6 +71,30 @@ export async function apiAdminListGroupKeys(
   return res.group_keys;
 }
 
+export interface UserLevelStats {
+  best_score: number;
+  total_attempts: number;
+  measured_attempts: number;
+  min_correct_rate: number;
+  max_correct_rate: number;
+  avg_correct_rate: number;
+}
+
+export interface UserStats {
+  account_id: number;
+  poker_name: string;
+  total_points: number;
+  levels: Partial<Record<'preflop_beginner' | 'preflop_intermediate', UserLevelStats | null>>;
+}
+
+export async function apiAdminUsersStatistics(sessionId: string): Promise<UserStats[]> {
+  const res = await fetchJsonAuthed<{ users: UserStats[] }>(
+    '/api/admin/users-statistics',
+    sessionId,
+  );
+  return res.users;
+}
+
 export async function apiAdminRotateGroupKey(
   sessionId: string,
   newKey: string,

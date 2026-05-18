@@ -12,6 +12,7 @@ import { StrategyPage } from './components/StrategyPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AccountsList } from './components/admin/AccountsList';
 import { GroupKeyForm } from './components/admin/GroupKeyForm';
+import { UsersStatistics } from './components/admin/UsersStatistics';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
@@ -103,6 +104,9 @@ export default function App() {
   }
   if (path === '/admin/accounts') {
     return account?.is_admin ? <AccountsList /> : <HomePage />;
+  }
+  if (path === '/admin/users-statistics') {
+    return account?.is_admin ? <UsersStatistics /> : <HomePage />;
   }
   if (path === '/admin/group-key') {
     return account?.is_admin ? <GroupKeyForm /> : <HomePage />;

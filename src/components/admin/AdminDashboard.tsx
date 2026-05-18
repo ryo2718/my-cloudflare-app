@@ -22,6 +22,13 @@ export function AdminDashboard() {
               <div style={menuDescStyle}>登録ユーザーとパスワード閲覧</div>
             </div>
           </Link>
+          <Link to="/admin/users-statistics" style={menuItemStyle}>
+            <span style={menuIconStyle}>📊</span>
+            <div>
+              <div style={menuTitleStyle}>ユーザー統計</div>
+              <div style={menuDescStyle}>レベル別 min/max/avg 正答率</div>
+            </div>
+          </Link>
           <Link to="/admin/group-key" style={menuItemStyle}>
             <span style={menuIconStyle}>🔑</span>
             <div>
