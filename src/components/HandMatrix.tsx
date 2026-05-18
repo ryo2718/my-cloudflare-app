@@ -35,8 +35,18 @@ export function HandMatrix({ strategy, actions, hoveredHand, onHover }: Props) {
           RANKS.map((_, col) => {
             const hand = getHandName(row, col);
             const freqs = (strategy as Record<string, number[]>)[hand];
-            if (!freqs) {
-              // 空セルも cellEmpty で塗って、黒境界の中で識別可能にする
+            // 親ノードに含まれないハンド (= sparse strategy で key 未定義) は空表示。
+            // 加えて、データが non-sparse で「全 action 0% (=本来は来てない)」「fold 100%」のハンドを
+            // 含めて返してくる場合の防御: play 系 (allin/raise/call) の合計が 0 ならスキップ。
+            // これにより「前ノードに来ないはずのハンドが青で塗られる」バグを回避する。
+            const isUnreachable =
+              !freqs ||
+              freqs.length === 0 ||
+              actions.reduce((sum, a, i) => {
+                const f = freqs[i] ?? 0;
+                return a.id === 'fold' ? sum : sum + f;
+              }, 0) <= 0;
+            if (isUnreachable) {
               return (
                 <div
                   key={`${row}-${col}`}

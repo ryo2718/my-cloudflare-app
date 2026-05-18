@@ -85,7 +85,16 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
               const hand = getHandName(row, col);
               const freqs = (strategy as Record<string, number[]>)[hand];
               const key = `${row}-${col}`;
-              if (!freqs) {
+              // sparse strategy で未定義、または play 系合計が 0 (= 親ノードに来てない or 全 fold)
+              // の場合は空セル扱い (前ノードにないハンドが青で塗られるバグ回避)。
+              const isUnreachable =
+                !freqs ||
+                freqs.length === 0 ||
+                lighterActions.reduce((sum, a, i) => {
+                  const f = freqs[i] ?? 0;
+                  return a.id === 'fold' ? sum : sum + f;
+                }, 0) <= 0;
+              if (isUnreachable) {
                 return <div key={key} style={emptyCellStyle} />;
               }
               return (

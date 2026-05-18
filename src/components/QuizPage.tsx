@@ -5,6 +5,7 @@
 // マウント時に GET /api/account/training-results を取得して最高スコアを表示。
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { RuleExplanation } from './training/RuleExplanation';
 import {
   TRAINING_CATALOG,
   formatScorePct,
@@ -113,6 +114,9 @@ function LevelAccordion({
   onToggle: () => void;
   onStart: () => void;
 }) {
+  // hooks は条件分岐より前に呼ぶ必要があるため、最初に宣言する。
+  const [showRule, setShowRule] = useState(false);
+
   const playable = isPlayable(level);
 
   // ロック中の playable level (例: 中級が初級未達成): アコーディオン展開不可
@@ -170,13 +174,19 @@ function LevelAccordion({
           <div style={dividerStyle} />
           <DetailPanel level={level} category={category} />
           <div style={actionRowStyle}>
-            <button type="button" onClick={onToggle} style={backBtnStyle}>
-              戻る
+            <button
+              type="button"
+              onClick={() => setShowRule((v) => !v)}
+              style={backBtnStyle}
+              aria-expanded={showRule}
+            >
+              ルールを確認
             </button>
             <button type="button" onClick={onStart} style={startBtnStyle}>
               スタート
             </button>
           </div>
+          {showRule && <RuleExplanation levelKey={level.key} />}
         </>
       )}
     </div>
