@@ -15,7 +15,6 @@ import {
 import {
   loadIntermediateRecords,
   loadRecords,
-  missedIntermediateRecords,
   missedRecords,
   type IntermediateRecord,
   type ProblemRecord,
@@ -23,6 +22,7 @@ import {
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
+import { judgmentColor, judgmentIcon } from './judgmentIcon';
 import { THEME } from '../../styles/theme';
 
 export interface TrainingResultProps {
@@ -58,17 +58,18 @@ export function TrainingResult({ level }: TrainingResultProps) {
     const records = loadRecords(level.key);
     return records ? missedRecords(records) : [];
   });
-  const [missedIntermediate, setMissedIntermediate] = useState<IntermediateRecord[]>(() => {
+  // 中級は全 20 問を振り返り対象として表示 (満点問題も◎で表示)。
+  const [intermediateAll, setIntermediateAll] = useState<IntermediateRecord[]>(() => {
     if (mode !== 'intermediate') return [];
     const records = loadIntermediateRecords(level.key);
-    return records ? missedIntermediateRecords(records) : [];
+    return records ?? [];
   });
   useEffect(() => {
     if (mode === 'intermediate') {
       const records = loadIntermediateRecords(level.key);
       if (records) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setMissedIntermediate(missedIntermediateRecords(records));
+        setIntermediateAll(records);
       }
     } else {
       const records = loadRecords(level.key);
@@ -171,15 +172,15 @@ export function TrainingResult({ level }: TrainingResultProps) {
           </section>
         )}
 
-        {mode === 'intermediate' && missedIntermediate.length > 0 && (
-          <section style={missedSectionStyle} aria-label="満点未達成の問題">
+        {mode === 'intermediate' && intermediateAll.length > 0 && (
+          <section style={missedSectionStyle} aria-label="振り返り一覧">
             <header style={missedHeaderStyle}>
-              満点未達成の問題 ({missedIntermediate.length}問)
+              振り返り一覧 ({intermediateAll.length}問)
             </header>
             <ul style={missedListStyle}>
-              {missedIntermediate.map((rec, idx) => (
+              {intermediateAll.map((rec, idx) => (
                 <li key={rec.id} style={{ listStyle: 'none' }}>
-                  <IntermediateMissedCard
+                  <IntermediateReviewCard
                     record={rec}
                     onReview={() => navigate(trainingReviewPath(level.key, idx + 1))}
                   />
@@ -206,20 +207,20 @@ export function TrainingResult({ level }: TrainingResultProps) {
   );
 }
 
-function IntermediateMissedCard({
+function IntermediateReviewCard({
   record,
   onReview,
 }: {
   record: IntermediateRecord;
   onReview: () => void;
 }) {
-  const scoreColor =
-    record.finalScore < 0 ? '#7A2A26'
-      : record.finalScore === 0 ? '#5F5E5A'
-      : record.finalScore === 1 ? '#6B5A48'
-      : '#1F4D11';
+  const icon = judgmentIcon(record.finalScore);
+  const color = judgmentColor(record.finalScore);
   return (
     <div style={missedCardStyle}>
+      <span style={{ ...iconBadgeStyle, color }} aria-label={`判定: ${icon}`}>
+        {icon}
+      </span>
       <div style={missedCardLeftStyle}>
         <span style={missedScenarioStyle}>vs {record.opener} open</span>
         <CardSet
@@ -232,10 +233,9 @@ function IntermediateMissedCard({
         />
         <div style={missedAnswerLineStyle}>
           獲得点:{' '}
-          <span style={{ ...correctAnswerStyle, color: scoreColor }}>
+          <span style={{ ...correctAnswerStyle, color }}>
             {record.finalScore >= 0 ? `+${record.finalScore}` : record.finalScore}pt
           </span>
-          {' / 理論最高 +'}{record.theoreticalMax > 0 ? 2 : 0}pt
           {record.timedOut && <span style={{ marginLeft: 6, color: '#b91c1c' }}>⏱ 時間切れ</span>}
         </div>
       </div>
@@ -665,5 +665,14 @@ const reviewBtnStyle: CSSProperties = {
   fontWeight: 700,
   fontFamily: 'inherit',
   cursor: 'pointer',
+  flexShrink: 0,
+};
+
+const iconBadgeStyle: CSSProperties = {
+  fontSize: '1.6rem',
+  fontWeight: 800,
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  minWidth: '1.6rem',
+  textAlign: 'center',
   flexShrink: 0,
 };

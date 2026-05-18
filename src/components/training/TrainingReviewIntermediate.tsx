@@ -10,22 +10,26 @@
 import type { CSSProperties } from 'react';
 import { Link } from '../../router/router';
 import { navigate } from '../../router/router-core';
-import {
-  loadIntermediateRecords,
-  missedIntermediateRecords,
-} from '../../data/training/recordsStore';
+import { loadIntermediateRecords } from '../../data/training/recordsStore';
 import type { IntermediateRecord } from '../../data/training/recordsStore';
 import {
   trainingPath,
   trainingReviewPath,
   type TrainingLevel,
 } from '../../data/trainingCatalog';
-import { ACTIONS } from '../../data/training/preflopIntermediate';
+import {
+  ACTIONS,
+  type VsOpenBbStrategies,
+} from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './IntermediateChoices';
 import { CardSet } from '../CardSet';
+import { HandRangeMatrix } from './HandRangeMatrix';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
 import type { Suit, Rank } from '../../types/card';
+import type { Position } from '../../types/strategy';
+import type { HandStrategy } from '../../data/training/preflopBeginner';
+import { useEffect, useState } from 'react';
 
 export interface TrainingReviewIntermediateProps {
   level: TrainingLevel;
@@ -50,11 +54,12 @@ function buildResultPath(
 
 export function TrainingReviewIntermediate({ level, index }: TrainingReviewIntermediateProps) {
   const records = loadIntermediateRecords(level.key);
-  const missed = records ? missedIntermediateRecords(records) : [];
+  // 中級は全 20 問を振り返り対象とする (満点問題もタップで詳細表示)。
+  const allRecords = records ?? [];
   const resultPath = buildResultPath(level.key, records);
 
   const i = index - 1;
-  const current = missed[i];
+  const current = allRecords[i];
 
   if (!current) {
     return (
@@ -69,7 +74,7 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
     );
   }
 
-  const total = missed.length;
+  const total = allRecords.length;
   const hasPrev = i > 0;
   const hasNext = i < total - 1;
   const goPrev = () => hasPrev && navigate(trainingReviewPath(level.key, index - 1));
@@ -136,6 +141,8 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
           {current.timedOut && <span style={timeoutBadgeStyle}>⏱ 時間切れ</span>}
         </div>
 
+        <RangeSection opener={current.opener} highlightHand={current.hand} />
+
         <nav style={navRowStyle}>
           <button
             type="button"
@@ -157,6 +164,59 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
       </main>
     </div>
   );
+}
+
+/**
+ * 該当 opener の vs_open_bb レンジを fetch して 13x13 マトリクスを表示。
+ * 取得失敗時は何も描画しない (UX 上は致命的でないので silent fallback)。
+ */
+function RangeSection({
+  opener,
+  highlightHand,
+}: {
+  opener: Position;
+  highlightHand: string;
+}) {
+  const [hands, setHands] = useState<Record<string, HandStrategy> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchOpenerVsBbHands(opener)
+      .then((h) => {
+        if (cancelled) return;
+        setHands(h);
+      })
+      .catch(() => {
+        // silent: 取得失敗時はマトリクスを描画しない
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opener]);
+
+  if (!hands) return null;
+  return (
+    <section style={rangeSectionStyle} aria-label="このシナリオのレンジ">
+      <HandRangeMatrix
+        hands={hands}
+        highlightHand={highlightHand}
+        caption={`vs ${opener} open の BB 応答レンジ`}
+      />
+    </section>
+  );
+}
+
+const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
+const vsBbCache: VsOpenBbStrategies = {};
+
+async function fetchOpenerVsBbHands(opener: Position): Promise<Record<string, HandStrategy>> {
+  if (vsBbCache[opener]) return vsBbCache[opener]!;
+  const url = `${PREFLOP_DATA_ROOT}/${opener.toLowerCase()}r_bb.json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`failed to load ${url}: ${res.status}`);
+  const raw = (await res.json()) as { hands: Record<string, HandStrategy> };
+  vsBbCache[opener] = raw.hands;
+  return raw.hands;
 }
 
 function formatFreq(pct: number): string {
@@ -291,6 +351,15 @@ const scoreSummaryValueStyle: CSSProperties = {
   fontSize: '1.25rem',
   fontWeight: 800,
   fontVariantNumeric: 'tabular-nums',
+};
+const rangeSectionStyle: CSSProperties = {
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.45rem',
+  padding: '0.7rem 0.85rem',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.4rem',
 };
 const timeoutBadgeStyle: CSSProperties = {
   fontSize: '0.78rem',

@@ -1,0 +1,166 @@
+// 中級振り返り用の 13x13 ハンドレンジマトリクス。
+//
+// 設計:
+//   - 対角線: ペア (AA → 22)
+//   - 上三角 (列 > 行): スーテッド (AKs, KQs, ...)
+//   - 下三角 (列 < 行): オフスート (AKo, KQo, ...)
+//   - 各セルは戦略のドミナントアクション色で塗る
+//   - fold 主要 or 全戦略 0% は薄い灰色 (= "描画しない" 相当の薄表示)
+//   - highlightHand が指定されればそのセルを濃い枠線で強調
+//
+// 既存の戦略タブ (FlopReportMatrix) は flop 後専用かつ別の戦略型を扱うため流用せず、
+// preflop の BB 応答レンジ用に薄い実装を新規に用意 (副作用回避)。
+
+import type { CSSProperties } from 'react';
+import type { HandStrategy } from '../../data/training/preflopBeginner';
+import { MATRIX_RANKS, cellHand, paintCell } from './HandRangeMatrix.helpers';
+
+export interface HandRangeMatrixProps {
+  /** 戦略マップ: hand 表記 ("AA", "AKs", "72o" 等) → HandStrategy。 */
+  hands: Record<string, HandStrategy>;
+  /** 強調表示するハンド (出題ハンド)。 */
+  highlightHand?: string;
+  /** タイトル/キャプション。 */
+  caption?: string;
+}
+
+export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatrixProps) {
+  return (
+    <figure style={figureStyle} aria-label={caption ?? 'ハンドレンジマトリクス'}>
+      {caption && <figcaption style={captionStyle}>{caption}</figcaption>}
+      <div style={gridStyle} role="grid">
+        {MATRIX_RANKS.map((_, row) =>
+          MATRIX_RANKS.map((__, col) => {
+            const hand = cellHand(row, col);
+            const strategy = hands[hand];
+            const { background, secondary } = paintCell(strategy);
+            const isHighlight = hand === highlightHand;
+            return (
+              <Cell
+                key={`${row}-${col}`}
+                hand={hand}
+                background={background}
+                secondary={secondary}
+                highlight={isHighlight}
+              />
+            );
+          }),
+        )}
+      </div>
+      <Legend />
+    </figure>
+  );
+}
+
+function Cell({
+  hand,
+  background,
+  secondary,
+  highlight,
+}: {
+  hand: string;
+  background: string | null;
+  secondary: string | null;
+  highlight: boolean;
+}) {
+  // 主要 2 つ以上の場合、左右ハーフで色分け (混合戦略の可視化)。
+  const styleBase: CSSProperties = {
+    ...cellBase,
+    background: background ?? '#f5f1ea',
+    color: background ? '#fff' : '#b0a18e',
+    outline: highlight ? '3px solid #FFEB3B' : 'none',
+    outlineOffset: highlight ? '-2px' : undefined,
+    fontWeight: highlight ? 700 : 500,
+    zIndex: highlight ? 1 : undefined,
+  };
+  if (secondary && background) {
+    styleBase.background = `linear-gradient(90deg, ${background} 50%, ${secondary} 50%)`;
+  }
+  return (
+    <div style={styleBase} role="gridcell" aria-label={hand}>
+      {hand}
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div style={legendStyle} aria-label="凡例">
+      <LegendItem color="#993C9D" label="オールイン" />
+      <LegendItem color="#E24B4A" label="レイズ" />
+      <LegendItem color="#639922" label="コール" />
+      <LegendItem color="#f5f1ea" label="フォールド" muted />
+    </div>
+  );
+}
+
+function LegendItem({ color, label, muted }: { color: string; label: string; muted?: boolean }) {
+  return (
+    <span style={legendItemStyle}>
+      <span
+        style={{
+          ...legendSwatchStyle,
+          background: color,
+          border: muted ? '1px solid #d6cfc1' : 'none',
+        }}
+        aria-hidden
+      />
+      {label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
+const figureStyle: CSSProperties = {
+  margin: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.4rem',
+};
+const captionStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  fontWeight: 700,
+  color: '#6b5a48',
+  letterSpacing: '0.04em',
+};
+const gridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(13, 1fr)',
+  gridAutoRows: '1fr',
+  gap: '1px',
+  background: '#d6cfc1',
+  border: '1px solid #d6cfc1',
+  aspectRatio: '1',
+  width: '100%',
+  maxWidth: 360,
+};
+const cellBase: CSSProperties = {
+  fontSize: '0.6rem',
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  position: 'relative',
+};
+const legendStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '0.6rem',
+  fontSize: '0.72rem',
+  color: '#6b5a48',
+};
+const legendItemStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.3rem',
+};
+const legendSwatchStyle: CSSProperties = {
+  width: 12,
+  height: 12,
+  borderRadius: 2,
+  display: 'inline-block',
+};

@@ -29,6 +29,12 @@ export function HomePage() {
             <span style={bigButtonSubStyle}>クイズ・練習問題</span>
           </Link>
 
+          <Link to="/ranking" style={bigButtonStyle}>
+            <span style={bigButtonIconStyle}>🏆</span>
+            <span style={bigButtonTitleStyle}>ランキング</span>
+            <span style={bigButtonSubStyle}>みんなの順位</span>
+          </Link>
+
           <Link to="/account" style={bigButtonStyle}>
             <span style={bigButtonIconStyle}>👤</span>
             <span style={bigButtonTitleStyle}>アカウント情報</span>

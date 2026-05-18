@@ -7,6 +7,7 @@ import { TRAINING_CATALOG, isPlayable, type TrainingLevel } from './data/trainin
 import { AccountPage } from './components/AccountPage';
 import { HomePage } from './components/HomePage';
 import { QuizPage } from './components/QuizPage';
+import { RankingPage } from './components/RankingPage';
 import { StrategyPage } from './components/StrategyPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AccountsList } from './components/admin/AccountsList';
@@ -79,6 +80,7 @@ export default function App() {
 
   if (path === '/strategy') return <StrategyPage />;
   if (path === '/quiz') return <QuizPage />;
+  if (path === '/ranking') return <RankingPage />;
   if (path === '/account') return <AccountPage />;
 
   if (path === '/admin' || path === '/admin/') {

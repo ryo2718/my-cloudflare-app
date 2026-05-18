@@ -18,12 +18,20 @@ const ACTION_LABEL: Record<Action, string> = {
   fold: 'フォールド',
 };
 
-/** アクションごとの基調色 (off=ボーダー・on=背景)。 */
-const ACTION_COLOR: Record<Action, { base: string; on: string; onText: string }> = {
-  allin: { base: '#993C9D', on: '#993C9D', onText: '#fff' },   // 紫
-  raise: { base: '#E24B4A', on: '#E24B4A', onText: '#fff' },   // 赤
-  call:  { base: '#639922', on: '#639922', onText: '#fff' },   // 緑
-  fold:  { base: '#378ADD', on: '#378ADD', onText: '#fff' },   // 青
+/**
+ * アクション色 (柔らかい表現):
+ *   - off: 薄い枠 (rgba 0.5) + 白背景
+ *   - on: 少し濃い枠 + 薄い背景 (rgba 0.12) + 文字は通常 (黒のまま)
+ */
+const ACTION_COLOR: Record<Action, {
+  base: string;        // 標準色 (チェックマーク / オン時の枠)
+  offBorder: string;   // チェックなし時の薄い枠
+  onBg: string;        // チェック時の薄い背景
+}> = {
+  allin: { base: '#993C9D', offBorder: 'rgba(153, 60, 157, 0.5)', onBg: 'rgba(153, 60, 157, 0.12)' },   // 紫
+  raise: { base: '#E24B4A', offBorder: 'rgba(226, 75, 74, 0.5)',  onBg: 'rgba(226, 75, 74, 0.12)'  },   // 赤
+  call:  { base: '#639922', offBorder: 'rgba(99, 153, 34, 0.5)',  onBg: 'rgba(99, 153, 34, 0.14)'  },   // 緑
+  fold:  { base: '#378ADD', offBorder: 'rgba(55, 138, 221, 0.5)', onBg: 'rgba(55, 138, 221, 0.12)' },   // 青
 };
 
 export interface IntermediateChoicesProps {
@@ -62,12 +70,11 @@ export function IntermediateChoices({ onSubmit, disabled = false }: Intermediate
           const color = ACTION_COLOR[a];
           const baseRow: CSSProperties = {
             ...rowBase,
-            borderColor: color.base,
+            borderColor: color.offBorder,
           };
           const onRow: CSSProperties = {
             ...rowBase,
-            background: color.on,
-            color: color.onText,
+            background: color.onBg,
             borderColor: color.base,
             fontWeight: 700,
           };
@@ -83,7 +90,7 @@ export function IntermediateChoices({ onSubmit, disabled = false }: Intermediate
                 <span
                   style={{
                     ...checkboxBase,
-                    color: isOn ? color.onText : color.base,
+                    color: color.base,
                   }}
                   aria-hidden
                 >
