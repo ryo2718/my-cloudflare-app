@@ -38,6 +38,26 @@ export interface SessionRow {
   expires_at: number;
 }
 
+/** missed_problems テーブル 1 行。 */
+export interface MissedProblemRow {
+  id: number;
+  account_id: number;
+  training_type: string;
+  scenario_type: string;
+  hero_position: string;
+  opener_position: string | null;
+  three_bettor_position: string | null;
+  hand: string;
+  /** JSON: ('allin' | 'raise' | 'call' | 'fold')[] (中級) or ('participate' | 'fold')[] (初級) */
+  user_selections: string;
+  /** JSON: { allin, raise, call, fold } (0-100) */
+  gto_strategy: string;
+  score_obtained: number;
+  is_timeout: number;
+  is_removed_from_review: number;
+  created_at: number;
+}
+
 export interface GroupKeyRow {
   id: number;
   key_value: string;

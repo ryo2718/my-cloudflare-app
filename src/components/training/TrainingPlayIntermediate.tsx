@@ -26,6 +26,8 @@ import {
   trainingPath,
   type TrainingLevel,
 } from '../../data/trainingCatalog';
+import { apiPostMissedProblems, type MissedProblemInput } from '../../api/missedProblems';
+import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
@@ -51,6 +53,7 @@ type LoadState =
     };
 
 export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProps) {
+  const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
 
@@ -115,6 +118,34 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
 
     if (next >= prev.questions.length) {
       saveIntermediateRecords(level.key, newRecords);
+      // Step 1: 満点 (finalScore===2) 以外の問題を DB に記録 (復習・統計の基盤)。
+      // ベスト努力で実行、失敗は silent (結果画面遷移は止めない)。
+      if (auth.sessionId) {
+        const missedRecords: MissedProblemInput[] = newRecords
+          .filter((r) => r.finalScore < 2)
+          .map((r) => ({
+            training_type: 'preflop_intermediate' as const,
+            scenario_type: r.scenarioType,
+            hero_position: r.myPosition,
+            opener_position: r.opener,
+            three_bettor_position: r.threeBettor ?? null,
+            hand: r.hand,
+            user_selections: [...r.selections],
+            gto_strategy: {
+              allin: r.strategySnapshot.allin ?? 0,
+              raise: r.strategySnapshot.raise ?? 0,
+              call: r.strategySnapshot.call ?? 0,
+              fold: r.strategySnapshot.fold ?? 0,
+            },
+            score_obtained: r.finalScore,
+            is_timeout: r.timedOut,
+          }));
+        if (missedRecords.length > 0) {
+          void apiPostMissedProblems(auth.sessionId, missedRecords).catch(() => {
+            /* silent fallback */
+          });
+        }
+      }
       const params = new URLSearchParams({
         score: String(newFinalSum),
         total: String(prev.questions.length * 2), // 満点 40 (20 問 × 2pt)
