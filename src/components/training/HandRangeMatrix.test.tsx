@@ -23,9 +23,9 @@ describe('cellHand (row, col) → canonical hand', () => {
 });
 
 describe('paintCell (頻度比率の縦積みセグメント)', () => {
-  it('100% fold → segments null (play 系 0)', () => {
+  it('100% fold → 青 100% の 1 セグメント (空白扱いではない)', () => {
     const p = paintCell(s(0, 0, 0, 100));
-    expect(p.segments).toBeNull();
+    expect(p.segments).toEqual([{ color: ACTION_BG.fold, ratio: 100 }]);
   });
 
   it('100% raise → 赤 100% の 1 セグメント', () => {
@@ -121,12 +121,12 @@ describe('<HandRangeMatrix /> 描画', () => {
     expect(html).toContain('コール');
   });
 
-  it('A8s = {0, 0, 58, 42} で緑 (#639922) と 白 (#ffffff) の両方が描画される', () => {
+  it('A8s = {0, 0, 58, 42} で緑 (#639922) と 青 (#378ADD) の両方が描画される', () => {
     const html = renderToStaticMarkup(
       <HandRangeMatrix hands={{ A8s: s(0, 0, 58, 42) }} />,
     );
     expect(html).toContain('#639922');
-    expect(html).toContain('#ffffff');
+    expect(html).toContain(ACTION_BG.fold);
   });
 
   it('highlightHand 指定でそのセルに outline スタイルが付く', () => {

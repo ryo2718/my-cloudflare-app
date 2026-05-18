@@ -13,7 +13,7 @@
 
 import type { CSSProperties } from 'react';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
-import { MATRIX_RANKS, cellHand, paintCell } from './HandRangeMatrix.helpers';
+import { ACTION_BG, MATRIX_RANKS, cellHand, paintCell } from './HandRangeMatrix.helpers';
 
 export interface HandRangeMatrixProps {
   /** 戦略マップ: hand 表記 ("AA", "AKs", "72o" 等) → HandStrategy。 */
@@ -101,23 +101,19 @@ function Cell({
 function Legend() {
   return (
     <div style={legendStyle} aria-label="凡例">
-      <LegendItem color="#993C9D" label="オールイン" />
-      <LegendItem color="#E24B4A" label="レイズ" />
-      <LegendItem color="#639922" label="コール" />
-      <LegendItem color="#f5f1ea" label="フォールド" muted />
+      <LegendItem color={ACTION_BG.allin} label="オールイン" />
+      <LegendItem color={ACTION_BG.raise} label="レイズ" />
+      <LegendItem color={ACTION_BG.call} label="コール" />
+      <LegendItem color={ACTION_BG.fold} label="フォールド" />
     </div>
   );
 }
 
-function LegendItem({ color, label, muted }: { color: string; label: string; muted?: boolean }) {
+function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <span style={legendItemStyle}>
       <span
-        style={{
-          ...legendSwatchStyle,
-          background: color,
-          border: muted ? '1px solid #d6cfc1' : 'none',
-        }}
+        style={{ ...legendSwatchStyle, background: color }}
         aria-hidden
       />
       {label}

@@ -12,13 +12,16 @@ export const MATRIX_RANKS: ReadonlyArray<string> = [
  *  - allin: 紫
  *  - raise: 赤
  *  - call:  緑
- *  - fold:  白 (#ffffff、緑+白の縦積みが視覚的に明確になるよう)
+ *  - fold:  青 (#378ADD)
+ *
+ * 「前のノードに存在しないハンド (全戦略 0%)」 は paintCell が null を返し、
+ * 呼び出し側でクリーム色 (空白) を描画する。
  */
 export const ACTION_BG: Record<Action, string> = {
   allin: '#993C9D',
   raise: '#E24B4A',
   call:  '#639922',
-  fold:  '#ffffff',
+  fold:  '#378ADD',
 };
 
 const MIN_FREQ = 0.01;
@@ -30,19 +33,21 @@ export interface CellSegment {
 }
 
 export interface CellPaint {
-  /** 縦積みセグメント (上から allin 紫 → raise 赤 → call 緑 → fold 白)。 */
+  /** 縦積みセグメント (上から allin 紫 → raise 赤 → call 緑 → fold 青)。 */
   segments: CellSegment[] | null;
 }
 
 /**
  * 戦略 → セル縦積みセグメント。
  *  - 各 freq が 0 のセグメントは含まない (描画スキップ)
- *  - play 系合計 < MIN_FREQ → segments=null (親ノードに来ない or 100% fold)
+ *  - 全戦略合計 < MIN_FREQ → segments=null (= 親ノードに存在しないハンド)
  *  - 各 ratio は total で正規化した比率 (合計 100)
  *
  * 例: A8s = {allin: 0, raise: 0, call: 58.1, fold: 41.9}
- *   → segments = [{green, 58.1}, {white, 41.9}]
- *   (上から: 緑 → 白の縦積み)
+ *   → segments = [{green, 58.1}, {blue, 41.9}]
+ *   (上から: 緑 → 青の縦積み)
+ *
+ * 100% fold のハンドはセル全体が青になる (空白ではない)。
  */
 export function paintCell(strategy: HandStrategy | undefined): CellPaint {
   if (!strategy) return { segments: null };
@@ -52,10 +57,8 @@ export function paintCell(strategy: HandStrategy | undefined): CellPaint {
   const fold = strategy.fold ?? 0;
   const total = allin + raise + call + fold;
   if (total < MIN_FREQ) return { segments: null };
-  const playTotal = allin + raise + call;
-  if (playTotal < MIN_FREQ) return { segments: null };
 
-  // 上から順: allin (紫) → raise (赤) → call (緑) → fold (白)
+  // 上から順: allin (紫) → raise (赤) → call (緑) → fold (青)
   const segments: CellSegment[] = [];
   const norm = (v: number) => (v / total) * 100;
   if (allin > 0) segments.push({ color: ACTION_BG.allin, ratio: norm(allin) });
