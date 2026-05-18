@@ -22,8 +22,10 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import {
   TRAINING_CATALOG,
+  formatScorePct,
   isPlanned,
   isPlayable,
+  maxScoreFor,
   type TrainingLevel,
 } from '../data/trainingCatalog';
 import { AppHeader } from './AppHeader';
@@ -146,14 +148,14 @@ function LevelStat({
       </div>
     );
   }
-  const total = level.questionCount ?? 20;
-  const pct = Math.round((record.best_score / total) * 100);
+  const max = maxScoreFor(level);
   return (
     <div style={levelStatGroupStyle}>
       <span style={levelLabelStyle}>{level.label}</span>
       <div style={levelDetailColStyle}>
         <span style={levelDetailRowStyle}>
-          ベスト: <strong>{record.best_score}/{total}</strong> ({pct}%)
+          ベスト: <strong>{record.best_score}/{max}</strong>{' '}
+          <span style={pctGreenStyle}>({formatScorePct(record.best_score, max)})</span>
         </span>
         <span style={levelDetailSubStyle}>挑戦回数: {record.total_attempts}回</span>
       </div>
@@ -306,6 +308,11 @@ const levelDetailRowStyle: CSSProperties = {
 const levelDetailSubStyle: CSSProperties = {
   color: THEME.textMuted,
   fontSize: '0.78rem',
+};
+
+const pctGreenStyle: CSSProperties = {
+  color: '#639922',
+  fontWeight: 700,
 };
 
 const statusInfoStyle: CSSProperties = {

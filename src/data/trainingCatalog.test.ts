@@ -4,6 +4,8 @@ import {
   isPlanned,
   isPlayable,
   formatLevelInfo,
+  formatScorePct,
+  maxScoreFor,
   trainingPath,
 } from './trainingCatalog';
 
@@ -78,5 +80,39 @@ describe('helpers', () => {
     expect(trainingPath('preflop_beginner', 'confirm')).toBe('/training/preflop-beginner/confirm');
     expect(trainingPath('preflop_intermediate', 'play')).toBe('/training/preflop-intermediate/play');
     expect(trainingPath('preflop_advanced', 'result')).toBe('/training/preflop-advanced/result');
+  });
+});
+
+describe('maxScoreFor', () => {
+  it('初級: 20 (questionCount)', () => {
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[0])).toBe(20);
+  });
+  it('中級: 40 (questionCount * 2)', () => {
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[1])).toBe(40);
+  });
+  it('未計画 (questionCount=null) → 0', () => {
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[2])).toBe(0);
+    expect(maxScoreFor(TRAINING_CATALOG[1].levels[0])).toBe(0);
+  });
+});
+
+describe('formatScorePct (整数のみ無小数、小数あれば 1 桁)', () => {
+  it('20/20 → "100%"', () => {
+    expect(formatScorePct(20, 20)).toBe('100%');
+  });
+  it('27/40 → "67.5%"', () => {
+    expect(formatScorePct(27, 40)).toBe('67.5%');
+  });
+  it('15/20 → "75%" (整数)', () => {
+    expect(formatScorePct(15, 20)).toBe('75%');
+  });
+  it('1/40 → "2.5%"', () => {
+    expect(formatScorePct(1, 40)).toBe('2.5%');
+  });
+  it('0/20 → "0%"', () => {
+    expect(formatScorePct(0, 20)).toBe('0%');
+  });
+  it('max=0 (未計画) → "—"', () => {
+    expect(formatScorePct(0, 0)).toBe('—');
   });
 });

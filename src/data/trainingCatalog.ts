@@ -84,6 +84,25 @@ export function formatLevelInfo(level: TrainingLevel): string {
   return [ptCount, time].filter(Boolean).join('・');
 }
 
+/**
+ * 各 level の満点 (best_score の最大値)。
+ *  - 初級: questionCount (= 20, 正解数そのまま)
+ *  - 中級: questionCount * 2 (= 40, 1問最大 2pt の合計)
+ *  - 未計画 (questionCount=null) は 0
+ */
+export function maxScoreFor(level: TrainingLevel): number {
+  if (level.questionCount === null) return 0;
+  if (level.key === 'preflop_intermediate') return level.questionCount * 2;
+  return level.questionCount;
+}
+
+/** N/MAX 点 → "75%" / "67.5%" 形式の達成率表記 (整数のとき小数なし)。 */
+export function formatScorePct(score: number, max: number): string {
+  if (max <= 0) return '—';
+  const pct = (score / max) * 100;
+  return pct % 1 === 0 ? `${pct}%` : `${pct.toFixed(1)}%`;
+}
+
 /** Routing 用: level key → confirm path */
 export function trainingPath(key: string, screen: 'confirm' | 'play' | 'result'): string {
   // 'preflop_beginner' → '/training/preflop-beginner/confirm'

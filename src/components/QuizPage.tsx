@@ -7,7 +7,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   TRAINING_CATALOG,
+  formatScorePct,
   isPlayable,
+  maxScoreFor,
   trainingPath,
   type TrainingLevel,
 } from '../data/trainingCatalog';
@@ -132,11 +134,8 @@ function LevelAccordion({
     );
   }
 
-  const pt = level.points ?? 0;
-  const totalPt = record ? record.best_score * pt : 0;
-  const scoreLine = record
-    ? `最高スコア ${record.best_score}点 (${totalPt}pt)`
-    : '未挑戦';
+  const max = maxScoreFor(level);
+  const pctText = record ? formatScorePct(record.best_score, max) : null;
 
   return (
     <div style={open ? playableCardOpenStyle : playableCardStyle}>
@@ -156,7 +155,16 @@ function LevelAccordion({
           {open ? '▲' : '▼'}
         </span>
       </button>
-      <div style={scoreLineStyle}>{scoreLine}</div>
+      <div style={scoreLineStyle}>
+        {record ? (
+          <>
+            最高スコア {record.best_score}/{max}点{' '}
+            <span style={pctStyle}>({pctText})</span>
+          </>
+        ) : (
+          '未挑戦'
+        )}
+      </div>
 
       {open && (
         <>
@@ -364,6 +372,11 @@ const scoreLineStyle: CSSProperties = {
   fontSize: '0.82rem',
   color: THEME.textMuted,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+};
+
+const pctStyle: CSSProperties = {
+  color: '#639922',     // 緑 (既存 call action 色と統一)
+  fontWeight: 700,
 };
 
 const dividerStyle: CSSProperties = {
