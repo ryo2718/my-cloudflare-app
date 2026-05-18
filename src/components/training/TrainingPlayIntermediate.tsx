@@ -30,9 +30,9 @@ import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
 import { IntermediateChoices } from './IntermediateChoices';
+import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import type { Suit, Rank } from '../../types/card';
 
-const QUESTION_COUNT = 20;
 const TIMER_SECONDS = 20;
 
 export interface TrainingPlayIntermediateProps {
@@ -70,7 +70,7 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
     clearIntermediateRecords(level.key);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: 'loading' });
-    generateIntermediateQuestions(QUESTION_COUNT)
+    generateIntermediateQuestions()
       .then((questions) => {
         if (cancelled) return;
         setState({ kind: 'ready', questions, current: 0, finalSum: 0, records: [] });
@@ -183,10 +183,12 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
       />
 
       <main style={mainStyle}>
+        <div style={scenarioPillStyle}>{intermediateScenarioLabel(q)}</div>
         <PokerTable
-          mePosition="BB"
+          mePosition={q.myPosition}
           opener={q.opener}
           foldedSet={q.foldedBefore}
+          chipExtras={q.chipExtras}
         />
 
         <section style={handSectionStyle}>
@@ -306,6 +308,17 @@ const mainStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
+};
+
+const scenarioPillStyle: CSSProperties = {
+  alignSelf: 'flex-start',
+  fontSize: '0.78rem',
+  fontWeight: 700,
+  color: '#993C1D',
+  background: '#FAEEDA',
+  border: '1px solid #E5A551',
+  borderRadius: '999px',
+  padding: '0.2rem 0.7rem',
 };
 
 const handSectionStyle: CSSProperties = {

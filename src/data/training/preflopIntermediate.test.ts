@@ -4,6 +4,7 @@ import {
   countMajorStrategies,
   eligibleOpenersFromData,
   generateIntermediateQuestion,
+  generateProblemDistribution,
   getTheoreticalMaxScore,
   isHandEligible,
   isInstantPenalty,
@@ -275,27 +276,78 @@ describe('scoreTimeout (時間切れ -1pt 固定)', () => {
 // バンド境界の境界値テスト
 // ---------------------------------------------------------------------------
 
-describe('採点バンドの境界値', () => {
-  it('freq=5% → 0pt (バンド最下端は 0)', () => {
-    const r = scoreAnswer(s(0, 5, 95, 0), ['raise']);
-    expect(r.rawScore).toBe(0); // bandScore(5) = 0
+describe('採点バンドの境界値 (missed_major にならないデータ)', () => {
+  it('freq=5% → 0pt (call も <70% で missed_major 該当しない)', () => {
+    const r = scoreAnswer(s(0, 5, 60, 35), ['raise']);
+    expect(r.rawScore).toBe(0);
   });
-  it('freq=10% → 0.5pt (バンド境界、下側含む)', () => {
-    // raise=10, call=90 → 選んで raise: rawScore=floor(0.5)=0, max=floor(0.5+2)=2 → final=0
-    const r = scoreAnswer(s(0, 10, 90, 0), ['raise']);
-    expect(r.rawScore).toBe(0); // 0.5 → floor = 0
+  it('freq=10% → 0.5pt → floor → 0pt', () => {
+    const r = scoreAnswer(s(0, 10, 50, 40), ['raise']);
+    expect(r.rawScore).toBe(0);
   });
   it('freq=20% → 1pt', () => {
-    const r = scoreAnswer(s(0, 20, 80, 0), ['raise']);
+    const r = scoreAnswer(s(0, 20, 40, 40), ['raise']);
     expect(r.rawScore).toBe(1);
   });
-  it('freq=70% → 2pt', () => {
+  it('freq=70% (主要) → 2pt (取りこぼし無し)', () => {
     const r = scoreAnswer(s(0, 70, 30, 0), ['raise']);
     expect(r.rawScore).toBe(2);
   });
-  it('freq=69.999% → 1pt (70% 未満)', () => {
+  it('freq=69.999% → 1pt (70% 未満、missed_major 該当しない)', () => {
     const r = scoreAnswer(s(0, 69.999, 30.001, 0), ['raise']);
     expect(r.rawScore).toBe(1);
+  });
+});
+
+describe('新採点ルール: isMissedMajorAction (>=70% 取りこぼし -1pt)', () => {
+  it('raise 80% を選ばない → missed_major', () => {
+    const r = scoreAnswer(s(0, 80, 20, 0), ['call']);
+    expect(r.finalScore).toBe(-1);
+  });
+  it('call 75% を選ばない → missed_major', () => {
+    const r = scoreAnswer(s(0, 0, 75, 25), ['fold']);
+    expect(r.finalScore).toBe(-1);
+  });
+  it('fold 70% を選ばない → missed_major', () => {
+    const r = scoreAnswer(s(0, 30, 0, 70), ['raise']);
+    expect(r.finalScore).toBe(-1);
+  });
+  it('allin 95% を選ばない → missed_major', () => {
+    const r = scoreAnswer(s(95, 0, 5, 0), ['call']);
+    // call 5% は instant_penalty で -1 (どちらでも -1)
+    expect(r.finalScore).toBe(-1);
+  });
+  it('70% 未満なら取りこぼしてもペナルティなし', () => {
+    const r = scoreAnswer(s(0, 60, 35, 5), ['raise']);
+    // call 35% は < 70%、fold 5% は instant の閾値ちょうど
+    expect(r.finalScore).not.toBe(-1);
+  });
+  it('70%以上のアクションを選んでいれば OK', () => {
+    const r = scoreAnswer(s(0, 80, 20, 0), ['raise', 'call']);
+    // raise 80% を選んでる + call 20% も選んでる
+    expect(r.finalScore).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('generateProblemDistribution', () => {
+  it('合計が常に 20', () => {
+    for (let i = 0; i < 100; i++) {
+      const d = generateProblemDistribution();
+      expect(d.bb + d.vs3bet + d.vs4bet + d.riskyOpen).toBe(20);
+    }
+  });
+  it('各タイプの範囲遵守: bb/vs3bet/vs4bet が 4-8, riskyOpen が 2-4', () => {
+    for (let i = 0; i < 100; i++) {
+      const d = generateProblemDistribution();
+      expect(d.bb).toBeGreaterThanOrEqual(4);
+      expect(d.bb).toBeLessThanOrEqual(8);
+      expect(d.vs3bet).toBeGreaterThanOrEqual(4);
+      expect(d.vs3bet).toBeLessThanOrEqual(8);
+      expect(d.vs4bet).toBeGreaterThanOrEqual(4);
+      expect(d.vs4bet).toBeLessThanOrEqual(8);
+      expect(d.riskyOpen).toBeGreaterThanOrEqual(2);
+      expect(d.riskyOpen).toBeLessThanOrEqual(4);
+    }
   });
 });
 
@@ -327,7 +379,7 @@ describe('generateIntermediateQuestion (合成データで分布検証)', () => 
     for (let i = 0; i < 100; i++) {
       const q = generateIntermediateQuestion(data);
       expect(q.myPosition).toBe('BB');
-      expect(q.scenario).toBe('vs_open_bb');
+      expect(q.scenarioType).toBe('bb_response');
       expect(VS_OPEN_OPENERS).toContain(q.opener);
       openers.add(q.opener);
     }
@@ -379,7 +431,7 @@ describe('中級ジェネレータ invariant', () => {
     const data = mkData();
     for (let i = 0; i < 100; i++) {
       const q = generateIntermediateQuestion(data);
-      expect(q.scenario).toBe('vs_open_bb');
+      expect(q.scenarioType).toBe('bb_response');
     }
   });
 

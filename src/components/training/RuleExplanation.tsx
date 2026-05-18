@@ -361,9 +361,21 @@ function ScoringRulesBox() {
         5%未満の頻度を選ぶ →{' '}
         <span style={ptRedStyle}>-1pt</span>(即ペナルティ)
       </p>
+      <p style={scoringRowStyle}>
+        <span style={bullet}>●</span>
+        70%以上のアクションを選ばない →{' '}
+        <span style={ptRedStyle}>-1pt</span>
+      </p>
+      <p style={scoringRowStyle}>
+        <span style={bullet}>●</span>
+        時間切れ → <span style={ptRedStyle}>-1pt</span>
+      </p>
       <div style={scoringDividerStyle} />
       <p style={scoringExampleStyle}>
         例: Q4s でレイズ(0%)を選ぶと <span style={ptRedStyle}>-1pt</span>
+      </p>
+      <p style={scoringExampleStyle}>
+        合計がマイナスでも、獲得 pt は 0pt(マイナスにはなりません)
       </p>
     </div>
   );

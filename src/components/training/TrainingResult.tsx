@@ -22,6 +22,7 @@ import {
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
+import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import { judgmentColor, judgmentIcon } from './judgmentIcon';
 import { THEME } from '../../styles/theme';
 
@@ -125,6 +126,8 @@ export function TrainingResult({ level }: TrainingResultProps) {
   }
 
   const { score, total } = scoreInfo;
+  // 中級は finalSum が負になり得る。表示上は max(0, score) を採用。
+  const displayScore = mode === 'intermediate' ? Math.max(0, score) : score;
   const displayPct = total > 0 ? Math.round((Math.max(0, score) / total) * 100) : 0;
   const pointsPerQ = level.points ?? 0;
 
@@ -140,7 +143,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
             <span style={scoreLabelStyle}>
               {mode === 'intermediate' ? 'スコア' : '正解数'}
             </span>
-            <span style={scoreValueStyle}>{score}/{total}</span>
+            <span style={scoreValueStyle}>{displayScore}/{total}</span>
           </div>
           <div style={scoreCellStyle}>
             <span style={scoreLabelStyle}>
@@ -222,7 +225,7 @@ function IntermediateReviewCard({
         {icon}
       </span>
       <div style={missedCardLeftStyle}>
-        <span style={missedScenarioStyle}>vs {record.opener} open</span>
+        <span style={missedScenarioStyle}>{intermediateScenarioLabel(record)}</span>
         <CardSet
           cards={record.cards.map((c) => ({
             rank: c.rank as Rank,

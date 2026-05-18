@@ -24,6 +24,7 @@ import {
 import { ACTION_LABEL } from './IntermediateChoices';
 import { CardSet } from '../CardSet';
 import { HandRangeMatrix } from './HandRangeMatrix';
+import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import { THEME } from '../../styles/theme';
 import { PokerTable } from './PokerTable';
 import type { Suit, Rank } from '../../types/card';
@@ -96,12 +97,13 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
           <span style={progressCountStyle}>{index} / {total}</span>
         </div>
 
-        <div style={scenarioPillStyle}>vs {current.opener} open</div>
+        <div style={scenarioPillStyle}>{intermediateScenarioLabel(current)}</div>
 
         <PokerTable
-          mePosition="BB"
+          mePosition={current.myPosition}
           opener={current.opener}
           foldedSet={current.foldedBefore}
+          chipExtras={current.chipExtras}
         />
 
         <section style={handSectionStyle}>

@@ -35,6 +35,11 @@ export interface PlayerChip {
   amount: number;
 }
 
+export interface ChipExtra {
+  position: Position;
+  amount: number;
+}
+
 export interface PokerTableProps {
   /** 自分のポジション。下中央に配置される。 */
   mePosition: Position;
@@ -44,6 +49,12 @@ export interface PokerTableProps {
   openSize?: number;
   /** open より前にフォールド済の player (UI で透明化)。 */
   foldedSet?: ReadonlyArray<Position>;
+  /**
+   * 複数アクター対応: 指定ポジションに固定額のチップを表示。
+   * chipExtras に存在するポジションは opener や SB/BB ブラインドの値より優先される。
+   * (vs_3bet で opener=2.5 + 3bettor=12、vs_4bet で opener=30 + 3bettor=12 等)
+   */
+  chipExtras?: ReadonlyArray<ChipExtra>;
 }
 
 /** mePosition を「下中央」とした時の slot → position マッピング。 */
@@ -64,11 +75,15 @@ export function PokerTable({
   opener = null,
   openSize = 2.5,
   foldedSet = [],
+  chipExtras = [],
 }: PokerTableProps) {
   const slots = arrangePositions(mePosition);
   const foldedLookup = new Set(foldedSet);
 
   const chipFor = (pos: Position): PlayerChip | null => {
+    // chipExtras 優先 (vs_3bet / vs_4bet で複数アクターのチップを表示するため)
+    const extra = chipExtras.find((e) => e.position === pos);
+    if (extra) return { amount: extra.amount };
     if (pos === opener) return { amount: openSize };
     if (pos === 'SB' && opener !== 'SB') return { amount: SB_AMOUNT };
     if (pos === 'BB' && opener !== 'BB') return { amount: BB_AMOUNT };
