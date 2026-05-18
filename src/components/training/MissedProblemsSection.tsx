@@ -1,167 +1,86 @@
 // QuizPage 下部の「間違えた問題から復習」セクション。
-//
-// 構成:
-//   - 件数選択 (10/20/50/100) + [復習する] (全体復習開始)
-//   - 個別リスト (最大 20 件): シナリオ + ハンド + [復習する] + [復習リストから消す]
-//
-// データ取得は GET /api/account/missed-problems (Step 1 API)。
-// Step 1 で記録対象は中級のみのため、ここでも level=intermediate 固定。
+// 初級 / 中級 の 2 カードのみ。 タップで /quiz/review/{level} へ遷移。
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import {
-  apiGetMissedProblems,
-  apiRemoveMissedProblem,
-  type MissedProblemRow,
-} from '../../api/missedProblems';
+import { apiGetMissedProblems } from '../../api/missedProblems';
 import { useAuth } from '../../hooks/useAuth';
-import { navigate } from '../../router/router-core';
+import { Link } from '../../router/router';
 import { THEME } from '../../styles/theme';
 
-const LIMIT_OPTIONS = [10, 20, 50, 100] as const;
-type LimitOption = (typeof LIMIT_OPTIONS)[number];
-type ReviewLevel = 'beginner' | 'intermediate';
+type Counts = {
+  beginner: number | null;
+  intermediate: number | null;
+};
+
+const CARDS = [
+  { key: 'beginner', label: '初級', href: '/quiz/review/beginner' },
+  { key: 'intermediate', label: '中級', href: '/quiz/review/intermediate' },
+] as const;
 
 export function MissedProblemsSection() {
   const auth = useAuth();
-  const [level, setLevel] = useState<ReviewLevel>('intermediate');
-  const [limit, setLimit] = useState<LimitOption>(10);
-  const [items, setItems] = useState<MissedProblemRow[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Counts>({ beginner: null, intermediate: null });
 
   useEffect(() => {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setItems(null);
-    setLoadError(null);
-    apiGetMissedProblems(sid, { level, limit: 20 })
-      .then((rows) => {
-        if (!cancelled) setItems(rows);
+    Promise.all([
+      apiGetMissedProblems(sid, { level: 'beginner', limit: 1000 }),
+      apiGetMissedProblems(sid, { level: 'intermediate', limit: 1000 }),
+    ])
+      .then(([b, i]) => {
+        if (!cancelled) setCounts({ beginner: b.length, intermediate: i.length });
       })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : String(err));
+      .catch(() => {
+        /* silent fallback */
       });
-    return () => { cancelled = true; };
-  }, [auth.sessionId, level]);
-
-  const startBulkReview = () => {
-    const params = new URLSearchParams({ level, limit: String(limit) });
-    navigate(`/training/review/play?${params.toString()}`);
-  };
-
-  const startSingleReview = (problemId: number) => {
-    const params = new URLSearchParams({ level, problem_id: String(problemId) });
-    navigate(`/training/review/play?${params.toString()}`);
-  };
-
-  const handleRemove = async (problemId: number) => {
-    if (!auth.sessionId) return;
-    try {
-      await apiRemoveMissedProblem(auth.sessionId, problemId);
-      setItems((prev) => (prev ? prev.filter((p) => p.id !== problemId) : prev));
-    } catch {
-      // silent fallback
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.sessionId]);
 
   return (
     <section style={sectionStyle} aria-label="間違えた問題から復習">
       <header style={headerStyle}>間違えた問題から復習</header>
-
-      <div style={controlRowStyle}>
-        <label style={labelStyle}>
-          レベル
-          <select
-            value={level}
-            onChange={(e) => setLevel(e.target.value as ReviewLevel)}
-            style={selectStyle}
-          >
-            <option value="intermediate">中級</option>
-            <option value="beginner">初級</option>
-          </select>
-        </label>
-        <label style={labelStyle}>
-          問題数
-          <select
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value) as LimitOption)}
-            style={selectStyle}
-          >
-            {LIMIT_OPTIONS.map((n) => (
-              <option key={n} value={n}>{n}問</option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={startBulkReview}
-          style={primaryBtnStyle}
-          disabled={!items || items.length === 0}
-        >
-          復習する
-        </button>
-      </div>
-
-      {loadError && <div style={errorStyle}>取得失敗: {loadError}</div>}
-
-      {items === null ? (
-        <div style={infoStyle}>読み込み中…</div>
-      ) : items.length === 0 ? (
-        <div style={infoStyle}>まだ間違えた問題がありません。</div>
-      ) : (
-        <ul style={listStyle}>
-          {items.map((row) => (
-            <li key={row.id} style={itemStyle}>
-              <div style={itemLeftStyle}>
-                <span style={scenarioPillStyle}>{labelFor(row)}</span>
-                <span style={handStyle}>{row.hand}</span>
-              </div>
-              <div style={itemBtnRowStyle}>
-                <button
-                  type="button"
-                  onClick={() => startSingleReview(row.id)}
-                  style={smallBtnStyle}
-                >
-                  復習する
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(row.id)}
-                  style={smallBtnDangerStyle}
-                >
-                  復習リストから消す
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      {CARDS.map((c) => (
+        <Card
+          key={c.key}
+          label={c.label}
+          href={c.href}
+          count={counts[c.key]}
+        />
+      ))}
     </section>
   );
 }
 
-/** missed_problems row → 日本語ラベル (intermediateScenarioLabel を参考に最小実装)。 */
-function labelFor(row: MissedProblemRow): string {
-  switch (row.scenario_type) {
-    case 'bb_response':
-      return `vs ${row.opener_position ?? '?'} open`;
-    case 'middle_vs_open':
-      return `${row.hero_position} vs ${row.opener_position ?? '?'} open`;
-    case 'vs_3bet':
-      return `${row.hero_position} → vs ${row.three_bettor_position ?? '?'} 3bet`;
-    case 'vs_4bet':
-      return `${row.hero_position} → vs ${row.opener_position ?? '?'} 4bet`;
-    case 'risky_open':
-      return `${row.hero_position} open`;
-    case 'beginner_open':
-      return `${row.hero_position} open`;
-    case 'beginner_vs_open':
-      return `vs ${row.opener_position ?? '?'} open`;
-    default:
-      return row.scenario_type;
+function Card({
+  label,
+  href,
+  count,
+}: {
+  label: string;
+  href: string;
+  count: number | null;
+}) {
+  if (count === 0) {
+    return (
+      <div style={emptyCardStyle}>
+        <span style={cardLabelStyle}>{label}</span>
+        <span style={emptyHintStyle}>(間違えた問題なし)</span>
+      </div>
+    );
   }
+  return (
+    <Link to={href} style={cardStyle}>
+      <span style={cardLabelStyle}>{label}</span>
+      <span style={cardRightStyle}>
+        {count !== null && <span style={countStyle}>{count}件</span>}
+        <span style={chevronStyle} aria-hidden>▶</span>
+      </span>
+    </Link>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -179,115 +98,43 @@ const headerStyle: CSSProperties = {
   color: THEME.textSecondary,
   letterSpacing: '0.04em',
 };
-const controlRowStyle: CSSProperties = {
+const cardStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '0.6rem',
-  padding: '0.6rem 0.85rem',
+  justifyContent: 'space-between',
+  gap: '0.7rem',
+  padding: '0.85rem 1rem',
   background: '#fff',
   border: `1px solid ${THEME.border}`,
   borderRadius: '0.5rem',
+  textDecoration: 'none',
 };
-const labelStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.4rem',
-  fontSize: '0.85rem',
-  color: THEME.textPrimary,
+const emptyCardStyle: CSSProperties = {
+  ...cardStyle,
+  background: '#f5f1ea',
+  opacity: 0.85,
+  cursor: 'default',
 };
-const selectStyle: CSSProperties = {
-  padding: '0.3rem 0.45rem',
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '0.3rem',
-  fontFamily: 'inherit',
-  fontSize: '0.85rem',
-};
-const primaryBtnStyle: CSSProperties = {
-  marginLeft: 'auto',
-  padding: '0.45rem 0.95rem',
-  background: THEME.accent,
-  color: '#fff',
-  border: 'none',
-  borderRadius: '0.4rem',
-  fontSize: '0.9rem',
+const cardLabelStyle: CSSProperties = {
+  fontSize: '1rem',
   fontWeight: 700,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
+  color: THEME.accent,
 };
-const infoStyle: CSSProperties = {
-  fontSize: '0.82rem',
-  color: THEME.textMuted,
-  padding: '0.5rem 0.85rem',
-};
-const errorStyle: CSSProperties = {
-  fontSize: '0.82rem',
-  color: THEME.errorText,
-  background: THEME.errorBg,
-  border: `1px solid ${THEME.errorBorder}`,
-  borderRadius: '0.3rem',
-  padding: '0.4rem 0.6rem',
-};
-const listStyle: CSSProperties = {
-  listStyle: 'none',
-  margin: 0,
-  padding: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.4rem',
-};
-const itemStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.4rem',
-  padding: '0.55rem 0.85rem',
-  background: '#fff',
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '0.4rem',
-};
-const itemLeftStyle: CSSProperties = {
+const cardRightStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '0.55rem',
-  flexWrap: 'wrap',
 };
-const scenarioPillStyle: CSSProperties = {
-  fontSize: '0.74rem',
-  fontWeight: 700,
-  color: '#993C1D',
-  background: '#FAEEDA',
-  border: '1px solid #E5A551',
-  borderRadius: '999px',
-  padding: '0.15rem 0.55rem',
+const countStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textSecondary,
+  fontVariantNumeric: 'tabular-nums',
 };
-const handStyle: CSSProperties = {
-  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  fontSize: '0.95rem',
-  fontWeight: 700,
-  color: THEME.textPrimary,
+const chevronStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  color: THEME.textMuted,
 };
-const itemBtnRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: '0.45rem',
-};
-const smallBtnStyle: CSSProperties = {
-  padding: '0.35rem 0.7rem',
-  background: THEME.accent,
-  color: '#fff',
-  border: 'none',
-  borderRadius: '0.3rem',
-  fontSize: '0.8rem',
-  fontWeight: 600,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
-const smallBtnDangerStyle: CSSProperties = {
-  padding: '0.35rem 0.7rem',
-  background: '#fff',
-  color: '#7A2A26',
-  border: `1px solid #C25855`,
-  borderRadius: '0.3rem',
-  fontSize: '0.8rem',
-  fontWeight: 600,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
+const emptyHintStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textMuted,
 };

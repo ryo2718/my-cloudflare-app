@@ -138,18 +138,6 @@ export function recordToIntermediateQuestion(
   };
 }
 
-/** row 配列をまとめて変換、不正な row は除外。 */
-export function recordsToQuestions(
-  rows: ReadonlyArray<MissedProblemRow>,
-): IntermediateQuestion[] {
-  const out: IntermediateQuestion[] = [];
-  for (const r of rows) {
-    const q = recordToIntermediateQuestion(r);
-    if (q) out.push(q);
-  }
-  return out;
-}
-
 // ---------------------------------------------------------------------------
 // 初級復習用 (Step 3a)
 // ---------------------------------------------------------------------------
@@ -199,13 +187,3 @@ export function recordToBeginnerQuestion(row: MissedProblemRow): PreflopQuestion
   };
 }
 
-export function recordsToBeginnerQuestions(
-  rows: ReadonlyArray<MissedProblemRow>,
-): PreflopQuestion[] {
-  const out: PreflopQuestion[] = [];
-  for (const r of rows) {
-    const q = recordToBeginnerQuestion(r);
-    if (q) out.push(q);
-  }
-  return out;
-}

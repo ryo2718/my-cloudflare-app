@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recordToIntermediateQuestion, recordsToQuestions } from './reviewMode';
+import { recordToIntermediateQuestion } from './reviewMode';
 import type { MissedProblemRow } from '../../api/missedProblems';
 
 function row(over: Partial<MissedProblemRow>): MissedProblemRow {
@@ -103,24 +103,11 @@ describe('recordToIntermediateQuestion (各シナリオの復元)', () => {
   });
 });
 
-describe('recordsToQuestions (batch)', () => {
-  it('有効な row のみ抽出、不正は除外', () => {
-    const rows = [
-      row({ id: 1, scenario_type: 'bb_response' }),
-      row({ id: 2, training_type: 'preflop_beginner' }),   // 除外
-      row({ id: 3, scenario_type: 'invalid' }),            // 除外
-      row({ id: 4, scenario_type: 'middle_vs_open', hero_position: 'BTN' }),
-    ];
-    const out = recordsToQuestions(rows);
-    expect(out).toHaveLength(2);
-  });
-});
-
 // ---------------------------------------------------------------------------
 // 初級復習 (Step 3a)
 // ---------------------------------------------------------------------------
 
-import { recordToBeginnerQuestion, recordsToBeginnerQuestions } from './reviewMode';
+import { recordToBeginnerQuestion } from './reviewMode';
 
 describe('recordToBeginnerQuestion (初級復習用)', () => {
   it('beginner_open: scenario=open, opener=null, correct=participate (raise>fold)', () => {
@@ -185,15 +172,3 @@ describe('recordToBeginnerQuestion (初級復習用)', () => {
   });
 });
 
-describe('recordsToBeginnerQuestions (batch)', () => {
-  it('有効な row のみ抽出', () => {
-    const rows = [
-      row({ id: 1, training_type: 'preflop_beginner', scenario_type: 'beginner_open', opener_position: null }),
-      row({ id: 2, training_type: 'preflop_intermediate' }),  // 除外
-      row({ id: 3, training_type: 'preflop_beginner', scenario_type: 'beginner_vs_open', opener_position: 'HJ', hero_position: 'BB' }),
-      row({ id: 4, training_type: 'preflop_beginner', scenario_type: 'invalid' }),  // 除外
-    ];
-    const out = recordsToBeginnerQuestions(rows);
-    expect(out).toHaveLength(2);
-  });
-});

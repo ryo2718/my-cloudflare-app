@@ -13,13 +13,13 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AccountsList } from './components/admin/AccountsList';
 import { GroupKeyForm } from './components/admin/GroupKeyForm';
 import { UsersStatistics } from './components/admin/UsersStatistics';
+import { MissedProblemsListPage } from './components/training/MissedProblemsListPage';
+import { MissedProblemAnswerPage } from './components/training/MissedProblemAnswerPage';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
-import { TrainingReviewPlay } from './components/training/TrainingReviewPlay';
-import { TrainingReviewPlayBeginner } from './components/training/TrainingReviewPlayBeginner';
 import { TrainingRules } from './components/training/TrainingRules';
 
 const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
@@ -61,15 +61,20 @@ export default function App() {
     }
   }, [path, account]);
 
-  // /training/review/play (専用ルート、URL クエリ level=beginner/intermediate で分岐)
-  if (path === '/training/review/play') {
-    const reviewLevel =
-      typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search).get('level')
-        : null;
-    return reviewLevel === 'beginner'
-      ? <TrainingReviewPlayBeginner />
-      : <TrainingReviewPlay />;
+  // /quiz/review/{level}/answer/{id}: 答え合わせ画面 (復習)
+  const answerMatch = path.match(/^\/quiz\/review\/(beginner|intermediate)\/answer\/(\d+)\/?$/);
+  if (answerMatch) {
+    const lv = answerMatch[1] as 'beginner' | 'intermediate';
+    const id = Number(answerMatch[2]);
+    if (Number.isFinite(id) && id > 0) {
+      return <MissedProblemAnswerPage level={lv} id={id} />;
+    }
+  }
+  // /quiz/review/{level}: 復習リスト画面
+  const listMatch = path.match(/^\/quiz\/review\/(beginner|intermediate)\/?$/);
+  if (listMatch) {
+    const lv = listMatch[1] as 'beginner' | 'intermediate';
+    return <MissedProblemsListPage level={lv} />;
   }
 
   // training routes
