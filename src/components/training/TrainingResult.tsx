@@ -23,7 +23,7 @@ import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
 import { intermediateScenarioLabel } from './intermediateScenarioLabel';
-import { judgmentColor, judgmentIcon } from './judgmentIcon';
+import { judgmentIcon } from './judgmentIcon';
 import { breakdownPct, computeScoreBreakdown } from './scoreBreakdown';
 import { THEME } from '../../styles/theme';
 
@@ -333,7 +333,12 @@ function IntermediateReviewCard({
   onReview: () => void;
 }) {
   const icon = judgmentIcon(record.finalScore);
-  const color = judgmentColor(record.finalScore);
+  // スコア内訳と同じ色テーブルを参照 (◎ 緑 / ○ オレンジ / △ グレー / ✕ 赤)
+  const color =
+    record.finalScore >= 2 ? '#3B6D11'
+      : record.finalScore === 1 ? '#BA7517'
+      : record.finalScore === 0 ? '#888780'
+      : '#A32D2D';
   return (
     <div style={missedCardStyle}>
       <span style={{ ...iconBadgeStyle, color }} aria-label={`判定: ${icon}`}>
