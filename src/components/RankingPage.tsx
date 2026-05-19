@@ -84,11 +84,6 @@ export function RankingPage() {
               </div>
             )}
             <RankingList data={state.data} myAccountName={myName} />
-            {state.data.hide_points_reason === 'too_many_top3' && (
-              <div style={noteStyle}>
-                (同順位が半数以上のため pt 非公開)
-              </div>
-            )}
             {state.data.reference.length > 0 && (
               <ReferenceSection
                 reference={state.data.reference}
@@ -134,6 +129,7 @@ function RankingList({
   if (data.ranking.length === 0) {
     return <div style={infoStyle}>まだランキングデータがありません。</div>;
   }
+  const hideAll = data.hide_points_reason === 'too_many_top3';
   return (
     <ul style={listStyle}>
       {data.ranking.map((row, idx) => (
@@ -141,25 +137,35 @@ function RankingList({
           key={`${row.rank}-${row.poker_name}-${idx}`}
           row={row}
           isMe={data.my_rank === row.rank && row.poker_name === myAccountName}
+          hideAll={hideAll}
         />
       ))}
     </ul>
   );
 }
 
-function RankingRow({ row, isMe }: { row: RankingEntry; isMe: boolean }) {
+function RankingRow({
+  row,
+  isMe,
+  hideAll,
+}: {
+  row: RankingEntry;
+  isMe: boolean;
+  hideAll: boolean;
+}) {
+  // 非公開モード: 順位番号と pt を全行で隠す (ランクアイコン + 名前のみ)
   return (
     <li
       style={isMe ? rowMeStyle : rowStyle}
       aria-label={isMe ? '自分の順位' : undefined}
     >
-      <span style={rankStyle}>{row.rank}位</span>
+      {!hideAll && <span style={rankStyle}>{row.rank}位</span>}
       <RankIcon achievementIds={row.achievement_ids} />
       <span style={isMe ? nameMeStyle : nameStyle}>
         {isMe && <span style={starStyle}>★ </span>}
         {row.poker_name}
       </span>
-      {row.points_visible && row.total_points !== null && (
+      {!hideAll && row.points_visible && row.total_points !== null && (
         <span style={ptStyle}>{row.total_points}pt</span>
       )}
     </li>
@@ -334,10 +340,6 @@ const rankIconPlaceholderStyle: CSSProperties = {
   fontSize: '0.95rem',
   color: '#888780',
   flexShrink: 0,
-};
-const noteStyle: CSSProperties = {
-  fontSize: '0.78rem',
-  color: THEME.textMuted,
 };
 const infoStyle: CSSProperties = {
   color: THEME.textMuted,
