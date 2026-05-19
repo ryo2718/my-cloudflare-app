@@ -318,10 +318,14 @@ function StatsSection({ title, rows }: { title: string; rows: StatsRow[] }) {
           return (
             <li key={r.key} style={statsRowStyle}>
               <span style={statsLabelStyle}>{r.label}</span>
-              <span style={isEmpty ? statsPctMutedStyle : statsPctStyle}>
-                {r.correctRate.toFixed(1)}%
-              </span>
-              <span style={statsCountStyle}>({r.total}問)</span>
+              {isEmpty ? (
+                <span style={statsNoDataStyle}>データなし</span>
+              ) : (
+                <>
+                  <span style={statsPctStyle}>{r.correctRate.toFixed(1)}%</span>
+                  <span style={statsCountStyle}>({r.total}問)</span>
+                </>
+              )}
             </li>
           );
         })}
@@ -650,10 +654,11 @@ const statsPctStyle: CSSProperties = {
   minWidth: '3.5rem',
   textAlign: 'right',
 };
-const statsPctMutedStyle: CSSProperties = {
-  ...statsPctStyle,
+const statsNoDataStyle: CSSProperties = {
+  gridColumn: '2 / 4',
+  fontSize: '0.82rem',
   color: THEME.textMuted,
-  fontWeight: 600,
+  textAlign: 'right',
 };
 
 const resetSectionStyle: CSSProperties = {

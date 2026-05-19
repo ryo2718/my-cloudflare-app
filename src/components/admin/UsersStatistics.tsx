@@ -82,20 +82,26 @@ function UserStatCard({ user }: { user: UserStats }) {
         <tbody>
           {LEVELS.map(({ key, label }) => {
             const lv = user.levels[key];
+            // levels[key] === null → 「未挑戦」 (training_results なし + problem_attempts < 20)
+            // measured_attempts === 0 → 「データなし」 (training_results はあるが集計対象 problem_attempts なし)
             return (
               <tr key={key}>
                 <td style={tdLabelStyle}>{label}</td>
-                {lv ? (
+                {!lv ? (
+                  <td style={emptyTdStyle} colSpan={4}>
+                    未挑戦
+                  </td>
+                ) : lv.measured_attempts === 0 ? (
+                  <td style={emptyTdStyle} colSpan={4}>
+                    データなし
+                  </td>
+                ) : (
                   <>
                     <td style={tdStyle}>{lv.min_correct_rate.toFixed(1)}%</td>
                     <td style={tdStyle}>{lv.max_correct_rate.toFixed(1)}%</td>
                     <td style={tdStyle}>{lv.avg_correct_rate.toFixed(1)}%</td>
                     <td style={tdStyle}>{lv.measured_attempts}</td>
                   </>
-                ) : (
-                  <td style={emptyTdStyle} colSpan={4}>
-                    未挑戦
-                  </td>
                 )}
               </tr>
             );
