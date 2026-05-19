@@ -63,6 +63,8 @@ export function SavedAccountsTab({
             `${account.poker_name} のパスワードがサーバ側と一致しません。`
             + '（パスワードが変わった可能性。削除して再ログインを推奨）',
           );
+        } else if (err.code === 'already_logged_in') {
+          setError('すでに他の端末でログイン中です');
         } else {
           setError(`エラー: ${err.code}`);
         }

@@ -90,6 +90,22 @@ export async function deleteSession(db: D1Database, sessionId: string): Promise<
 }
 
 /**
+ * 指定 account に有効 (expires_at > now) なセッションが存在するか。
+ * 先着優先の単一端末制限で「既ログイン中」判定に使う。
+ */
+export async function hasActiveSessionForAccount(
+  db: D1Database,
+  accountId: number,
+): Promise<boolean> {
+  const now = Date.now();
+  const row = await db
+    .prepare('SELECT id FROM sessions WHERE account_id = ? AND expires_at > ? LIMIT 1')
+    .bind(accountId, now)
+    .first<{ id: string }>();
+  return row !== null;
+}
+
+/**
  * 指定 account の全セッションを削除。
  * 単一端末ログイン制限 (一般ユーザーのみ、admin / is_ranking_excluded は例外) で使用。
  */

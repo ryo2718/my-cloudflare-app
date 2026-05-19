@@ -143,6 +143,8 @@ function LoginPane() {
       if (err instanceof AuthApiError) {
         if (err.code === 'invalid_group_key') setError('グループキーが違います');
         else if (err.code === 'invalid_credentials') setError('名前またはパスワードが違います');
+        else if (err.code === 'already_logged_in')
+          setError('すでに他の端末でログイン中です');
         else setError(`エラー: ${err.code}`);
       } else {
         setError(err instanceof Error ? err.message : '不明なエラー');

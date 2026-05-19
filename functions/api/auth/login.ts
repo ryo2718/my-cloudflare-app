@@ -17,9 +17,9 @@ import {
 } from '../../lib/auth';
 import {
   createSession,
-  deleteAccountSessions,
   findAccountByName,
   findActiveGroupKey,
+  hasActiveSessionForAccount,
   touchLastLogin,
 } from '../../lib/db';
 import { SESSION_DURATION_MS, type AuthSuccess, type Env } from '../../lib/types';
@@ -73,12 +73,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonResponse(401, { error: 'invalid_credentials' });
   }
 
-  // 単一端末ログイン制限: 新規ログイン前に旧セッションを全削除する。
-  //   ホワイトリスト (poker_name) に載っているユーザーのみ複数端末ログイン許可
-  //   (デバッグ用)。 admin / ryoji も対象外なので 1 端末のみ。
+  // 単一端末ログイン制限 (先着優先):
+  //   既に有効セッションがあれば新規ログインを 409 で拒否する。
+  //   ホワイトリスト (poker_name) に載っているユーザーは複数端末許可 (テスト君のみ)。
+  //   既ログイン端末側の解除手段はログアウト or セッション期限切れ。
   const isExempt = MULTI_DEVICE_ALLOWED_USERS.includes(account.poker_name);
   if (!isExempt) {
-    await deleteAccountSessions(env.DB, account.id);
+    const alreadyLoggedIn = await hasActiveSessionForAccount(env.DB, account.id);
+    if (alreadyLoggedIn) {
+      return jsonResponse(409, { error: 'already_logged_in' });
+    }
   }
 
   // session 発行
