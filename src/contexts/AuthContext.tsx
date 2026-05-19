@@ -124,17 +124,20 @@ export function AuthProvider({ children }: ProviderProps) {
     [],
   );
 
-  const logout = useCallback(async () => {
-    const currentId = sessionId ?? readStoredSessionId();
-    if (currentId) {
-      await apiLogout(currentId);
-    }
-    writeStoredSessionId(null);
-    setSessionId(null);
-    setAccount(null);
-    setStatus('unauthenticated');
-    setSignedOutReason(null);
-  }, [sessionId]);
+  const logout = useCallback(
+    async (reason?: Exclude<SignedOutReason, null>) => {
+      const currentId = sessionId ?? readStoredSessionId();
+      if (currentId) {
+        await apiLogout(currentId);
+      }
+      writeStoredSessionId(null);
+      setSessionId(null);
+      setAccount(null);
+      setStatus('unauthenticated');
+      setSignedOutReason(reason ?? null);
+    },
+    [sessionId],
+  );
 
   const value = useMemo<AuthState>(
     () => ({ status, account, sessionId, signedOutReason, login, signup, logout }),

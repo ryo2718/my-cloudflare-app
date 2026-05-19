@@ -67,6 +67,11 @@ export function LoginGate({ children }: Props) {
             他の端末でログインされました。再度ログインしてください。
           </div>
         )}
+        {auth.signedOutReason === 'idle' && (
+          <div style={kickedNoticeStyle} role="status">
+            長時間操作がなかったため自動ログアウトしました
+          </div>
+        )}
 
         <div style={tabRowStyle} role="tablist">
           {hasSaved && (

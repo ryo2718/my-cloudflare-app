@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
+import { useIdleLogout } from './hooks/useIdleLogout';
 import { navigate, useRoute } from './router/router-core';
 import { TRAINING_CATALOG, isPlayable, type TrainingLevel } from './data/trainingCatalog';
 import { AccountPage } from './components/AccountPage';
@@ -56,6 +57,7 @@ function matchTrainingRoute(path: string): TrainingMatch | null {
 export default function App() {
   const path = useRoute();
   const { account } = useAuth();
+  useIdleLogout();
 
   useEffect(() => {
     if (path.startsWith('/admin') && account && !account.is_admin) {

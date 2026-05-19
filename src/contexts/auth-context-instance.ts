@@ -11,10 +11,10 @@ export type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
 
 /**
  * 'kicked' = 他端末で同じアカウントが新規ログインしたためサーバー側でセッションを削除された。
- *   LoginGate で「他の端末でログインされました。再度ログインしてください。」を表示する。
- * null    = 通常の未ログイン状態。
+ * 'idle'   = クライアント側で 5 分間ボタン操作がなく自動ログアウトされた。
+ * null     = 通常の未ログイン状態。
  */
-export type SignedOutReason = 'kicked' | null;
+export type SignedOutReason = 'kicked' | 'idle' | null;
 
 export interface AuthState {
   status: AuthStatus;
@@ -23,7 +23,8 @@ export interface AuthState {
   signedOutReason: SignedOutReason;
   login: (args: { pokerName: string; privatePass: string; groupKey: string }) => Promise<void>;
   signup: (args: { pokerName: string; privatePass: string; groupKey: string }) => Promise<void>;
-  logout: () => Promise<void>;
+  /** reason='idle' で呼ぶと LoginGate に自動ログアウト案内が出る。 */
+  logout: (reason?: Exclude<SignedOutReason, null>) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthState | null>(null);
