@@ -44,7 +44,12 @@ export interface SessionRow {
   account_id: number;
   created_at: number;
   expires_at: number;
+  /** migration 0011: 各認証チェックで Date.now() に更新。 5 分以上経過で失効扱い。 */
+  last_accessed_at: number;
 }
+
+/** セッション無アクセスでの自動失効しきい値 (ms)。 クライアント側 useIdleLogout と同じ 5 分。 */
+export const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** missed_problems テーブル 1 行。 */
 export interface MissedProblemRow {

@@ -17,6 +17,7 @@ import {
 } from '../../lib/auth';
 import {
   createSession,
+  deleteIdleSessions,
   findAccountByName,
   findActiveGroupKey,
   hasActiveSessionForAccount,
@@ -79,6 +80,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   //   既ログイン端末側の解除手段はログアウト or セッション期限切れ。
   const isExempt = MULTI_DEVICE_ALLOWED_USERS.includes(account.poker_name);
   if (!isExempt) {
+    // 失効済み (idle timeout 超過) のセッションを先に物理削除して幽霊セッションを掃除。
+    // クライアント側 useIdleLogout と同じ 5 分なので、 整合性が取れる。
+    await deleteIdleSessions(env.DB, account.id);
     const alreadyLoggedIn = await hasActiveSessionForAccount(env.DB, account.id);
     if (alreadyLoggedIn) {
       return jsonResponse(409, { error: 'already_logged_in' });

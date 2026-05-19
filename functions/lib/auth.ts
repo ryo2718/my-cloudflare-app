@@ -6,8 +6,13 @@
 // 旧 site-wide HMAC cookie 認証 (createAuthCookie / verifyAuthCookie) は撤去。
 // 新方式: D1 sessions テーブルを single source of truth とする。
 
-import { findAccountById, findActiveSession } from './db';
-import type { AccountPublic, AccountRow } from './types';
+import {
+  deleteSession,
+  findAccountById,
+  findActiveSession,
+  touchSessionAccess,
+} from './db';
+import { SESSION_IDLE_TIMEOUT_MS, type AccountPublic, type AccountRow } from './types';
 
 /** Authorization: Bearer <id> から <id> を抽出。形式不正/欠落は null。 */
 export function extractBearerToken(headerValue: string | null): string | null {
@@ -16,15 +21,28 @@ export function extractBearerToken(headerValue: string | null): string | null {
   return m ? m[1] : null;
 }
 
-/** D1 から session を検証し、対応 account を返す。失効/不正は null。 */
+/**
+ * D1 から session を検証し、 対応 account を返す。 失効 / 不正は null。
+ *  - findActiveSession で expires_at + idle timeout チェック
+ *  - 失効を確認できた場合は念のため session 行を物理削除 (幽霊セッション防止)
+ *  - 有効ならば last_accessed_at を Date.now() に更新 (アイドル猶予のリセット)
+ */
 export async function resolveAccountFromSession(
   db: D1Database,
   sessionId: string,
 ): Promise<AccountRow | null> {
   const session = await findActiveSession(db, sessionId);
-  if (!session) return null;
+  if (!session) {
+    // 失効分の物理削除 (id 一致行のみ、 他端末セッションには影響しない)
+    await deleteSession(db, sessionId).catch(() => {});
+    return null;
+  }
+  await touchSessionAccess(db, sessionId).catch(() => {});
   return await findAccountById(db, session.account_id);
 }
+
+/** SESSION_IDLE_TIMEOUT_MS を auth 経由で公開 (ログイン側でも利用)。 */
+export const IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MS;
 
 /** Request の Authorization header から account を直接取り出すショートカット。 */
 export async function resolveAccountFromRequest(
