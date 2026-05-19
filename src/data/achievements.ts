@@ -1,8 +1,10 @@
 // 実績マスタ (クライアント表示用)。 サーバー側 functions/lib/achievements.ts の
 // 解除判定ロジックと achievement_id が一致している必要がある。
 //
-// ※ 実績の名前・説明は仮設定。 ユーザーが確定したら以下の ACHIEVEMENTS 配列を編集する。
-//    判定ロジックを変える場合はサーバー側 functions/lib/achievements.ts も合わせて更新。
+// ※ ティアの内部 id (shrimp/fish/shark/whale) はファイル名 / URL パスで使うため不変。
+//    UI 表示名 (label) は 「ビギナー / スタンダード / プロフェッショナル / マスター」。
+// ※ shark / whale (プロフェッショナル / マスター) は未実装。 判定ロジックも置かない。
+//    AchievementTierPage で「未実装」表記、 タップ不可。
 
 import shrimpImg from '../assets/tiers/shrimp.png';
 import fishImg from '../assets/tiers/fish.png';
@@ -19,8 +21,10 @@ export interface Tier {
   bg: string;
   border: string;
   textColor: string;
-  /** 鯨ティアのみ true (右上に ★ マークを表示)。 */
+  /** 鯨ティアのみ true (右上に ★ マーク)。 */
   star?: boolean;
+  /** 実績が定義されているか。 false なら「未実装」表示、 ランク昇格条件にも含めない。 */
+  implemented: boolean;
 }
 
 export interface Achievement {
@@ -33,60 +37,58 @@ export interface Achievement {
 export const TIERS: Tier[] = [
   {
     id: 'shrimp',
-    label: 'エビ',
-    sublabel: '初心者',
+    label: 'ビギナー',
+    sublabel: '',
     image: shrimpImg,
     bg: '#C0DD97',
     border: '#639922',
     textColor: '#27500A',
+    implemented: true,
   },
   {
     id: 'fish',
-    label: '魚',
-    sublabel: '中級者',
+    label: 'スタンダード',
+    sublabel: '',
     image: fishImg,
     bg: '#FAC775',
     border: '#BA7517',
     textColor: '#633806',
+    implemented: true,
   },
   {
     id: 'shark',
-    label: '鮫',
-    sublabel: '上級者',
+    label: 'プロフェッショナル',
+    sublabel: '未実装',
     image: sharkImg,
     bg: '#E24B4A',
     border: '#A32D2D',
     textColor: '#ffffff',
+    implemented: false,
   },
   {
     id: 'whale',
-    label: '鯨',
-    sublabel: 'マスター',
+    label: 'マスター',
+    sublabel: '未実装',
     image: whaleImg,
     bg: '#534AB7',
     border: '#FAC775',
     textColor: '#ffffff',
     star: true,
+    implemented: false,
   },
 ];
 
-// 仮設定 — ユーザー調整待ち。 サーバー判定 (functions/lib/achievements.ts) の id 列と一致。
+// 実績 5 件 (ビギナー 3 + スタンダード 2)。
+// プロ / マスターは未実装 — ACHIEVEMENTS から省く。 サーバー側判定ロジックも空。
+// 将来「単語トレーニング」が追加された場合、 説明文は「プリフロップ◯◯」と明示しているので
+// 単語トレーニング用の実績を別 tier で追加できる。
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'shrimp_1', tier: 'shrimp', name: 'ビギナー',           desc: 'トレーニングモードをプレイ' },
-  { id: 'shrimp_2', tier: 'shrimp', name: '初心者脱出',         desc: '初級モードをクリア (20/20)' },
-  { id: 'shrimp_3', tier: 'shrimp', name: 'トータル10回到達',   desc: 'トレーニングモードを 10 回以上プレイ' },
+  { id: 'shrimp_1', tier: 'shrimp', name: 'Welcome!',         desc: 'トレーニングモードを初めてプレイ' },
+  { id: 'shrimp_2', tier: 'shrimp', name: '初心者脱出!',     desc: 'プリフロップトレーニングで初級をクリア (20/20)' },
+  { id: 'shrimp_3', tier: 'shrimp', name: 'スタートダッシュ', desc: 'トレーニングモードを 10 回以上プレイ' },
 
-  { id: 'fish_1',   tier: 'fish',   name: '中級デビュー',       desc: '中級モードをプレイ' },
-  { id: 'fish_2',   tier: 'fish',   name: '中級合格',           desc: '中級モードで 20pt 以上獲得' },
-  { id: 'fish_3',   tier: 'fish',   name: '中級マスター',       desc: '中級モードで 30pt 以上獲得' },
-
-  { id: 'shark_1',  tier: 'shark',  name: '中級満点',           desc: '中級モードで 40pt (満点) 獲得' },
-  { id: 'shark_2',  tier: 'shark',  name: 'ポジション制覇',     desc: '全ポジションで正答率 80% 以上' },
-  { id: 'shark_3',  tier: 'shark',  name: '継続の達人',         desc: '7 日連続でトレーニング' },
-
-  { id: 'whale_1',  tier: 'whale',  name: 'パーフェクト達成',   desc: '中級モードで 40pt 達成 3 回' },
-  { id: 'whale_2',  tier: 'whale',  name: 'シーズン王者',       desc: '1 シーズンでランキング 1 位' },
-  { id: 'whale_3',  tier: 'whale',  name: '殿堂入り',           desc: '累計 500pt 達成' },
+  { id: 'fish_1',   tier: 'fish',   name: '中級者デビュー',   desc: 'プリフロップ中級で正答率 50% 以上 (20pt 以上)' },
+  { id: 'fish_2',   tier: 'fish',   name: 'プロへの入り口',   desc: 'プリフロップ中級をクリア (32pt 以上、 80%)' },
 ];
 
 export function tierById(id: string): Tier | undefined {

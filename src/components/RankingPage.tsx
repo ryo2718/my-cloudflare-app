@@ -17,6 +17,7 @@ import {
 } from '../api/ranking';
 import { useAuth } from '../hooks/useAuth';
 import { currentSeason } from '../utils/season';
+import { calculateRank } from '../utils/rank';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
@@ -153,6 +154,7 @@ function RankingRow({ row, isMe }: { row: RankingEntry; isMe: boolean }) {
       aria-label={isMe ? '自分の順位' : undefined}
     >
       <span style={rankStyle}>{row.rank}位</span>
+      <RankIcon achievementIds={row.achievement_ids} />
       <span style={isMe ? nameMeStyle : nameStyle}>
         {isMe && <span style={starStyle}>★ </span>}
         {row.poker_name}
@@ -161,6 +163,30 @@ function RankingRow({ row, isMe }: { row: RankingEntry; isMe: boolean }) {
         <span style={ptStyle}>{row.total_points}pt</span>
       )}
     </li>
+  );
+}
+
+function RankIcon({ achievementIds }: { achievementIds: string[] }) {
+  const rank = calculateRank(achievementIds);
+  if (!rank.image) {
+    return (
+      <span
+        style={rankIconPlaceholderStyle}
+        aria-label="ランクなし"
+        title="ランクなし"
+      >
+        —
+      </span>
+    );
+  }
+  return (
+    <img
+      src={rank.image}
+      alt={rank.label}
+      style={rankIconImgStyle}
+      title={rank.label}
+      loading="lazy"
+    />
   );
 }
 
@@ -183,6 +209,7 @@ function ReferenceSection({
               style={isMe ? referenceRowMeStyle : referenceRowStyle}
               aria-label={isMe ? '自分の行 (参考枠)' : undefined}
             >
+              <RankIcon achievementIds={row.achievement_ids} />
               <span style={referenceNameStyle}>
                 {isMe && <span style={starStyle}>★ </span>}
                 {row.poker_name}
@@ -291,6 +318,22 @@ const ptStyle: CSSProperties = {
   fontWeight: 700,
   color: '#639922',
   fontVariantNumeric: 'tabular-nums',
+};
+const rankIconImgStyle: CSSProperties = {
+  width: 28,
+  height: 28,
+  objectFit: 'contain',
+  flexShrink: 0,
+};
+const rankIconPlaceholderStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 28,
+  height: 28,
+  fontSize: '0.95rem',
+  color: '#888780',
+  flexShrink: 0,
 };
 const noteStyle: CSSProperties = {
   fontSize: '0.78rem',

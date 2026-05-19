@@ -17,11 +17,14 @@ export interface RankingEntry {
   poker_name: string;
   points_visible: boolean;
   total_points: number | null;
+  /** 各ユーザーの解除済み achievement_id 配列 (ランクアイコン表示用)。 */
+  achievement_ids: string[];
 }
 
 export interface ReferenceEntry {
   poker_name: string;
   total_points: number;
+  achievement_ids: string[];
 }
 
 export interface RankingResponse {

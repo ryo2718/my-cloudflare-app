@@ -30,14 +30,14 @@ function render(auth: AuthState): string {
 }
 
 describe('<AccountPage />', () => {
-  it('タイトル + ユーザー名 + ポイント表記 (今シーズン / 累計)', () => {
+  it('タイトル + ユーザー名 + ポイント表記 (ヒーローカード)', () => {
     const html = render(makeAuth());
     expect(html).toContain('アカウント情報');
-    expect(html).toContain('ユーザー');
     expect(html).toContain('テスト君');
     expect(html).toContain('今シーズン');
     expect(html).toContain('累計');
     expect(html).toContain('pt');
+    expect(html).toContain('ランクなし'); // 実績未取得 (SSR では unlocked=[] 扱い)
   });
 
   it('トレーニング成績セクション (プリフロップ/フロップ × 4 levels)', () => {

@@ -30,11 +30,19 @@ interface RankingRow {
   account_id: number;
   poker_name: string;
   total_points: number;
+  /** GROUP_CONCAT 結果 (カンマ区切り、 ない場合は null)。 */
+  achievement_ids: string | null;
 }
 
 interface ReferenceRow {
   poker_name: string;
   total_points: number;
+  achievement_ids: string | null;
+}
+
+function parseAchievementIds(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw.split(',').filter((s) => s.length > 0);
 }
 
 type RankType = 'total' | 'season';
@@ -55,8 +63,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ? `COALESCE(SUM(CASE WHEN t.season_id = ? THEN t.season_score ELSE 0 END), 0)`
       : `COALESCE(SUM(t.best_score), 0)`;
 
+  // user_achievements は相関サブクエリで GROUP_CONCAT し、 メイン JOIN を増やさず
+  //   training_results との行数倍化を回避。
   const rankingSql = `
-    SELECT a.id AS account_id, a.poker_name, ${sumExpr} AS total_points
+    SELECT a.id AS account_id, a.poker_name, ${sumExpr} AS total_points,
+           (SELECT GROUP_CONCAT(achievement_id) FROM user_achievements
+            WHERE account_id = a.id) AS achievement_ids
     FROM accounts a
     LEFT JOIN training_results t ON a.id = t.account_id
     WHERE a.is_admin = 0 AND a.is_ranking_excluded = 0
@@ -64,7 +76,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ORDER BY total_points DESC, a.id ASC
   `;
   const referenceSql = `
-    SELECT a.poker_name, ${sumExpr} AS total_points
+    SELECT a.poker_name, ${sumExpr} AS total_points,
+           (SELECT GROUP_CONCAT(achievement_id) FROM user_achievements
+            WHERE account_id = a.id) AS achievement_ids
     FROM accounts a
     LEFT JOIN training_results t ON a.id = t.account_id
     WHERE a.is_admin = 0 AND a.is_ranking_excluded = 1
@@ -87,6 +101,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const reference = (referenceRes.results ?? []).map((r) => ({
     poker_name: r.poker_name,
     total_points: r.total_points,
+    achievement_ids: parseAchievementIds(r.achievement_ids),
   }));
 
   return jsonResponse(200, {
@@ -109,7 +124,13 @@ function buildRanking(
   rows: ReadonlyArray<RankingRow>,
   meId: number,
 ): {
-  entries: { rank: number; poker_name: string; points_visible: boolean; total_points: number | null }[];
+  entries: {
+    rank: number;
+    poker_name: string;
+    points_visible: boolean;
+    total_points: number | null;
+    achievement_ids: string[];
+  }[];
   myRank: number | null;
   hidePointsReason: 'too_many_top3' | null;
 } {
@@ -137,6 +158,7 @@ function buildRanking(
       poker_name: row.poker_name,
       points_visible: visible,
       total_points: visible ? row.total_points : null,
+      achievement_ids: parseAchievementIds(row.achievement_ids),
     };
   });
 

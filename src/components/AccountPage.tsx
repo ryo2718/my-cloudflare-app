@@ -33,6 +33,7 @@ import {
   type TrainingLevel,
 } from '../data/trainingCatalog';
 import { AppHeader } from './AppHeader';
+import { calculateRank } from '../utils/rank';
 import { THEME } from '../styles/theme';
 
 type LoadState =
@@ -105,22 +106,13 @@ export function AccountPage() {
         <h1 style={titleStyle}>アカウント情報</h1>
         <div style={dividerStyle} />
 
-        <div style={infoRowStyle}>
-          <span style={infoLabelStyle}>ユーザー</span>
-          <span style={infoValueStyle}>{pokerName}</span>
-        </div>
-        <div style={infoRowStyle}>
-          <span style={infoLabelStyle}>今シーズン</span>
-          <span style={infoValuePrimaryStyle}>
-            {state.kind === 'loading' ? '…' : `${seasonPoints}pt`}
-          </span>
-        </div>
-        <div style={infoRowStyle}>
-          <span style={infoLabelStyle}>累計</span>
-          <span style={infoValuePrimaryStyle}>
-            {state.kind === 'loading' ? '…' : `${totalPoints}pt`}
-          </span>
-        </div>
+        <RankHero
+          pokerName={pokerName}
+          seasonPoints={seasonPoints}
+          totalPoints={totalPoints}
+          unlocked={unlocked}
+          loading={state.kind === 'loading'}
+        />
         {seasonName && currentSeasonId && (
           <div style={seasonNoteStyle}>{seasonName}</div>
         )}
@@ -227,6 +219,54 @@ function buildScenarioRows(stats: StatisticsResponse | null): StatsRow[] {
       correctRate: maxSum > 0 ? (scoreSum / maxSum) * 100 : 0,
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// ランクヒーローカード (アイコン + ユーザー名 + ランクラベル + pt)
+// ---------------------------------------------------------------------------
+
+function RankHero({
+  pokerName,
+  seasonPoints,
+  totalPoints,
+  unlocked,
+  loading,
+}: {
+  pokerName: string;
+  seasonPoints: number;
+  totalPoints: number;
+  unlocked: string[] | null;
+  loading: boolean;
+}) {
+  const rank = calculateRank(unlocked ?? []);
+  const bg = rank.bg ?? '#f5f1ea';
+  const border = rank.border ?? THEME.border;
+  return (
+    <section
+      style={{ ...heroStyle, background: bg, borderColor: border }}
+      aria-label="ランク"
+    >
+      <div style={heroIconStyle}>
+        {rank.image ? (
+          <img src={rank.image} alt="" style={heroIconImgStyle} loading="lazy" />
+        ) : (
+          <span style={heroIconPlaceholderStyle}>—</span>
+        )}
+      </div>
+      <div style={heroTextColStyle}>
+        <span style={{ ...heroNameStyle, color: rank.color }}>{pokerName}</span>
+        <span style={{ ...heroRankStyle, color: rank.color }}>{rank.label}</span>
+      </div>
+      <div style={heroPtRowStyle}>
+        <span style={{ ...heroPtStyle, color: rank.color }}>
+          {loading ? '…' : `今シーズン ${seasonPoints}pt`}
+        </span>
+        <span style={{ ...heroPtStyle, color: rank.color }}>
+          {loading ? '…' : `累計 ${totalPoints}pt`}
+        </span>
+      </div>
+    </section>
+  );
 }
 
 function ResetResultsSection() {
@@ -406,32 +446,66 @@ const dividerStyle: CSSProperties = {
   background: THEME.border,
 };
 
-const infoRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  justifyContent: 'space-between',
-  gap: '0.65rem',
-};
-const infoLabelStyle: CSSProperties = {
-  fontSize: '0.85rem',
-  color: THEME.textSecondary,
-};
-const infoValueStyle: CSSProperties = {
-  fontSize: '1rem',
-  fontWeight: 600,
-  color: THEME.textPrimary,
-};
-const infoValuePrimaryStyle: CSSProperties = {
-  fontSize: '1.1rem',
-  fontWeight: 700,
-  color: THEME.accent,
-  fontVariantNumeric: 'tabular-nums',
-};
-
 const seasonNoteStyle: CSSProperties = {
   fontSize: '0.74rem',
   color: '#5F5E5A',
   marginTop: '-0.2rem',
+};
+
+const heroStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'auto 1fr',
+  gridTemplateRows: 'auto auto',
+  columnGap: '0.85rem',
+  rowGap: '0.4rem',
+  alignItems: 'center',
+  border: '2px solid',
+  borderRadius: '0.6rem',
+  padding: '0.85rem 1rem',
+};
+const heroIconStyle: CSSProperties = {
+  gridRow: '1 / 3',
+  width: 84,
+  height: 84,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'rgba(255,255,255,0.35)',
+  borderRadius: '50%',
+};
+const heroIconImgStyle: CSSProperties = {
+  width: 78,
+  height: 78,
+  objectFit: 'contain',
+};
+const heroIconPlaceholderStyle: CSSProperties = {
+  fontSize: '1.5rem',
+  color: '#888780',
+};
+const heroTextColStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.1rem',
+};
+const heroNameStyle: CSSProperties = {
+  fontSize: '1.1rem',
+  fontWeight: 800,
+};
+const heroRankStyle: CSSProperties = {
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  opacity: 0.9,
+};
+const heroPtRowStyle: CSSProperties = {
+  gridColumn: '2 / 3',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '0.7rem',
+};
+const heroPtStyle: CSSProperties = {
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
 };
 
 const sectionLabelRowStyle: CSSProperties = {

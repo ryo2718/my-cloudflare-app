@@ -60,6 +60,38 @@ export function AchievementTierPage({ tier }: Props) {
     );
   }
 
+  if (!tierData.implemented) {
+    return (
+      <div style={pageStyle}>
+        <AppHeader showBack />
+        <main style={mainStyle}>
+          <Link to="/account" style={crumbStyle}>← アカウントに戻る</Link>
+          <div
+            style={{
+              ...heroStyle,
+              background: '#f5f1ea',
+              borderColor: '#D6CFC1',
+              borderStyle: 'dashed',
+              color: '#5F5E5A',
+            }}
+          >
+            <img src={tierData.image} alt="" style={{ ...heroImgStyle, filter: 'grayscale(0.6)', opacity: 0.75 }} loading="lazy" />
+            <div style={heroTextStyle}>
+              <span style={{ ...heroLabelStyle, color: '#5F5E5A' }}>
+                {tierData.label}
+              </span>
+            </div>
+            <span style={{ ...heroSubStyle, color: '#888780' }}>未実装</span>
+          </div>
+          <div style={notImplementedNoteStyle}>
+            このランクは現在準備中です。
+          </div>
+          <OtherTiers current={tier} />
+        </main>
+      </div>
+    );
+  }
+
   const tierAch = ACHIEVEMENTS.filter((a) => a.tier === tier);
   const unlockedSet =
     state.kind === 'ok' ? state.unlocked : new Set<string>();
@@ -84,9 +116,6 @@ export function AchievementTierPage({ tier }: Props) {
           <div style={heroTextStyle}>
             <span style={{ ...heroLabelStyle, color: tierData.textColor }}>
               {tierData.label}
-            </span>
-            <span style={{ ...heroSubStyle, color: tierData.textColor }}>
-              ({tierData.sublabel})
             </span>
           </div>
           <span style={{ ...heroCountStyle, color: tierData.textColor }}>
@@ -128,19 +157,38 @@ export function AchievementTierPage({ tier }: Props) {
 function OtherTiers({ current }: { current: TierId }) {
   const others = TIERS.filter((t) => t.id !== current);
   return (
-    <section style={otherSectionStyle} aria-label="他のティア">
-      <header style={otherHeaderStyle}>他のティア</header>
+    <section style={otherSectionStyle} aria-label="他の実績">
+      <header style={otherHeaderStyle}>他の実績</header>
       <div style={otherGridStyle}>
-        {others.map((t: Tier) => (
-          <Link
-            key={t.id}
-            to={`/account/achievements/${t.id}`}
-            style={{ ...otherCardStyle, background: t.bg, borderColor: t.border }}
-          >
-            <img src={t.image} alt="" style={otherImgStyle} loading="lazy" />
-            <span style={{ ...otherLabelStyle, color: t.textColor }}>{t.label}</span>
-          </Link>
-        ))}
+        {others.map((t: Tier) => {
+          if (!t.implemented) {
+            return (
+              <div
+                key={t.id}
+                style={{ ...otherCardDisabledStyle }}
+                aria-label={`${t.label} (未実装)`}
+              >
+                <img
+                  src={t.image}
+                  alt=""
+                  style={{ ...otherImgStyle, filter: 'grayscale(0.6)', opacity: 0.75 }}
+                  loading="lazy"
+                />
+                <span style={otherLabelDisabledStyle}>{t.label}</span>
+              </div>
+            );
+          }
+          return (
+            <Link
+              key={t.id}
+              to={`/account/achievements/${t.id}`}
+              style={{ ...otherCardStyle, background: t.bg, borderColor: t.border }}
+            >
+              <img src={t.image} alt="" style={otherImgStyle} loading="lazy" />
+              <span style={{ ...otherLabelStyle, color: t.textColor }}>{t.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
@@ -295,4 +343,25 @@ const otherImgStyle: CSSProperties = { width: 44, height: 44, objectFit: 'contai
 const otherLabelStyle: CSSProperties = {
   fontSize: '0.8rem',
   fontWeight: 700,
+};
+const otherCardDisabledStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.15rem',
+  padding: '0.45rem 0.4rem',
+  border: `1px dashed ${THEME.border}`,
+  borderRadius: '0.4rem',
+  background: '#f5f1ea',
+  opacity: 0.7,
+};
+const otherLabelDisabledStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  fontWeight: 600,
+  color: THEME.textMuted,
+};
+const notImplementedNoteStyle: CSSProperties = {
+  fontSize: '0.85rem',
+  color: THEME.textSecondary,
+  textAlign: 'center',
 };
