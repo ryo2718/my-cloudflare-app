@@ -85,15 +85,9 @@ export function MobileHandMatrix({ strategy, actions }: Props) {
               const hand = getHandName(row, col);
               const freqs = (strategy as Record<string, number[]>)[hand];
               const key = `${row}-${col}`;
-              // sparse strategy で未定義、または play 系合計が 0 (= 親ノードに来てない or 全 fold)
-              // の場合は空セル扱い (前ノードにないハンドが青で塗られるバグ回避)。
-              const isUnreachable =
-                !freqs ||
-                freqs.length === 0 ||
-                lighterActions.reduce((sum, a, i) => {
-                  const f = freqs[i] ?? 0;
-                  return a.id === 'fold' ? sum : sum + f;
-                }, 0) <= 0;
+              // 親ノードに含まれないハンド (= sparse strategy で key 未定義) は空セル。
+              // key が存在するハンドは GTO レンジ内なので、 fold 100% でも色塗り (青) する。
+              const isUnreachable = !freqs || freqs.length === 0;
               if (isUnreachable) {
                 return <div key={key} style={emptyCellStyle} />;
               }
