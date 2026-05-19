@@ -71,18 +71,6 @@
     "fold": "fold"
   },
   "hands": {
-    "55": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "66": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
     "77": {
       "allin": 0,
       "raise": 0,
@@ -95,6 +83,12 @@
       "call": 0,
       "fold": 100
     },
+    "99": {
+      "allin": 0,
+      "raise": 0,
+      "call": 82.5,
+      "fold": 17.5
+    },
     "AA": {
       "allin": 0,
       "raise": 0,
@@ -106,18 +100,6 @@
       "raise": 0,
       "call": 100,
       "fold": 0
-    },
-    "AQs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "fold": 0
-    },
-    "AJs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 82.5,
-      "fold": 17.5
     },
     "ATs": {
       "allin": 0,
@@ -137,11 +119,23 @@
       "call": 0,
       "fold": 100
     },
-    "A7s": {
+    "A5s": {
       "allin": 0,
       "raise": 0,
       "call": 0,
       "fold": 100
+    },
+    "A4s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AKo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
     },
     "KK": {
       "allin": 0,
@@ -149,13 +143,19 @@
       "call": 100,
       "fold": 0
     },
-    "KJs": {
+    "KTs": {
       "allin": 0,
       "raise": 0,
       "call": 0,
       "fold": 100
     },
-    "KTs": {
+    "K9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AQo": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -191,7 +191,7 @@
       "call": 0,
       "fold": 100
     },
-    "QJo": {
+    "KJo": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -203,13 +203,7 @@
       "call": 100,
       "fold": 0
     },
-    "ATo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "QTo": {
+    "JTs": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -221,7 +215,13 @@
       "call": 100,
       "fold": 0
     },
-    "T8s": {
+    "T9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "65s": {
       "allin": 0,
       "raise": 0,
       "call": 0,

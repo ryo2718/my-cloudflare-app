@@ -71,18 +71,6 @@
     "fold": "fold"
   },
   "hands": {
-    "55": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "66": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
     "77": {
       "allin": 0,
       "raise": 0,
@@ -98,8 +86,8 @@
     "99": {
       "allin": 0,
       "raise": 0,
-      "call": 0,
-      "fold": 100
+      "call": 99.1,
+      "fold": 0.9
     },
     "AA": {
       "allin": 0,
@@ -112,18 +100,6 @@
       "raise": 0,
       "call": 100,
       "fold": 0
-    },
-    "AQs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 100,
-      "fold": 0
-    },
-    "AJs": {
-      "allin": 0,
-      "raise": 0,
-      "call": 99.1,
-      "fold": 0.9
     },
     "ATs": {
       "allin": 0,
@@ -149,11 +125,23 @@
       "call": 0,
       "fold": 100
     },
-    "A3s": {
+    "A5s": {
       "allin": 0,
       "raise": 0,
       "call": 0,
       "fold": 100
+    },
+    "A4s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AKo": {
+      "allin": 0,
+      "raise": 0,
+      "call": 100,
+      "fold": 0
     },
     "KK": {
       "allin": 0,
@@ -174,6 +162,24 @@
       "fold": 100
     },
     "KTs": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "K9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "K6s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "AQo": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -209,43 +215,19 @@
       "call": 0,
       "fold": 100
     },
-    "KJo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "QJo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
     "JJ": {
       "allin": 0,
       "raise": 0,
       "call": 100,
       "fold": 0
     },
-    "J8s": {
+    "JTs": {
       "allin": 0,
       "raise": 0,
       "call": 0,
       "fold": 100
     },
-    "ATo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "QTo": {
-      "allin": 0,
-      "raise": 0,
-      "call": 0,
-      "fold": 100
-    },
-    "JTo": {
+    "J9s": {
       "allin": 0,
       "raise": 0,
       "call": 0,
@@ -256,6 +238,24 @@
       "raise": 0,
       "call": 100,
       "fold": 0
+    },
+    "T9s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "87s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
+    },
+    "65s": {
+      "allin": 0,
+      "raise": 0,
+      "call": 0,
+      "fold": 100
     }
   }
 }
