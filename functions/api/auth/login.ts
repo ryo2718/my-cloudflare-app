@@ -30,6 +30,13 @@ interface LoginBody {
   group_key?: unknown;
 }
 
+/**
+ * 複数端末ログイン許可リスト (poker_name 完全一致)。
+ *   ※「テスト君」は全角カタカナ + 漢字。 表記揺れに注意。
+ *   ※ admin / ryoji もデフォルトでは 1 端末のみ。
+ */
+const MULTI_DEVICE_ALLOWED_USERS = ['テスト君'] as const;
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let body: LoginBody;
   try {
@@ -66,9 +73,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonResponse(401, { error: 'invalid_credentials' });
   }
 
-  // 単一端末ログイン制限: 一般ユーザーは新規ログイン前に旧セッションを全削除する。
-  //   admin (is_admin=1) と ryoji 等 (is_ranking_excluded=1) はデバッグ用途で複数端末許可。
-  const isExempt = account.is_admin === 1 || account.is_ranking_excluded === 1;
+  // 単一端末ログイン制限: 新規ログイン前に旧セッションを全削除する。
+  //   ホワイトリスト (poker_name) に載っているユーザーのみ複数端末ログイン許可
+  //   (デバッグ用)。 admin / ryoji も対象外なので 1 端末のみ。
+  const isExempt = MULTI_DEVICE_ALLOWED_USERS.includes(account.poker_name);
   if (!isExempt) {
     await deleteAccountSessions(env.DB, account.id);
   }
