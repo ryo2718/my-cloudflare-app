@@ -5,6 +5,8 @@ import { useAuth } from './hooks/useAuth';
 import { navigate, useRoute } from './router/router-core';
 import { TRAINING_CATALOG, isPlayable, type TrainingLevel } from './data/trainingCatalog';
 import { AccountPage } from './components/AccountPage';
+import { AchievementTierPage } from './components/AchievementTierPage';
+import type { TierId } from './data/achievements';
 import { HomePage } from './components/HomePage';
 import { QuizPage } from './components/QuizPage';
 import { RankingPage } from './components/RankingPage';
@@ -103,6 +105,11 @@ export default function App() {
   if (path === '/quiz') return <QuizPage />;
   if (path === '/ranking') return <RankingPage />;
   if (path === '/account') return <AccountPage />;
+  const tierMatch = path.match(/^\/account\/achievements\/(shrimp|fish|shark|whale)\/?$/);
+  if (tierMatch) {
+    const tier = tierMatch[1] as TierId;
+    return <AchievementTierPage tier={tier} />;
+  }
 
   if (path === '/admin' || path === '/admin/') {
     return account?.is_admin ? <AdminDashboard /> : <HomePage />;

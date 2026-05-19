@@ -15,6 +15,8 @@
 //      ストレージ整合性を破る危険は低いが、明らかな負値や巨大値は拒否。
 
 import { jsonResponse, resolveAccountFromRequest } from '../../lib/auth';
+import { evaluateAchievements } from '../../lib/achievements';
+import { currentSeason } from '../../lib/season';
 import type { Env, TrainingResultRow } from '../../lib/types';
 
 interface Body {
@@ -59,6 +61,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const now = Date.now();
+  const season = currentSeason();
   const existing = await env.DB
     .prepare(
       'SELECT * FROM training_results WHERE account_id = ? AND training_type = ?',
@@ -70,11 +73,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await env.DB
       .prepare(
         `INSERT INTO training_results
-         (account_id, training_type, best_score, best_score_at, total_attempts, updated_at)
-         VALUES (?, ?, ?, ?, 1, ?)`,
+         (account_id, training_type, best_score, best_score_at, total_attempts, updated_at,
+          season_score, season_id)
+         VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
       )
-      .bind(account.id, trainingType, score, now, now)
+      .bind(account.id, trainingType, score, now, now, score, season.id)
       .run();
+    // 新規ユーザー: 実績判定を試行 (failed query は無視して結果保存自体は成功扱い)
+    await evaluateAchievements(env.DB, account.id).catch(() => {});
     return jsonResponse(200, {
       is_best: true,
       previous_best: 0,
@@ -88,25 +94,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const newBest = isBest ? score : previousBest;
   const newAttempts = existing.total_attempts + 1;
 
-  if (isBest) {
-    await env.DB
-      .prepare(
-        `UPDATE training_results
-         SET best_score = ?, best_score_at = ?, total_attempts = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .bind(score, now, newAttempts, now, existing.id)
-      .run();
-  } else {
-    await env.DB
-      .prepare(
-        `UPDATE training_results
-         SET total_attempts = ?, updated_at = ?
-         WHERE id = ?`,
-      )
-      .bind(newAttempts, now, existing.id)
-      .run();
-  }
+  // シーズン判定:
+  //   - 異なるシーズン (= シーズン跨ぎでこの training_type を初プレイ): season_score = score でリセット
+  //   - 同シーズン:                                                  season_score = max(prev, score)
+  const sameSeason = existing.season_id === season.id;
+  const newSeasonScore = sameSeason
+    ? Math.max(existing.season_score, score)
+    : score;
+  const newSeasonId = season.id;
+
+  await env.DB
+    .prepare(
+      `UPDATE training_results
+       SET best_score = ?, best_score_at = ?, total_attempts = ?, updated_at = ?,
+           season_score = ?, season_id = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      newBest,
+      isBest ? now : existing.best_score_at,
+      newAttempts,
+      now,
+      newSeasonScore,
+      newSeasonId,
+      existing.id,
+    )
+    .run();
+
+  await evaluateAchievements(env.DB, account.id).catch(() => {});
 
   return jsonResponse(200, {
     is_best: isBest,

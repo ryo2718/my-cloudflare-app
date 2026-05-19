@@ -10,12 +10,23 @@ export interface TrainingResult {
   best_score_at: number;
   total_attempts: number;
   updated_at: number;
+  /** 現シーズン内 best_score (migration 0009)。 シーズン跨ぎでリセットされる。 */
+  season_score: number;
+  /** 'YYYY-MM' (シーズン開始月、 migration 0009)。 */
+  season_id: string;
 }
 
 export interface AccountDetail {
   poker_name: string;
   points: number;
   training_results: TrainingResult[];
+  /** 現在のシーズン情報 (サーバーで算出)。 */
+  season: { id: string; number: number; name: string };
+}
+
+export interface AchievementsResponse {
+  unlocked: string[];
+  newly_unlocked: string[];
 }
 
 export interface TrainingResultSubmission {
@@ -102,4 +113,14 @@ export async function apiResetResults(sessionId: string): Promise<{ deleted: num
     throw new AuthApiError(code ?? `http_${res.status}`, res.status);
   }
   return (await res.json()) as { deleted: number };
+}
+
+/** GET /api/account/achievements: 解除済み実績 + 今回新規アンロック分。 */
+export async function apiAccountAchievements(
+  sessionId: string,
+): Promise<AchievementsResponse> {
+  return await fetchJsonAuthed<AchievementsResponse>(
+    '/api/account/achievements',
+    sessionId,
+  );
 }

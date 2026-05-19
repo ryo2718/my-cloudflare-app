@@ -15,6 +15,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import {
   apiAccountMe,
+  apiAccountAchievements,
   apiAccountTrainingResults,
   apiResetResults,
   type AccountDetail,
@@ -22,6 +23,7 @@ import {
 } from '../api/account';
 import { apiGetStatistics, type StatisticsResponse, type StatGroup } from '../api/statistics';
 import { useAuth } from '../hooks/useAuth';
+import { AchievementsSection } from './AchievementsSection';
 import {
   TRAINING_CATALOG,
   formatScorePct,
@@ -43,6 +45,7 @@ export function AccountPage() {
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [stats, setStats] = useState<StatisticsResponse | null>(null);
+  const [unlocked, setUnlocked] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -70,6 +73,14 @@ export function AccountPage() {
       .catch(() => {
         /* silent */
       });
+    // 実績取得 (サーバー側で評価 + 新規アンロックを INSERT)
+    apiAccountAchievements(sid)
+      .then((res) => {
+        if (!cancelled) setUnlocked(res.unlocked);
+      })
+      .catch(() => {
+        /* silent */
+      });
     return () => {
       cancelled = true;
     };
@@ -80,6 +91,12 @@ export function AccountPage() {
   // 累計ポイント: training_results の best_score × points/問 の合計 (実装済 level のみ)
   const totalPoints = state.kind === 'ok' ? computeTotalPoints(state.trainings) : 0;
   const trainings: TrainingResult[] = state.kind === 'ok' ? state.trainings : [];
+  const currentSeasonId = state.kind === 'ok' ? state.detail.season.id : null;
+  const seasonName = state.kind === 'ok' ? state.detail.season.name : null;
+  const seasonPoints =
+    state.kind === 'ok'
+      ? computeSeasonPoints(state.trainings, state.detail.season.id)
+      : 0;
 
   return (
     <div style={pageStyle}>
@@ -93,11 +110,22 @@ export function AccountPage() {
           <span style={infoValueStyle}>{pokerName}</span>
         </div>
         <div style={infoRowStyle}>
-          <span style={infoLabelStyle}>累計ポイント</span>
+          <span style={infoLabelStyle}>今シーズン</span>
+          <span style={infoValuePrimaryStyle}>
+            {state.kind === 'loading' ? '…' : `${seasonPoints}pt`}
+          </span>
+        </div>
+        <div style={infoRowStyle}>
+          <span style={infoLabelStyle}>累計</span>
           <span style={infoValuePrimaryStyle}>
             {state.kind === 'loading' ? '…' : `${totalPoints}pt`}
           </span>
         </div>
+        {seasonName && currentSeasonId && (
+          <div style={seasonNoteStyle}>{seasonName}</div>
+        )}
+
+        <AchievementsSection unlocked={unlocked ?? []} />
 
         <div style={sectionLabelRowStyle}>
           <span style={sectionLabelStyle}>トレーニング成績</span>
@@ -324,6 +352,26 @@ function computeTotalPoints(trainings: TrainingResult[]): number {
   return total;
 }
 
+/** 現シーズン分の pt 合計 (season_id 一致のみ、 season_score × points/問)。 */
+function computeSeasonPoints(
+  trainings: TrainingResult[],
+  currentSeasonId: string,
+): number {
+  const ptMap = new Map<string, number>();
+  for (const cat of TRAINING_CATALOG) {
+    for (const lv of cat.levels) {
+      if (lv.points !== null) ptMap.set(lv.key, lv.points);
+    }
+  }
+  let total = 0;
+  for (const t of trainings) {
+    if (t.season_id !== currentSeasonId) continue;
+    const p = ptMap.get(t.training_type) ?? 0;
+    total += p * t.season_score;
+  }
+  return total;
+}
+
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
@@ -378,6 +426,12 @@ const infoValuePrimaryStyle: CSSProperties = {
   fontWeight: 700,
   color: THEME.accent,
   fontVariantNumeric: 'tabular-nums',
+};
+
+const seasonNoteStyle: CSSProperties = {
+  fontSize: '0.74rem',
+  color: '#5F5E5A',
+  marginTop: '-0.2rem',
 };
 
 const sectionLabelRowStyle: CSSProperties = {

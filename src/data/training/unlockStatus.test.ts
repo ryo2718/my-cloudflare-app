@@ -17,6 +17,8 @@ function rec(type: string, best: number): TrainingResult {
     best_score_at: Date.now(),
     total_attempts: 1,
     updated_at: Date.now(),
+    season_score: 0,
+    season_id: '2026-05',
   };
 }
 

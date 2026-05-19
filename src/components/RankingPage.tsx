@@ -1,18 +1,22 @@
-// /ranking: 累計 pt の順位表。
+// /ranking: 累計 pt / シーズン pt の順位表。
 //
 // 表示:
-//   - 通常ランキング: 上位 3 位は pt 公開、4 位以下は順位と名前のみ。同点同順位。
+//   - 通常ランキング: 上位 3 ランクは pt 公開、 4 位以下は順位と名前のみ。 同点同順位。
+//     ただし top3 該当者が表示人数の半数を超える場合は全員 pt 非公開 (注意書き表示)。
 //   - 参考枠: is_ranking_excluded=1 のユーザー (admin 除外)、 pt は常に公開。
+//   - 上部に [累計] [シーズンN] タブで切替。
 //   - 自分の行は ★ + 太字 + 背景ハイライト。
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import {
   apiRanking,
+  type RankType,
   type RankingEntry,
   type RankingResponse,
   type ReferenceEntry,
 } from '../api/ranking';
 import { useAuth } from '../hooks/useAuth';
+import { currentSeason } from '../utils/season';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
@@ -23,13 +27,16 @@ type LoadState =
 
 export function RankingPage() {
   const auth = useAuth();
+  const [type, setType] = useState<RankType>('total');
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
 
   useEffect(() => {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    apiRanking(sid)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState({ kind: 'loading' });
+    apiRanking(sid, type)
       .then((data) => {
         if (cancelled) return;
         setState({ kind: 'ok', data });
@@ -44,15 +51,25 @@ export function RankingPage() {
     return () => {
       cancelled = true;
     };
-  }, [auth.sessionId]);
+  }, [auth.sessionId, type]);
 
   const myName = auth.account?.poker_name ?? '';
+  const seasonNumber = currentSeason().number;
 
   return (
     <div style={pageStyle}>
       <AppHeader showBack />
       <main style={mainStyle}>
         <h1 style={titleStyle}>ランキング</h1>
+
+        <div style={tabRowStyle} role="tablist">
+          <TabButton active={type === 'total'} onClick={() => setType('total')}>
+            累計
+          </TabButton>
+          <TabButton active={type === 'season'} onClick={() => setType('season')}>
+            シーズン{seasonNumber}
+          </TabButton>
+        </div>
 
         {state.kind === 'loading' && <div style={infoStyle}>読み込み中…</div>}
         {state.kind === 'error' && (
@@ -66,13 +83,43 @@ export function RankingPage() {
               </div>
             )}
             <RankingList data={state.data} myAccountName={myName} />
+            {state.data.hide_points_reason === 'too_many_top3' && (
+              <div style={noteStyle}>
+                (同順位が半数以上のため pt 非公開)
+              </div>
+            )}
             {state.data.reference.length > 0 && (
-              <ReferenceSection reference={state.data.reference} myAccountName={myName} />
+              <ReferenceSection
+                reference={state.data.reference}
+                myAccountName={myName}
+              />
             )}
           </>
         )}
       </main>
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      style={active ? tabActiveStyle : tabStyle}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -175,6 +222,28 @@ const titleStyle: CSSProperties = {
   fontWeight: 700,
   color: THEME.textPrimary,
 };
+const tabRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: '0.4rem',
+};
+const tabBase: CSSProperties = {
+  padding: '0.4rem 0.95rem',
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '999px',
+  fontSize: '0.85rem',
+  color: THEME.textSecondary,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
+const tabStyle: CSSProperties = tabBase;
+const tabActiveStyle: CSSProperties = {
+  ...tabBase,
+  background: THEME.accent,
+  color: '#fff',
+  borderColor: THEME.accent,
+  fontWeight: 700,
+};
 const listStyle: CSSProperties = {
   listStyle: 'none',
   margin: 0,
@@ -222,6 +291,10 @@ const ptStyle: CSSProperties = {
   fontWeight: 700,
   color: '#639922',
   fontVariantNumeric: 'tabular-nums',
+};
+const noteStyle: CSSProperties = {
+  fontSize: '0.78rem',
+  color: THEME.textMuted,
 };
 const infoStyle: CSSProperties = {
   color: THEME.textMuted,

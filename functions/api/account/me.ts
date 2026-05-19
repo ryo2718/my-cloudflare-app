@@ -6,6 +6,7 @@
 // /api/auth/me は最小情報 (auth state 用)、本 endpoint は extended profile (アカウント情報ページ用)。
 
 import { jsonResponse, resolveAccountFromRequest } from '../../lib/auth';
+import { currentSeason } from '../../lib/season';
 import type { AccountDetail, Env, TrainingResultRow } from '../../lib/types';
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -25,6 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     poker_name: account.poker_name,
     points: account.points ?? 0,
     training_results: trainingRes.results ?? [],
+    season: currentSeason(),
   };
   return jsonResponse(200, body);
 };

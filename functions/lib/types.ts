@@ -25,12 +25,18 @@ export interface TrainingResultRow {
   best_score_at: number;
   total_attempts: number;
   updated_at: number;
+  /** migration 0009: 当該シーズン内 best_score。 シーズン跨ぎでリセット。 */
+  season_score: number;
+  /** migration 0009: 'YYYY-MM' (シーズン開始月)。 */
+  season_id: string;
 }
 
 export interface AccountDetail {
   poker_name: string;
   points: number;
   training_results: TrainingResultRow[];
+  /** 現在のシーズン情報 (サーバー側で算出、 クライアントは表示用に使う)。 */
+  season: { id: string; number: number; name: string };
 }
 
 export interface SessionRow {

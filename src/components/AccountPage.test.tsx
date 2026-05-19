@@ -30,12 +30,13 @@ function render(auth: AuthState): string {
 }
 
 describe('<AccountPage />', () => {
-  it('タイトル + ユーザー名 + ポイント表記', () => {
+  it('タイトル + ユーザー名 + ポイント表記 (今シーズン / 累計)', () => {
     const html = render(makeAuth());
     expect(html).toContain('アカウント情報');
     expect(html).toContain('ユーザー');
     expect(html).toContain('テスト君');
-    expect(html).toContain('ポイント');
+    expect(html).toContain('今シーズン');
+    expect(html).toContain('累計');
     expect(html).toContain('pt');
   });
 
