@@ -18,11 +18,12 @@
 /api/*
   Cache-Control: no-store
 
+# レンジデータは内容更新があり得るので短期キャッシュ + 必ず再検証 (immutable は付けない)。
 /data/preflop/*
-  Cache-Control: public, max-age=86400, immutable
+  Cache-Control: public, max-age=300, must-revalidate
 
 /data/ev_ranking/*
-  Cache-Control: public, max-age=86400, immutable
+  Cache-Control: public, max-age=300, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
