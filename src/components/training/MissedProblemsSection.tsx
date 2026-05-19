@@ -1,5 +1,7 @@
-// QuizPage 下部の「間違えた問題から復習」セクション。
-// 初級 / 中級 の 2 カードのみ。 タップで /quiz/review/{level} へ遷移。
+// QuizPage 下部の「間違えた問題」セクション。
+// 「プリフロップトレーニング」配下に初級 / 中級 / 上級 (未実装) をネスト。
+// 将来「単語トレーニング」等のカテゴリを並列で追加できる構造。
+// タップで /quiz/review/preflop/{level} へ遷移。
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { apiGetMissedProblems } from '../../api/missedProblems';
@@ -12,10 +14,18 @@ type Counts = {
   intermediate: number | null;
 };
 
-const CARDS = [
-  { key: 'beginner', label: '初級', href: '/quiz/review/beginner' },
-  { key: 'intermediate', label: '中級', href: '/quiz/review/intermediate' },
-] as const;
+interface LevelEntry {
+  key: keyof Counts | 'advanced';
+  label: string;
+  href: string | null;
+  implemented: boolean;
+}
+
+const PREFLOP_LEVELS: LevelEntry[] = [
+  { key: 'beginner',     label: '初級', href: '/quiz/review/preflop/beginner',     implemented: true },
+  { key: 'intermediate', label: '中級', href: '/quiz/review/preflop/intermediate', implemented: true },
+  { key: 'advanced',     label: '上級', href: null,                                implemented: false },
+];
 
 export function MissedProblemsSection() {
   const auth = useAuth();
@@ -41,40 +51,45 @@ export function MissedProblemsSection() {
   }, [auth.sessionId]);
 
   return (
-    <section style={sectionStyle} aria-label="間違えた問題から復習">
-      <header style={headerStyle}>間違えた問題から復習</header>
-      {CARDS.map((c) => (
-        <Card
-          key={c.key}
-          label={c.label}
-          href={c.href}
-          count={counts[c.key]}
-        />
-      ))}
+    <section style={sectionStyle} aria-label="間違えた問題">
+      <header style={headerStyle}>間違えた問題</header>
+
+      <div style={categoryStyle} aria-label="プリフロップトレーニング">
+        <header style={categoryHeaderStyle}>プリフロップトレーニング</header>
+        <div style={cardsStyle}>
+          {PREFLOP_LEVELS.map((lv) => (
+            <LevelCard
+              key={lv.key}
+              entry={lv}
+              count={lv.key === 'beginner' || lv.key === 'intermediate' ? counts[lv.key] : null}
+            />
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
 
-function Card({
-  label,
-  href,
-  count,
-}: {
-  label: string;
-  href: string;
-  count: number | null;
-}) {
+function LevelCard({ entry, count }: { entry: LevelEntry; count: number | null }) {
+  if (!entry.implemented) {
+    return (
+      <div style={disabledCardStyle}>
+        <span style={cardLabelStyle}>{entry.label}</span>
+        <span style={emptyHintStyle}>未実装</span>
+      </div>
+    );
+  }
   if (count === 0) {
     return (
       <div style={emptyCardStyle}>
-        <span style={cardLabelStyle}>{label}</span>
+        <span style={cardLabelStyle}>{entry.label}</span>
         <span style={emptyHintStyle}>(間違えた問題なし)</span>
       </div>
     );
   }
   return (
-    <Link to={href} style={cardStyle}>
-      <span style={cardLabelStyle}>{label}</span>
+    <Link to={entry.href ?? '/quiz'} style={cardStyle}>
+      <span style={cardLabelStyle}>{entry.label}</span>
       <span style={cardRightStyle}>
         {count !== null && <span style={countStyle}>{count}件</span>}
         <span style={chevronStyle} aria-hidden>▶</span>
@@ -98,6 +113,23 @@ const headerStyle: CSSProperties = {
   color: THEME.textSecondary,
   letterSpacing: '0.04em',
 };
+const categoryStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.45rem',
+};
+const categoryHeaderStyle: CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 500,
+  color: '#993C1D',
+  padding: '0 0 0 8px',
+  borderLeft: '3px solid #993C1D',
+};
+const cardsStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.4rem',
+};
 const cardStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -113,6 +145,13 @@ const emptyCardStyle: CSSProperties = {
   ...cardStyle,
   background: '#f5f1ea',
   opacity: 0.85,
+  cursor: 'default',
+};
+const disabledCardStyle: CSSProperties = {
+  ...cardStyle,
+  background: '#f5f1ea',
+  borderStyle: 'dashed',
+  opacity: 0.7,
   cursor: 'default',
 };
 const cardLabelStyle: CSSProperties = {

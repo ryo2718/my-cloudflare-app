@@ -82,7 +82,7 @@ export function MissedProblemAnswerPage({ level, id }: Props) {
     };
   }, [auth.sessionId, level, id]);
 
-  const backPath = `/quiz/review/${level}`;
+  const backPath = `/quiz/review/preflop/${level}`;
 
   return (
     <div style={pageStyle}>

@@ -1,5 +1,6 @@
-// /quiz/review/{level}: 間違えた問題の一覧画面。
+// /quiz/review/preflop/{level}: 間違えた問題の一覧 + 挑戦モード入口。
 // 全件取得 (limit 100)。 各行に [答えを見る] / [復習リストから消す]。
+// 上部に「挑戦する」ボタン + 件数選択 (10/20/30/50)。
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   type MissedProblemRow,
 } from '../../api/missedProblems';
 import { useAuth } from '../../hooks/useAuth';
+import { navigate } from '../../router/router-core';
 import { AppHeader } from '../AppHeader';
 import { Link } from '../../router/router';
 import { THEME } from '../../styles/theme';
@@ -19,6 +21,9 @@ const LEVEL_LABEL: Record<MissedReviewLevel, string> = {
   intermediate: '中級',
 };
 
+const COUNT_OPTIONS = [10, 20, 30, 50] as const;
+type CountOption = (typeof COUNT_OPTIONS)[number];
+
 interface Props {
   level: MissedReviewLevel;
 }
@@ -27,6 +32,7 @@ export function MissedProblemsListPage({ level }: Props) {
   const auth = useAuth();
   const [items, setItems] = useState<MissedProblemRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [count, setCount] = useState<CountOption>(10);
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -57,13 +63,46 @@ export function MissedProblemsListPage({ level }: Props) {
     }
   };
 
+  const handleChallenge = () => {
+    navigate(`/quiz/review/preflop/${level}/play?count=${count}`);
+  };
+
+  const itemsAvailable = !!items && items.length > 0;
+
   return (
     <div style={pageStyle}>
       <AppHeader showBack />
       <main style={mainStyle}>
         <Link to="/quiz" style={crumbStyle}>← トレーニングに戻る</Link>
-        <h1 style={titleStyle}>間違えた問題から復習({LEVEL_LABEL[level]})</h1>
+        <h1 style={titleStyle}>間違えた問題 - プリフロップ{LEVEL_LABEL[level]}</h1>
 
+        <section style={challengeBoxStyle} aria-label="挑戦モード">
+          <button
+            type="button"
+            onClick={handleChallenge}
+            disabled={!itemsAvailable}
+            style={itemsAvailable ? challengeBtnStyle : challengeBtnDisabledStyle}
+          >
+            挑戦する
+          </button>
+          <div style={countRowStyle} role="radiogroup" aria-label="件数">
+            <span style={countLabelStyle}>件数</span>
+            {COUNT_OPTIONS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={count === n}
+                onClick={() => setCount(n)}
+                style={count === n ? countOptActiveStyle : countOptStyle}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <header style={listHeaderStyle}>保存されている問題一覧</header>
         {err && <div style={errorStyle}>取得失敗: {err}</div>}
         {!err && items === null && <div style={infoStyle}>読み込み中…</div>}
         {!err && items && items.length === 0 && (
@@ -79,7 +118,7 @@ export function MissedProblemsListPage({ level }: Props) {
                 </div>
                 <div style={btnRowStyle}>
                   <Link
-                    to={`/quiz/review/${level}/answer/${row.id}`}
+                    to={`/quiz/review/preflop/${level}/answer/${row.id}`}
                     style={primaryBtnStyle}
                   >
                     答えを見る
@@ -153,6 +192,68 @@ const titleStyle: CSSProperties = {
   fontSize: '1.2rem',
   fontWeight: 700,
   color: THEME.textPrimary,
+};
+const challengeBoxStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.7rem',
+  padding: '0.9rem 1rem',
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.5rem',
+};
+const challengeBtnStyle: CSSProperties = {
+  padding: '0.75rem 2rem',
+  background: THEME.accent,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.45rem',
+  fontSize: '1rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  minWidth: 160,
+};
+const challengeBtnDisabledStyle: CSSProperties = {
+  ...challengeBtnStyle,
+  background: '#d6cfc1',
+  cursor: 'not-allowed',
+};
+const countRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.4rem',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+};
+const countLabelStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textSecondary,
+  marginRight: '0.2rem',
+};
+const countOptStyle: CSSProperties = {
+  padding: '0.3rem 0.7rem',
+  background: '#fff',
+  color: THEME.textPrimary,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.3rem',
+  fontSize: '0.85rem',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
+const countOptActiveStyle: CSSProperties = {
+  ...countOptStyle,
+  background: THEME.accent,
+  color: '#fff',
+  borderColor: THEME.accent,
+  fontWeight: 700,
+};
+const listHeaderStyle: CSSProperties = {
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  color: THEME.textSecondary,
+  marginTop: '0.4rem',
 };
 const infoStyle: CSSProperties = {
   fontSize: '0.85rem',

@@ -18,6 +18,8 @@ import { GroupKeyForm } from './components/admin/GroupKeyForm';
 import { UsersStatistics } from './components/admin/UsersStatistics';
 import { MissedProblemsListPage } from './components/training/MissedProblemsListPage';
 import { MissedProblemAnswerPage } from './components/training/MissedProblemAnswerPage';
+import { MissedChallengePlayPage } from './components/training/MissedChallengePlayPage';
+import { MissedChallengeResultPage } from './components/training/MissedChallengeResultPage';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
@@ -65,8 +67,10 @@ export default function App() {
     }
   }, [path, account]);
 
-  // /quiz/review/{level}/answer/{id}: 答え合わせ画面 (復習)
-  const answerMatch = path.match(/^\/quiz\/review\/(beginner|intermediate)\/answer\/(\d+)\/?$/);
+  // /quiz/review/preflop/{level}/answer/{id}: 答え合わせ画面 (復習)
+  const answerMatch = path.match(
+    /^\/quiz\/review\/preflop\/(beginner|intermediate)\/answer\/(\d+)\/?$/,
+  );
   if (answerMatch) {
     const lv = answerMatch[1] as 'beginner' | 'intermediate';
     const id = Number(answerMatch[2]);
@@ -74,11 +78,43 @@ export default function App() {
       return <MissedProblemAnswerPage level={lv} id={id} />;
     }
   }
-  // /quiz/review/{level}: 復習リスト画面
-  const listMatch = path.match(/^\/quiz\/review\/(beginner|intermediate)\/?$/);
+  // /quiz/review/preflop/{level}/play?count=N: 挑戦モード
+  const playMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate)\/play\/?$/);
+  if (playMatch) {
+    const lv = playMatch[1] as 'beginner' | 'intermediate';
+    const params =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+    const countRaw = Number(params.get('count'));
+    const count = Number.isFinite(countRaw) && countRaw > 0 ? Math.min(countRaw, 100) : 10;
+    return <MissedChallengePlayPage level={lv} count={count} />;
+  }
+  // /quiz/review/preflop/{level}/result: 挑戦モード完了画面
+  const resultMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate)\/result\/?$/);
+  if (resultMatch) {
+    const lv = resultMatch[1] as 'beginner' | 'intermediate';
+    return <MissedChallengeResultPage level={lv} />;
+  }
+  // /quiz/review/preflop/{level}: 復習リスト画面
+  const listMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate)\/?$/);
   if (listMatch) {
     const lv = listMatch[1] as 'beginner' | 'intermediate';
     return <MissedProblemsListPage level={lv} />;
+  }
+
+  // 互換: 旧 URL /quiz/review/{level}(/answer/{id}) を新形式にリダイレクト
+  const legacyAnswer = path.match(
+    /^\/quiz\/review\/(beginner|intermediate)\/answer\/(\d+)\/?$/,
+  );
+  if (legacyAnswer) {
+    navigate(`/quiz/review/preflop/${legacyAnswer[1]}/answer/${legacyAnswer[2]}`);
+    return null;
+  }
+  const legacyList = path.match(/^\/quiz\/review\/(beginner|intermediate)\/?$/);
+  if (legacyList) {
+    navigate(`/quiz/review/preflop/${legacyList[1]}`);
+    return null;
   }
 
   // training routes

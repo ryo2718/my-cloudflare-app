@@ -1,0 +1,54 @@
+// 挑戦モードの結果を Play → Result 画面に渡すための sessionStorage 経由ストア。
+// DB には書き込まない (training_results / problem_attempts / missed_problems 更新なし)。
+
+export type MissedReviewLevel = 'beginner' | 'intermediate';
+
+export interface MissedChallengeItem {
+  /** missed_problems.id (結果画面の「消去」ボタンで使う)。 */
+  missed_problem_id: number;
+  hand: string;
+  scenario_label: string;
+  /** 採点後スコア: 初級 = 1 / -1、 中級 = -1 / 0 / 1 / 2。 */
+  final_score: number;
+  /** 満点 (◎) か。 初級は final_score === 1、 中級は final_score === 2。 */
+  is_perfect: boolean;
+}
+
+export interface MissedChallengeResult {
+  level: MissedReviewLevel;
+  total: number;
+  /** 満点 (◎) 数 = 正解数。 */
+  perfect_count: number;
+  items: MissedChallengeItem[];
+}
+
+const STORAGE_KEY = 'missed_challenge_result';
+
+export function saveChallengeResult(result: MissedChallengeResult): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+  } catch {
+    /* quota / SecurityError 等は無視 */
+  }
+}
+
+export function loadChallengeResult(): MissedChallengeResult | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as MissedChallengeResult;
+  } catch {
+    return null;
+  }
+}
+
+export function clearChallengeResult(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}

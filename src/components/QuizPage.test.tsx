@@ -35,16 +35,17 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(html).toContain('フロップトレーニング');
   });
 
-  it('4 レベル × 2 カテゴリ = 8 カード分のラベル (ロック表示 + MissedProblemsSection の select option 含む)', () => {
+  it('4 レベル × 2 カテゴリ = 8 カード分のラベル (ロック表示 + MissedProblemsSection の各レベルカード含む)', () => {
     const html = render();
     // ロック中は "🔒 中級" の prefix。
-    // 加えて MissedProblemsSection の <option>初級</option><option>中級</option> でそれぞれ +1。
+    // 加えて MissedProblemsSection が「プリフロップトレーニング」配下に
+    // 初級 / 中級 / 上級 (未実装) の 3 カードを描画するため、 それぞれ +1。
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
-    expect(countText('初級')).toBe(3);   // カード 2 + select option 1
-    expect(countText('中級')).toBe(3);   // カード 2 + select option 1
-    expect(countText('上級')).toBe(2);
-    expect(countText('超上級')).toBe(2);
+    expect(countText('初級')).toBe(3);   // 通常 2 + missed 1
+    expect(countText('中級')).toBe(3);   // 通常 2 + missed 1
+    expect(countText('上級')).toBe(3);   // 通常 2 + missed 1 (未実装表記)
+    expect(countText('超上級')).toBe(2); // missed には超上級なし
   });
 
   it('subtitle (オープンレンジ / vs open 等の装飾文言) を表示しない', () => {
@@ -59,12 +60,13 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('未実装 level は「未実装」バッジ表示 (preflop 上級/超上級 + flop 全 = 6 枚)', () => {
+  it('未実装 level は「未実装」バッジ表示 (preflop 上級/超上級 + flop 全 6 + missed の上級 1 = 7 枚)', () => {
     // preflop_advanced / preflop_expert は implemented=false なので unlocked 判定より
     // 先に「未実装」ブランチに入る。中級のみがロック扱い (playable + !unlocked)。
+    // MissedProblemsSection の「上級」カードにも「未実装」テキストが入る (+1)。
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    expect(matches.length).toBe(6);
+    expect(matches.length).toBe(7);
   });
 
   it('ロック中 level は "🔒" + ヒント文を表示 (中級: "初級で 20/20 取るとアンロック")', () => {
