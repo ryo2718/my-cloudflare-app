@@ -25,7 +25,7 @@ type RemoveState = 'idle' | 'removing' | 'removed';
 
 export function MissedChallengeResultPage({ level }: Props) {
   const auth = useAuth();
-  const [data, setData] = useState<MissedChallengeResult | null>(() => loadChallengeResult());
+  const [data] = useState<MissedChallengeResult | null>(() => loadChallengeResult());
   const [removeStates, setRemoveStates] = useState<Map<number, RemoveState>>(new Map());
 
   // 表示中の挑戦結果が現在の level と一致しない場合は破棄してリストに戻す
@@ -63,16 +63,8 @@ export function MissedChallengeResultPage({ level }: Props) {
     try {
       await apiRemoveMissedProblem(auth.sessionId, id);
       setRemoveStates((prev) => new Map(prev).set(id, 'removed'));
-      // 結果データ側の missed_problem_id を 0 にして「消去済み」とマーク (戻り画面側で反映)
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.map((it) =>
-            it.missed_problem_id === id ? { ...it, missed_problem_id: 0 } : it,
-          ),
-        };
-      });
+      // missed_problem_id は保持したまま (= 「答えを見る」リンクが消去後も有効、
+      //  サーバー API は includeRemoved=true で取得するため answer 画面は表示可能)。
     } catch {
       setRemoveStates((prev) => new Map(prev).set(id, 'idle'));
     }
@@ -108,7 +100,7 @@ export function MissedChallengeResultPage({ level }: Props) {
             const icon = judgmentIcon(it.final_score);
             const color = judgmentColor(it.final_score);
             const removeState = removeStates.get(it.missed_problem_id) ?? 'idle';
-            const removedFlag = it.missed_problem_id === 0 || removeState === 'removed';
+            const removed = removeState === 'removed';
             return (
               <li key={`${idx}-${it.hand}`} style={itemStyle}>
                 <div style={itemLeftStyle}>
@@ -119,18 +111,26 @@ export function MissedChallengeResultPage({ level }: Props) {
                   <span style={scenarioPillStyle}>{it.scenario_label}</span>
                   <span style={handStyle}>{it.hand}</span>
                 </div>
-                {removedFlag ? (
-                  <span style={removedLabelStyle}>消去済み</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(it.missed_problem_id)}
-                    disabled={removeState === 'removing'}
-                    style={removeState === 'removing' ? removeBtnBusyStyle : removeBtnStyle}
+                <div style={actionRowStyle}>
+                  <Link
+                    to={`/quiz/review/preflop/${level}/answer/${it.missed_problem_id}`}
+                    style={viewAnswerBtnStyle}
                   >
-                    {removeState === 'removing' ? '消去中…' : '間違えた問題から消去'}
-                  </button>
-                )}
+                    答えを見る
+                  </Link>
+                  {removed ? (
+                    <span style={removedLabelStyle}>消去済み</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(it.missed_problem_id)}
+                      disabled={removeState === 'removing'}
+                      style={removeState === 'removing' ? removeBtnBusyStyle : removeBtnStyle}
+                    >
+                      {removeState === 'removing' ? '消去中…' : '間違えた問題から消去'}
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -262,6 +262,23 @@ const handStyle: CSSProperties = {
   fontSize: '0.92rem',
   fontWeight: 700,
   color: THEME.textPrimary,
+};
+const actionRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: '0.45rem',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+};
+const viewAnswerBtnStyle: CSSProperties = {
+  padding: '0.4rem 0.7rem',
+  background: '#fff',
+  color: '#3B6D11',
+  border: '1px solid #6B9C3C',
+  borderRadius: '0.3rem',
+  fontSize: '0.78rem',
+  fontWeight: 700,
+  textDecoration: 'none',
+  fontFamily: 'inherit',
 };
 const removeBtnStyle: CSSProperties = {
   padding: '0.4rem 0.7rem',
