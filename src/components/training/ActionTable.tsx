@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Position } from '../../types/strategy';
 import {
   loadActionHistory,
+  actionsBeforeHero,
   toSeatPopups,
   withBlinds,
   getActionDelay,
@@ -53,12 +54,13 @@ export function ActionTable({
       return;
     }
     loadActionHistory(file).then((loaded) => {
-      if (!cancelled) setItems(loaded);
+      // ヒーロー以降の席 (アイソレーションの fold 等) を除外。
+      if (!cancelled) setItems(actionsBeforeHero(loaded, mePosition));
     });
     return () => {
       cancelled = true;
     };
-  }, [file]);
+  }, [file, mePosition]);
 
   // アニメーション (items ロード後、items / animate / resetKey が変わるたび再生)。
   useEffect(() => {

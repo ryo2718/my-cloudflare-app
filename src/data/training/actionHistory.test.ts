@@ -3,6 +3,7 @@ import {
   parseActionHistory,
   toSeatPopups,
   actionLabel,
+  actionsBeforeHero,
   getActionDelay,
   withBlinds,
   FOLD_DELAY_MS,
@@ -48,6 +49,53 @@ describe('actionLabel', () => {
     expect(actionLabel({ position: 'SB', kind: 'limp' })).toBe('limp');
     expect(actionLabel({ position: 'BB', kind: 'call' })).toBe('call');
     expect(actionLabel({ position: 'BTN', kind: 'allin', amount: 100 })).toBe('allin');
+  });
+});
+
+describe('actionsBeforeHero (ヒーロー以降を除外)', () => {
+  // GTO データはヒーロー以降の席もアイソレーションの fold として含む。
+  const vsOpenHJ = parseActionHistory([
+    { position: 'UTG', action: 'Raise 2.5' },
+    { position: 'CO', action: 'Fold' },
+    { position: 'BTN', action: 'Fold' },
+    { position: 'SB', action: 'Fold' },
+    { position: 'BB', action: 'Fold' },
+  ]);
+
+  it('hero=HJ (未行動): UTG だけ残り CO/BTN/SB/BB は除外', () => {
+    const r = actionsBeforeHero(vsOpenHJ, 'HJ');
+    expect(r.map((x) => x.position)).toEqual(['UTG']);
+  });
+
+  it('hero=UTG (最先頭・open): 履歴は空 → 空', () => {
+    // UTG は最初に行動するため、UTG の最初の決断 (open) では履歴が空。
+    expect(actionsBeforeHero([], 'UTG')).toEqual([]);
+  });
+
+  it('hero=BB (未行動・最後尾): 手前の席すべて残る', () => {
+    const items = parseActionHistory([
+      { position: 'UTG', action: 'Fold' },
+      { position: 'HJ', action: 'Fold' },
+      { position: 'CO', action: 'Raise 2.5' },
+      { position: 'BTN', action: 'Fold' },
+      { position: 'SB', action: 'Fold' },
+    ]);
+    expect(actionsBeforeHero(items, 'BB').map((x) => x.position)).toEqual(['UTG', 'HJ', 'CO', 'BTN', 'SB']);
+  });
+
+  it('多ラウンド (hero が既に行動済 = vs3bet): 全アクションを残す', () => {
+    // UTG open → 各 fold → HJ 3bet → UTG (hero) の決断
+    const vs3bet = parseActionHistory([
+      { position: 'UTG', action: 'Raise 2.5' },
+      { position: 'CO', action: 'Fold' },
+      { position: 'BTN', action: 'Fold' },
+      { position: 'SB', action: 'Fold' },
+      { position: 'BB', action: 'Fold' },
+      { position: 'HJ', action: 'Raise 7.5' },
+    ]);
+    const r = actionsBeforeHero(vs3bet, 'UTG');
+    expect(r).toHaveLength(6); // HJ(3bet, 後ろの席) も含む
+    expect(r.some((x) => x.position === 'HJ' && x.kind === 'raise')).toBe(true);
   });
 });
 

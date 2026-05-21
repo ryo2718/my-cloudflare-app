@@ -59,6 +59,24 @@ export function parseActionHistory(raw: ReadonlyArray<RawHistoryEntry>): ActionI
   return out;
 }
 
+/** プリフロップのアクション順 (座席順)。 */
+const SEAT_ORDER: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+
+/**
+ * ヒーローの「現在の決断」より前のアクションだけに絞る。
+ *
+ * GTO ノードの action_history は、ヒーローより後ろの席のフォールドも
+ * アイソレーション (他全員降ろし) として含むため、そのまま表示するとヒーロー以降まで出てしまう。
+ *   - ヒーローが履歴に登場しない (= 最初の決断) → 座席順でヒーローより前の席のアクションのみ
+ *   - ヒーローが履歴に登場する (= vs3bet/4bet 等の多ラウンド) → 全アクション (全て現決断より前)
+ */
+export function actionsBeforeHero(items: ReadonlyArray<ActionItem>, hero: Position): ActionItem[] {
+  if (items.some((it) => it.position === hero)) return [...items];
+  const heroIdx = SEAT_ORDER.indexOf(hero);
+  if (heroIdx < 0) return [...items];
+  return items.filter((it) => SEAT_ORDER.indexOf(it.position) < heroIdx);
+}
+
 const cache: Record<string, ActionItem[]> = {};
 
 /** ノードファイルの action_history を取得 (キャッシュ)。失敗時は空配列。 */
