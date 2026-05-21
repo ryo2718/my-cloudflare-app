@@ -6,6 +6,7 @@ import {
   availableOpponents,
   scenarioAvailable,
   rangeFromNode,
+  presetLabel,
   type PreflopNode,
 } from './presetRange';
 import { handKeys, handAt } from './combos';
@@ -34,6 +35,16 @@ describe('presetRange: ノードパス構築', () => {
     // UTG は誰よりも前なので open のみ可能。
     expect(scenarioAvailable('UTG', 'open')).toBe(true);
     expect(scenarioAvailable('UTG', 'vs3bet')).toBe(true);
+  });
+});
+
+describe('presetRange: ラベル', () => {
+  it('open / vs open / vs 3bet / vs 4bet のラベル + 編集済み', () => {
+    expect(presetLabel({ position: 'UTG', scenario: 'open', vsPosition: null }, false)).toBe('UTG open');
+    expect(presetLabel({ position: 'HJ', scenario: 'vsopen', vsPosition: 'UTG' }, false)).toBe('HJ vs open (UTG)');
+    expect(presetLabel({ position: 'BTN', scenario: 'vs3bet', vsPosition: 'SB' }, false)).toBe('BTN vs 3bet (SB)');
+    expect(presetLabel({ position: 'CO', scenario: 'vs4bet', vsPosition: 'BTN' }, false)).toBe('CO vs 4bet (BTN)');
+    expect(presetLabel({ position: 'UTG', scenario: 'open', vsPosition: null }, true)).toBe('UTG open (編集済み)');
   });
 });
 

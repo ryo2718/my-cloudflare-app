@@ -28,6 +28,41 @@ export const SCENARIOS: ReadonlyArray<{ key: Scenario; label: string }> = [
   { key: 'vs4bet', label: 'vs 4bet' },
 ];
 
+const SCENARIO_LABEL: Record<Scenario, string> = {
+  open: 'open',
+  vsopen: 'vs open',
+  vs3bet: 'vs 3bet',
+  vs4bet: 'vs 4bet',
+};
+
+/** 適用中プリセットの識別情報。 */
+export interface PresetInfo {
+  position: Position;
+  scenario: Scenario;
+  /** open 以外で相手ポジション。open は null。 */
+  vsPosition: Position | null;
+}
+
+/** 適用したプリセット + 適用時点のレンジスナップショット (編集済み判定用)。 */
+export interface AppliedPreset {
+  info: PresetInfo;
+  snapshot: Map<string, number>;
+}
+
+/**
+ * プリセットの表示ラベル。
+ *   open      → "UTG open"
+ *   それ以外  → "HJ vs open (UTG)"
+ * edited=true なら末尾に " (編集済み)"。
+ */
+export function presetLabel(info: PresetInfo, edited: boolean): string {
+  const base =
+    info.scenario === 'open'
+      ? `${info.position} open`
+      : `${info.position} ${SCENARIO_LABEL[info.scenario]} (${info.vsPosition})`;
+  return edited ? `${base} (編集済み)` : base;
+}
+
 interface NodeHandFreq {
   allin?: number;
   raise?: number;

@@ -9,6 +9,7 @@
 import { useState, type CSSProperties } from 'react';
 import { THEME } from '../../styles/theme';
 import { TOTAL_COMBOS, allComboKeys, handAt, handKeys, type MatrixHand } from '../../utils/combos';
+import type { AppliedPreset, PresetInfo } from '../../utils/presetRange';
 import { ComboDetail } from './ComboDetail';
 import { PresetRangePicker } from './PresetRangePicker';
 
@@ -18,12 +19,15 @@ const CELL_PARTIAL = '#86efac';
 export interface RangeMatrixProps {
   /** コンボ key → weight (0..1)。 */
   initialRange: ReadonlyMap<string, number>;
-  onCommit: (range: Map<string, number>) => void;
+  /** 既に適用済みのプリセット (再編集時に引き継ぐ)。 */
+  initialPreset: AppliedPreset | null;
+  onCommit: (range: Map<string, number>, preset: AppliedPreset | null) => void;
   onCancel: () => void;
 }
 
-export function RangeMatrix({ initialRange, onCommit }: RangeMatrixProps) {
+export function RangeMatrix({ initialRange, initialPreset, onCommit }: RangeMatrixProps) {
   const [selected, setSelected] = useState<Map<string, number>>(() => new Map(initialRange));
+  const [presetApplied, setPresetApplied] = useState<AppliedPreset | null>(initialPreset);
   const [expanded, setExpanded] = useState<{ row: number; col: number } | null>(null);
 
   const pct = ((selected.size / TOTAL_COMBOS) * 100).toFixed(1);
@@ -67,19 +71,22 @@ export function RangeMatrix({ initialRange, onCommit }: RangeMatrixProps) {
   const selectAll = () => setSelected(new Map(allComboKeys().map((k) => [k, 1])));
   const clearAll = () => setSelected(new Map());
 
-  const applyPreset = (range: Map<string, number>) => {
+  const applyPreset = (range: Map<string, number>, info: PresetInfo) => {
     setSelected(new Map(range));
+    setPresetApplied({ info, snapshot: new Map(range) });
     setExpanded(null);
   };
+
+  const close = () => onCommit(selected, presetApplied);
 
   const expandedHand = expanded ? handAt(expanded.row, expanded.col) : null;
 
   return (
-    <div style={overlayStyle} onClick={() => onCommit(selected)} role="dialog" aria-label="レンジ選択">
+    <div style={overlayStyle} onClick={close} role="dialog" aria-label="レンジ選択">
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <span style={headerTitleStyle}>レンジ {selected.size}コンボ ({pct}%)</span>
-          <button type="button" onClick={() => onCommit(selected)} style={closeBtnStyle} aria-label="閉じる">✕</button>
+          <button type="button" onClick={close} style={closeBtnStyle} aria-label="閉じる">✕</button>
         </div>
 
         <PresetRangePicker onApply={applyPreset} />

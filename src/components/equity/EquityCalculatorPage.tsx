@@ -21,6 +21,7 @@ import { computeEquity } from '../../utils/equity';
 import { cardToInt } from '../../utils/handEvaluator';
 import { computeRangeEquity } from '../../utils/rangeEquity';
 import { TOTAL_COMBOS, weightedCombos, type WeightedCombo } from '../../utils/combos';
+import { presetLabel, type AppliedPreset } from '../../utils/presetRange';
 import { CardSlot } from './CardSlot';
 import { CardSelector } from './CardSelector';
 import { RangeMatrix } from './RangeMatrix';
@@ -71,6 +72,13 @@ function rangeColors(target: SelectingTarget): ReadonlyArray<string> {
   return COLORS_NONE; // 個別 (max 1) は枠色なし
 }
 
+/** 2 つの weight マップが完全一致か (編集済み判定用)。 */
+function mapsEqual(a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) if (b.get(k) !== v) return false;
+  return true;
+}
+
 export function EquityCalculatorPage() {
   const [hands, setHands] = useState<Record<PlayerId, [Card | null, Card | null]>>({
     A: [null, null],
@@ -82,6 +90,11 @@ export function EquityCalculatorPage() {
   const [ranges, setRanges] = useState<Record<PlayerId, Map<string, number>>>({
     A: new Map(),
     B: new Map(),
+  });
+  // 適用中プリセット (吹き出し表示 + 編集済み判定用)。プリセット未使用なら null。
+  const [presets, setPresets] = useState<Record<PlayerId, AppliedPreset | null>>({
+    A: null,
+    B: null,
   });
   const [selecting, setSelecting] = useState<SelectingTarget | null>(null);
   const [rangeEditing, setRangeEditing] = useState<PlayerId | null>(null);
@@ -159,9 +172,10 @@ export function EquityCalculatorPage() {
 
   const cancelSelection = () => setSelecting(null);
 
-  // 具体ハンドを設定したらそのプレイヤーのレンジは解除 (排他)。
+  // 具体ハンドを設定したらそのプレイヤーのレンジ・プリセットは解除 (排他)。
   const clearRange = (player: PlayerId) => {
     setRanges((prev) => (prev[player].size ? { ...prev, [player]: new Map<string, number>() } : prev));
+    setPresets((prev) => (prev[player] ? { ...prev, [player]: null } : prev));
   };
 
   // 選択結果を、対象が指すスロット順に格納してパネルを閉じる。
@@ -203,10 +217,11 @@ export function EquityCalculatorPage() {
   };
 
   // レンジ確定: 設定するとそのプレイヤーの具体ハンドはクリア (排他)。
-  const commitRange = (range: Map<string, number>) => {
+  const commitRange = (range: Map<string, number>, preset: AppliedPreset | null) => {
     if (!rangeEditing) return;
     const player = rangeEditing;
     setRanges((prev) => ({ ...prev, [player]: range }));
+    setPresets((prev) => ({ ...prev, [player]: preset }));
     if (range.size > 0) setHands((prev) => ({ ...prev, [player]: [null, null] }));
     setRangeEditing(null);
   };
@@ -322,6 +337,11 @@ export function EquityCalculatorPage() {
 
         {(['A', 'B'] as PlayerId[]).map((p) => {
           const rangeSize = ranges[p].size;
+          const preset = presets[p];
+          const presetText =
+            rangeSize > 0 && preset
+              ? presetLabel(preset.info, !mapsEqual(ranges[p], preset.snapshot))
+              : null;
           return (
             <div key={p} style={playerRowStyle}>
               <span style={rowLabelStyle}>Player {p}</span>
@@ -346,6 +366,7 @@ export function EquityCalculatorPage() {
                     レンジ {rangeSize}コンボ ({((rangeSize / TOTAL_COMBOS) * 100).toFixed(1)}%)
                   </span>
                 )}
+                {presetText && <span style={presetBubbleStyle}>{presetText}</span>}
               </div>
               <span style={equityStyle}>{equityText(p)}</span>
               <button
@@ -385,7 +406,12 @@ export function EquityCalculatorPage() {
         )}
 
         {rangeEditing && (
-          <RangeMatrix initialRange={ranges[rangeEditing]} onCommit={commitRange} onCancel={cancelRange} />
+          <RangeMatrix
+            initialRange={ranges[rangeEditing]}
+            initialPreset={presets[rangeEditing]}
+            onCommit={commitRange}
+            onCancel={cancelRange}
+          />
         )}
       </main>
     </div>
@@ -506,6 +532,16 @@ const rangeBtnActiveStyle: CSSProperties = {
 };
 const handBtnStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
 const rangeBadgeStyle: CSSProperties = { fontSize: '0.72rem', color: THEME.textSecondary, textAlign: 'center' };
+const presetBubbleStyle: CSSProperties = {
+  fontSize: '0.72rem',
+  fontWeight: 700,
+  color: THEME.textPrimary,
+  background: THEME.cardElevated,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.4rem',
+  padding: '0.15rem 0.4rem',
+  textAlign: 'center',
+};
 const equityStyle: CSSProperties = {
   fontSize: '1.1rem',
   fontWeight: 800,

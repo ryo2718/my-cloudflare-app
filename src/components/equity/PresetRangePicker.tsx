@@ -12,6 +12,7 @@ import {
   PRESET_POSITIONS,
   SCENARIOS,
   SOLUTION_LABEL,
+  type PresetInfo,
   type Scenario,
   availableOpponents,
   fetchPresetRange,
@@ -20,8 +21,8 @@ import {
 } from '../../utils/presetRange';
 
 export interface PresetRangePickerProps {
-  /** プリセット読み込み完了時に頻度付きレンジを渡す (マトリクスへ反映)。 */
-  onApply: (range: Map<string, number>) => void;
+  /** プリセット読み込み完了時に頻度付きレンジと識別情報を渡す (マトリクスへ反映)。 */
+  onApply: (range: Map<string, number>, info: PresetInfo) => void;
 }
 
 export function PresetRangePicker({ onApply }: PresetRangePickerProps) {
@@ -38,7 +39,7 @@ export function PresetRangePicker({ onApply }: PresetRangePickerProps) {
     setErr(null);
     try {
       const range = await fetchPresetRange(path);
-      onApply(range);
+      onApply(range, { position: h, scenario: sc, vsPosition: o });
     } catch {
       setErr('レンジの読み込みに失敗しました');
     } finally {
