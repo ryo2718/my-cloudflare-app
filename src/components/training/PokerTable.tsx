@@ -30,14 +30,21 @@ const SLOTS_CW: ReadonlyArray<Slot> = [
   'bottom_right',
 ];
 
+/** チップの種別。'allin' = 5bet ジャム等 (黒背景・白文字)。 */
+export type ChipVariant = 'allin';
+
 export interface PlayerChip {
   /** ベット額 (chips on table)、bb 単位 (0.5 / 1 / 2.5 等)。 */
   amount: number;
+  /** 特殊表示 (5bet ジャム = 黒)。 */
+  variant?: ChipVariant;
 }
 
 export interface ChipExtra {
   position: Position;
   amount: number;
+  /** 5bet ジャム等を黒チップで表示する場合に 'allin'。 */
+  variant?: ChipVariant;
 }
 
 export interface PokerTableProps {
@@ -83,7 +90,7 @@ export function PokerTable({
   const chipFor = (pos: Position): PlayerChip | null => {
     // chipExtras 優先 (vs_3bet / vs_4bet で複数アクターのチップを表示するため)
     const extra = chipExtras.find((e) => e.position === pos);
-    if (extra) return { amount: extra.amount };
+    if (extra) return { amount: extra.amount, variant: extra.variant };
     if (pos === opener) return { amount: openSize };
     if (pos === 'SB' && opener !== 'SB') return { amount: SB_AMOUNT };
     if (pos === 'BB' && opener !== 'BB') return { amount: BB_AMOUNT };
@@ -155,8 +162,8 @@ function PlayerSeat({
       )}
       {chip && (
         <div
-          style={{ ...chipStyle(chip.amount), ...CHIP_OFFSETS[slot] }}
-          aria-label={`${position} ${chip.amount}bb`}
+          style={{ ...chipStyle(chip), ...CHIP_OFFSETS[slot] }}
+          aria-label={`${position} ${chip.amount}bb${chip.variant === 'allin' ? ' (5bet)' : ''}`}
         >
           {formatChip(chip.amount)}
         </div>
@@ -165,18 +172,19 @@ function PlayerSeat({
   );
 }
 
-function chipStyle(amount: number): CSSProperties {
-  const { bg, fg, border } = chipColor(amount);
+function chipStyle(chip: PlayerChip): CSSProperties {
+  const { bg, fg, border } = chipColor(chip.amount, chip.variant);
   return {
     ...chipBaseStyle,
     background: bg,
     color: fg,
     borderColor: border,
-    fontSize: formatChip(amount).length >= 3 ? '10px' : '13px',
+    fontSize: formatChip(chip.amount).length >= 3 ? '10px' : '13px',
   };
 }
 
-function chipColor(amount: number): { bg: string; fg: string; border: string } {
+function chipColor(amount: number, variant?: ChipVariant): { bg: string; fg: string; border: string } {
+  if (variant === 'allin') return { bg: '#2C2C2A', fg: '#ffffff', border: '#000000' }; // 黒 = 5bet ジャム
   if (amount < 3) return { bg: '#ffffff', fg: '#000000', border: '#888780' }; // white = small
   if (amount < 20) return { bg: '#E24B4A', fg: '#ffffff', border: '#F7C1C1' }; // red = medium
   return { bg: '#3B6D11', fg: '#ffffff', border: '#C0DD97' }; // green = large

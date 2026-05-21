@@ -31,11 +31,12 @@ const LEVEL_LABEL: Record<MissedLevel, string> = {
 const COUNT_OPTIONS = [10, 20, 30, 50] as const;
 type CountOption = (typeof COUNT_OPTIONS)[number];
 
-const FILTER_TABS: Array<{ key: MissedFilter; label: string }> = [
-  { key: 'all', label: '全て' },
-  { key: 'partial', label: '○' },
-  { key: 'zero', label: '△' },
-  { key: 'miss', label: '✕' },
+// score=null は色付けなし (全て)。partial=○(1pt) / zero=△(0pt) / miss=✕(-1pt)。
+const FILTER_TABS: Array<{ key: MissedFilter; label: string; score: number | null }> = [
+  { key: 'all', label: '全て', score: null },
+  { key: 'partial', label: '○', score: 1 },
+  { key: 'zero', label: '△', score: 0 },
+  { key: 'miss', label: '✕', score: -1 },
 ];
 
 interface Props {
@@ -100,19 +101,23 @@ export function MissedProblemsListPage({ level }: Props) {
         <h1 style={titleStyle}>間違えた問題 - プリフロップ{LEVEL_LABEL[level]}</h1>
 
         <div style={filterRowStyle} role="radiogroup" aria-label="判定フィルター">
-          {FILTER_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="radio"
-              aria-checked={filter === t.key}
-              onClick={() => setFilter(t.key)}
-              style={filter === t.key ? filterActiveStyle : filterStyle}
-            >
-              {t.label}
-              {items && <span style={filterCountStyle}>{filterCount(t.key)}</span>}
-            </button>
-          ))}
+          {FILTER_TABS.map((t) => {
+            const active = filter === t.key;
+            const iconColor = active ? '#fff' : t.score === null ? THEME.textPrimary : judgmentColor(t.score);
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setFilter(t.key)}
+                style={active ? filterActiveStyle : filterStyle}
+              >
+                <span style={{ ...filterIconStyle, color: iconColor }}>{t.label}</span>
+                {items && <span style={filterCountStyle}>{filterCount(t.key)}</span>}
+              </button>
+            );
+          })}
         </div>
 
         <section style={challengeBoxStyle} aria-label="挑戦モード">
@@ -228,6 +233,7 @@ const filterStyle: CSSProperties = {
   fontFamily: 'inherit',
 };
 const filterActiveStyle: CSSProperties = { ...filterStyle, background: THEME.accent, color: '#fff', borderColor: THEME.accent };
+const filterIconStyle: CSSProperties = { fontSize: '1.05rem', fontWeight: 800, lineHeight: 1 };
 const filterCountStyle: CSSProperties = { fontSize: '0.72rem', fontWeight: 600, opacity: 0.85, fontVariantNumeric: 'tabular-nums' };
 const challengeBoxStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.7rem', padding: '0.9rem 1rem', background: '#fff', border: `1px solid ${THEME.border}`, borderRadius: '0.5rem' };
 const challengeBtnStyle: CSSProperties = { padding: '0.75rem 2rem', background: THEME.accent, color: '#fff', border: 'none', borderRadius: '0.45rem', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', minWidth: 160 };

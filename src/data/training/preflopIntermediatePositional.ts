@@ -52,6 +52,8 @@ export interface PositionalStrategy {
 export interface ChipExtra {
   position: Position;
   amount: number;
+  /** 5bet ジャム等を黒チップで表示する場合に 'allin'。 */
+  variant?: 'allin';
 }
 
 export interface PositionalQuestion {
@@ -518,14 +520,14 @@ function tableInfo(spec: ScenarioSpec, c: NodeCandidate): TableInfo {
       };
     case 'ep_vs_4bet':
     case 'lp_vs_4bet':
-      // opener が 4bet 後に 3bettor の 5bet ジャムを受ける
+      // opener が 4bet 後に 3bettor の 5bet ジャムを受ける (5bet チップは黒)
       return {
         label: `${hero} 4bet → vs ${tb} 5bet`,
         opener: hero,
         foldedBefore: [...positionsBefore(hero), ...positionsBetween(hero, tb!)],
         chipExtras: [
           { position: hero, amount: FOUR_BET_SIZE },
-          { position: tb!, amount: ALLIN_SIZE },
+          { position: tb!, amount: ALLIN_SIZE, variant: 'allin' },
         ],
       };
     case 'sb_vs_4bet':
