@@ -112,6 +112,29 @@ function topStraight(mask: number): number {
   return -1;
 }
 
+/** rank ビットマスクから「成立する全ストレートの最高位 rank」を高い順に列挙 (A-5 は 3)。 */
+function allStraightTops(mask: number): number[] {
+  const tops: number[] = [];
+  for (let hi = 12; hi >= 4; hi--) {
+    let ok = true;
+    for (let r = hi; r > hi - 5; r--) {
+      if ((mask & (1 << r)) === 0) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) tops.push(hi);
+  }
+  if (mask & (1 << 12) && (mask & 0b1111) === 0b1111) tops.push(3); // wheel
+  return tops;
+}
+
+function rankMaskOf(cards: ReadonlyArray<number>): number {
+  let m = 0;
+  for (const c of cards) m |= 1 << (c >> 2);
+  return m;
+}
+
 /** 5〜7枚のベストハンド (役カテゴリ + 内訳に必要な rank)。 */
 export function madeHand(cards: ReadonlyArray<number>): MadeHand {
   const rc = new Int8Array(13);
@@ -247,7 +270,8 @@ export function analyzeBoard(
     const [c0, c1] = comboKeyToInts(key);
     if (boardSet.has(c0) || boardSet.has(c1)) continue; // ボード衝突
     if (exclude && (exclude.has(c0) || exclude.has(c1))) continue; // 相手の確定ハンド等
-    const m = madeHand([c0, c1, ...board]);
+    const cards = [c0, c1, ...board];
+    const m = madeHand(cards);
     const rk = ROLE_OF[m.cat];
     const role = ensure(rk);
     role.combos.push(key);
@@ -261,6 +285,17 @@ export function analyzeBoard(
       }
       item.combos.push(key);
       item.children!.set(key, { key, label: key, strength: comboStrength(c0, c1), combos: [key] });
+    } else if (m.cat === 4) {
+      // ストレート: そのコンボが作れる全てのハイの内訳に計上する。
+      for (const top of allStraightTops(rankMaskOf(cards))) {
+        const subKey = `st${top}`;
+        let item = role.items.get(subKey);
+        if (!item) {
+          item = { key: subKey, label: `${rl(top)} ハイ`, strength: top, combos: [] };
+          role.items.set(subKey, item);
+        }
+        item.combos.push(key);
+      }
     } else {
       const { key: subKey, label, strength } = subFor(m);
       let item = role.items.get(subKey);

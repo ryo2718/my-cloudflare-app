@@ -93,6 +93,43 @@ describe('handFilter: 適用 (置き換え / 和集合 / スート単位)', () =
   });
 });
 
+describe('handFilter: ストレート内訳 (全ての成立ストレート)', () => {
+  // ボード 9 6 3 4 7 (スート混在、フラッシュ無し)。
+  const SBOARD = ['9h', '6c', '3d', '4s', '7d'].map(ci);
+
+  it('85s は 7/8/9 ハイ全てに計上、T8s は T ハイ、A5s は 7 ハイ', () => {
+    const range = new Map<string, number>([
+      [k('8c', '5c'), 1], // 85s -> 3-4-5-6-7 / 4-5-6-7-8 / 5-6-7-8-9
+      [k('Tc', '8c'), 1], // T8s -> 6-7-8-9-T
+      [k('Ac', '5c'), 1], // A5s -> 3-4-5-6-7
+    ]);
+    const st = analyzeBoard(range, SBOARD).find((g) => g.key === 'straight')!;
+    const byLabel = (l: string) => st.items.find((it) => it.label === l);
+    expect(st.items.map((it) => it.label)).toEqual(
+      expect.arrayContaining(['T ハイ', '9 ハイ', '8 ハイ', '7 ハイ']),
+    );
+    // 85s は 3 つのハイ全てに出る。
+    expect(byLabel('9 ハイ')!.combos).toContain(k('8c', '5c'));
+    expect(byLabel('8 ハイ')!.combos).toContain(k('8c', '5c'));
+    expect(byLabel('7 ハイ')!.combos).toContain(k('8c', '5c'));
+    // T8s は T ハイのみ。
+    expect(byLabel('T ハイ')!.combos).toContain(k('Tc', '8c'));
+    expect(byLabel('9 ハイ')!.combos).not.toContain(k('Tc', '8c'));
+  });
+
+  it('ストレートが成立しないボード (K J 2 J 4) はストレート役なし', () => {
+    const range = new Map<string, number>([[k('As', 'Ac'), 1], [k('Th', '9c'), 1]]);
+    expect(analyzeBoard(range, BOARD).find((g) => g.key === 'straight')).toBeUndefined();
+  });
+
+  it('A-2-3-4 + 5 はホイール (5 ハイ) として検出', () => {
+    const wheelBoard = ['Ah', '2c', '3d', '4s', 'Kd'].map(ci);
+    const range = new Map<string, number>([[k('5c', '9c'), 1]]);
+    const st = analyzeBoard(range, wheelBoard).find((g) => g.key === 'straight')!;
+    expect(st.items.map((it) => it.label)).toContain('5 ハイ');
+  });
+});
+
 describe('handFilter: 相手の確定ハンド除外 (exclude)', () => {
   // AsAc=ツーペア(AA+JJ), AhQh=ワンペア, Th9c=ワンペア。相手が As・Qh を持つ想定。
   const range = new Map<string, number>([
