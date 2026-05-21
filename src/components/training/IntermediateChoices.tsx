@@ -9,6 +9,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
+import { ACTION_BUTTON_COLORS } from './actionButtonStyle';
 import { THEME } from '../../styles/theme';
 
 const ACTION_LABEL: Record<Action, string> = {
@@ -16,22 +17,6 @@ const ACTION_LABEL: Record<Action, string> = {
   raise: 'レイズ',
   call: 'コール',
   fold: 'フォールド',
-};
-
-/**
- * アクション色 (柔らかい表現):
- *   - off: 薄い枠 (rgba 0.5) + 白背景
- *   - on: 少し濃い枠 + 薄い背景 (rgba 0.12) + 文字は通常 (黒のまま)
- */
-const ACTION_COLOR: Record<Action, {
-  base: string;        // 標準色 (チェックマーク / オン時の枠)
-  offBorder: string;   // チェックなし時の薄い枠
-  onBg: string;        // チェック時の薄い背景
-}> = {
-  allin: { base: '#993C9D', offBorder: 'rgba(153, 60, 157, 0.5)', onBg: 'rgba(153, 60, 157, 0.12)' },   // 紫
-  raise: { base: '#E24B4A', offBorder: 'rgba(226, 75, 74, 0.5)',  onBg: 'rgba(226, 75, 74, 0.12)'  },   // 赤
-  call:  { base: '#639922', offBorder: 'rgba(99, 153, 34, 0.5)',  onBg: 'rgba(99, 153, 34, 0.14)'  },   // 緑
-  fold:  { base: '#378ADD', offBorder: 'rgba(55, 138, 221, 0.5)', onBg: 'rgba(55, 138, 221, 0.12)' },   // 青
 };
 
 export interface IntermediateChoicesProps {
@@ -67,34 +52,20 @@ export function IntermediateChoices({ onSubmit, disabled = false }: Intermediate
       <ul style={listStyle}>
         {ACTIONS.map((a) => {
           const isOn = selected.includes(a);
-          const color = ACTION_COLOR[a];
-          const baseRow: CSSProperties = {
+          const color = ACTION_BUTTON_COLORS[a];
+          const row: CSSProperties = {
             ...rowBase,
-            borderColor: color.offBorder,
-          };
-          const onRow: CSSProperties = {
-            ...rowBase,
-            background: color.onBg,
-            borderColor: color.base,
-            fontWeight: 700,
+            background: color.bg,
+            borderColor: color.border,
+            color: color.text,
+            fontWeight: isOn ? 800 : 600,
+            boxShadow: isOn ? `0 0 0 1px ${color.border} inset` : 'none',
           };
           return (
             <li key={a}>
-              <button
-                type="button"
-                onClick={() => toggle(a)}
-                disabled={disabled}
-                style={isOn ? onRow : baseRow}
-                aria-pressed={isOn}
-              >
-                <span
-                  style={{
-                    ...checkboxBase,
-                    color: color.base,
-                  }}
-                  aria-hidden
-                >
-                  {isOn ? '☑' : '☐'}
+              <button type="button" onClick={() => toggle(a)} disabled={disabled} style={row} aria-pressed={isOn}>
+                <span style={checkboxStyle(isOn, color.check)} aria-hidden>
+                  {isOn ? '✓' : ''}
                 </span>
                 <span>{ACTION_LABEL[a]}</span>
               </button>
@@ -146,22 +117,32 @@ const rowBase: CSSProperties = {
   gap: '0.55rem',
   width: '100%',
   padding: '0.65rem 0.85rem',
-  background: '#fff',
-  border: `2px solid ${THEME.border}`,
+  border: '2px solid',
   borderRadius: '0.4rem',
   fontSize: '0.98rem',
   fontFamily: 'inherit',
   cursor: 'pointer',
   textAlign: 'left',
-  color: THEME.textPrimary,
 };
 
-const checkboxBase: CSSProperties = {
-  fontSize: '1.1rem',
-  width: '1.2rem',
-  display: 'inline-block',
-  textAlign: 'center',
-};
+/** 選択肢チェックボックス: 未選択=濃色枠の空箱 / 選択=濃色塗り + 白チェック。 */
+function checkboxStyle(on: boolean, color: string): CSSProperties {
+  return {
+    width: 18,
+    height: 18,
+    minWidth: 18,
+    borderRadius: 4,
+    border: `2px solid ${color}`,
+    background: on ? color : 'transparent',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1,
+  };
+}
 
 const submitStyle: CSSProperties = {
   padding: '0.85rem 1rem',

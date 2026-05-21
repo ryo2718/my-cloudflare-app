@@ -127,6 +127,8 @@ function popupStyle(kind: SeatPopup['kind']): CSSProperties {
     color: c.fg,
     background: c.bg,
     borderColor: c.border,
+    // ブラインドのみ枠を少し強調 (白地のため)。アクションはベタ塗りで枠は地色と同色。
+    borderWidth: kind === 'blind' ? '1.5px' : '1px',
   };
 }
 

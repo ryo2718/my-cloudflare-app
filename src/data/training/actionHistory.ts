@@ -116,17 +116,17 @@ export interface ActionColor {
 }
 
 /**
- * ポップアップ種別 → 色。淡いパステル背景 + 濃い文字 + 控えめな枠線
- * (テーブルの緑から浮きすぎず、文字は読みやすく)。
- *   raise=淡赤 / allin=淡紫 / call・limp=淡緑 / fold=淡青 / blind=白
+ * ポップアップ種別 → 色。アクションは中間色のベタ塗り + 白文字 (緑フェルトで映える)。
+ * ブラインドのみ白地 + 黒文字 + 薄グレー枠。
+ *   raise=赤 / allin=紫 / call・limp=緑 / fold=青 / blind=白
  */
 export const ACTION_COLORS: Record<PopupKind, ActionColor> = {
-  raise: { fg: '#993C1D', bg: '#FAECE7', border: '#EBC9BE' },
-  allin: { fg: '#2E2A6B', bg: '#ECEAF7', border: '#D3CEEE' },
-  call: { fg: '#27500A', bg: '#E8F0DA', border: '#CFE0B4' },
-  limp: { fg: '#27500A', bg: '#E8F0DA', border: '#CFE0B4' },
-  fold: { fg: '#0C447C', bg: '#E6F1FB', border: '#C3DDF4' },
-  blind: { fg: '#2C2C2A', bg: '#FFFFFF', border: '#D3D1C7' },
+  raise: { fg: '#FFFFFF', bg: '#D8443C', border: '#D8443C' },
+  allin: { fg: '#FFFFFF', bg: '#534AB7', border: '#534AB7' },
+  call: { fg: '#FFFFFF', bg: '#3B8A1E', border: '#3B8A1E' },
+  limp: { fg: '#FFFFFF', bg: '#3B8A1E', border: '#3B8A1E' },
+  fold: { fg: '#FFFFFF', bg: '#2F7BC4', border: '#2F7BC4' },
+  blind: { fg: '#2C2C2A', bg: '#FFFFFF', border: '#C9C7BD' },
 };
 
 /** ブラインドのラベル (強制ベット)。 */
