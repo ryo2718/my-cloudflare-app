@@ -6,19 +6,24 @@
 //       * 範囲ボタン [ボード]/[フロップ]/[ターンリバー]/各[ハンド] → 必要枚数を連続選択し
 //         必要枚数で自動クローズ
 //   - ボード各スロットの下にゴミ箱 (そのスロットのカードを削除)。
-//   - プレイヤー4枚が揃い、ボードが 0/3/4/5 枚のとき自動で全列挙エクイティを計算
-//     (ボード 1/2 枚は中途半端なので計算しない)。
+//   - 各プレイヤーは具体ハンド or レンジ (13×13 マトリクス) を排他で設定可能。
+//   - 両者が設定済み + ボードが 0/3/4/5 枚のとき自動でエクイティを計算
+//     (具体ハンド同士は全列挙、レンジが絡む場合は rangeEquity が全列挙/モンテカルロを自動選択)。
 //
-// 未実装: レンジ指定・3人以上。
+// 未実装: 3人以上。
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AppHeader } from '../AppHeader';
 import { Link } from '../../router/router';
 import { THEME } from '../../styles/theme';
 import { cardToString, type Card } from '../../types/card';
-import { computeEquity, type EquityResult } from '../../utils/equity';
+import { computeEquity } from '../../utils/equity';
+import { cardToInt } from '../../utils/handEvaluator';
+import { computeRangeEquity } from '../../utils/rangeEquity';
+import { TOTAL_COMBOS, comboKeyToInts } from '../../utils/combos';
 import { CardSlot } from './CardSlot';
 import { CardSelector } from './CardSelector';
+import { RangeMatrix } from './RangeMatrix';
 
 type PlayerId = 'A' | 'B';
 type SlotIdx = 0 | 1;
@@ -72,8 +77,15 @@ export function EquityCalculatorPage() {
     B: [null, null],
   });
   const [board, setBoard] = useState<(Card | null)[]>([null, null, null, null, null]);
+  // 各プレイヤーのレンジ (選択コンボ key の集合)。size>0 ならそのプレイヤーはレンジモード
+  // (具体ハンドとは排他)。
+  const [ranges, setRanges] = useState<Record<PlayerId, Set<string>>>({
+    A: new Set(),
+    B: new Set(),
+  });
   const [selecting, setSelecting] = useState<SelectingTarget | null>(null);
-  const [result, setResult] = useState<EquityResult | null>(null);
+  const [rangeEditing, setRangeEditing] = useState<PlayerId | null>(null);
+  const [result, setResult] = useState<{ a: number; b: number } | null>(null);
   const [computing, setComputing] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -87,20 +99,30 @@ export function EquityCalculatorPage() {
     return set;
   }, [hands, board]);
 
-  const allSet = !!(hands.A[0] && hands.A[1] && hands.B[0] && hands.B[1]);
   const boardCards = useMemo(() => board.filter((c): c is Card => c !== null), [board]);
   const boardCount = boardCards.length;
+
+  // 各プレイヤーが「設定済み」か (レンジ size>0 か、具体ハンド2枚)。
+  const aRange = ranges.A.size > 0;
+  const bRange = ranges.B.size > 0;
+  const aReady = aRange || !!(hands.A[0] && hands.A[1]);
+  const bReady = bRange || !!(hands.B[0] && hands.B[1]);
+  const bothReady = aReady && bReady;
 
   const a0 = hands.A[0] ? cardToString(hands.A[0]!) : '';
   const a1 = hands.A[1] ? cardToString(hands.A[1]!) : '';
   const b0 = hands.B[0] ? cardToString(hands.B[0]!) : '';
   const b1 = hands.B[1] ? cardToString(hands.B[1]!) : '';
   const boardKey = board.map((c) => (c ? cardToString(c) : '_')).join('');
+  const rangeKey = useMemo(
+    () => `A${[...ranges.A].sort().join('')}B${[...ranges.B].sort().join('')}`,
+    [ranges],
+  );
 
-  // プレイヤー4枚が揃い、ボードが 0/3/4/5 枚なら自動計算。
-  // プリフロップは重い (約170万通り) のでペイント後に setTimeout で実行。
+  // 両者が設定済み + ボードが 0/3/4/5 枚なら自動計算。
+  // 重い (プリフロップ全列挙 / レンジ計算) のでペイント後に setTimeout で実行。
   useEffect(() => {
-    if (!allSet || !VALID_BOARD_COUNTS.has(boardCount)) {
+    if (!bothReady || !VALID_BOARD_COUNTS.has(boardCount)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setResult(null);
       setComputing(false);
@@ -109,17 +131,25 @@ export function EquityCalculatorPage() {
     setComputing(true);
     setResult(null);
     const t = window.setTimeout(() => {
-      const r = computeEquity(
-        [hands.A[0]!, hands.A[1]!],
-        [hands.B[0]!, hands.B[1]!],
-        boardCards,
-      );
-      setResult(r);
+      if (!aRange && !bRange) {
+        // 具体ハンド同士は既存の正確計算を使う。
+        const r = computeEquity([hands.A[0]!, hands.A[1]!], [hands.B[0]!, hands.B[1]!], boardCards);
+        setResult({ a: r.a, b: r.b });
+      } else {
+        const aCombos = aRange
+          ? [...ranges.A].map(comboKeyToInts)
+          : [[cardToInt(hands.A[0]!), cardToInt(hands.A[1]!)] as [number, number]];
+        const bCombos = bRange
+          ? [...ranges.B].map(comboKeyToInts)
+          : [[cardToInt(hands.B[0]!), cardToInt(hands.B[1]!)] as [number, number]];
+        const r = computeRangeEquity(aCombos, bCombos, boardCards.map(cardToInt));
+        setResult({ a: r.a, b: r.b });
+      }
       setComputing(false);
     }, 30);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSet, boardCount, a0, a1, b0, b1, boardKey]);
+  }, [bothReady, aRange, bRange, boardCount, a0, a1, b0, b1, boardKey, rangeKey]);
 
   const openSelector = (target: SelectingTarget) => {
     setInfo(null);
@@ -128,12 +158,18 @@ export function EquityCalculatorPage() {
 
   const cancelSelection = () => setSelecting(null);
 
+  // 具体ハンドを設定したらそのプレイヤーのレンジは解除 (排他)。
+  const clearRange = (player: PlayerId) => {
+    setRanges((prev) => (prev[player].size ? { ...prev, [player]: new Set<string>() } : prev));
+  };
+
   // 選択結果を、対象が指すスロット順に格納してパネルを閉じる。
   const commitSelection = (cards: Card[]) => {
     if (!selecting) return;
     if (selecting.kind === 'player') {
       const player = selecting.player;
       setHands((prev) => ({ ...prev, [player]: [cards[0] ?? null, cards[1] ?? null] }));
+      clearRange(player);
     } else if (selecting.kind === 'playerSlot') {
       const { player, slot } = selecting;
       setHands((prev) => {
@@ -141,6 +177,7 @@ export function EquityCalculatorPage() {
         next[player][slot] = cards[0] ?? null;
         return next;
       });
+      clearRange(player);
     } else {
       const slots = boardSlotsOf(selecting);
       setBoard((prev) => {
@@ -156,7 +193,24 @@ export function EquityCalculatorPage() {
 
   const resetPlayer = (player: PlayerId) => {
     setHands((prev) => ({ ...prev, [player]: [null, null] }));
+    clearRange(player);
   };
+
+  const openRange = (player: PlayerId) => {
+    setInfo(null);
+    setRangeEditing(player);
+  };
+
+  // レンジ確定: 設定するとそのプレイヤーの具体ハンドはクリア (排他)。
+  const commitRange = (range: Set<string>) => {
+    if (!rangeEditing) return;
+    const player = rangeEditing;
+    setRanges((prev) => ({ ...prev, [player]: range }));
+    if (range.size > 0) setHands((prev) => ({ ...prev, [player]: [null, null] }));
+    setRangeEditing(null);
+  };
+
+  const cancelRange = () => setRangeEditing(null);
 
   const deleteBoardCard = (index: number) => {
     setBoard((prev) => {
@@ -265,41 +319,55 @@ export function EquityCalculatorPage() {
 
         <div style={dividerStyle} />
 
-        {(['A', 'B'] as PlayerId[]).map((p) => (
-          <div key={p} style={playerRowStyle}>
-            <span style={rowLabelStyle}>Player {p}</span>
-            <div style={cardColStyle}>
-              <div style={slotsStyle}>
-                <CardSlot
-                  card={hands[p][0]}
-                  active={selecting?.kind === 'playerSlot' && selecting.player === p && selecting.slot === 0}
-                  onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 0 })}
-                />
-                <CardSlot
-                  card={hands[p][1]}
-                  active={selecting?.kind === 'playerSlot' && selecting.player === p && selecting.slot === 1}
-                  onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 1 })}
-                />
+        {(['A', 'B'] as PlayerId[]).map((p) => {
+          const rangeSize = ranges[p].size;
+          return (
+            <div key={p} style={playerRowStyle}>
+              <span style={rowLabelStyle}>Player {p}</span>
+              <div style={cardColStyle}>
+                <div style={slotsStyle}>
+                  <CardSlot
+                    card={hands[p][0]}
+                    active={selecting?.kind === 'playerSlot' && selecting.player === p && selecting.slot === 0}
+                    onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 0 })}
+                  />
+                  <CardSlot
+                    card={hands[p][1]}
+                    active={selecting?.kind === 'playerSlot' && selecting.player === p && selecting.slot === 1}
+                    onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 1 })}
+                  />
+                </div>
+                <button type="button" style={handBtnStyle} onClick={() => openSelector({ kind: 'player', player: p })}>
+                  ハンド
+                </button>
+                {rangeSize > 0 && (
+                  <span style={rangeBadgeStyle}>
+                    レンジ {rangeSize}コンボ ({((rangeSize / TOTAL_COMBOS) * 100).toFixed(1)}%)
+                  </span>
+                )}
               </div>
-              <button type="button" style={handBtnStyle} onClick={() => openSelector({ kind: 'player', player: p })}>
-                ハンド
+              <span style={equityStyle}>{equityText(p)}</span>
+              <button
+                type="button"
+                style={rangeSize > 0 ? rangeBtnActiveStyle : rangeBtnStyle}
+                onClick={() => openRange(p)}
+              >
+                レンジ
+              </button>
+              <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
+                リセット
               </button>
             </div>
-            <span style={equityStyle}>{equityText(p)}</span>
-            <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
-              レンジ
-            </button>
-            <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
-              リセット
-            </button>
-          </div>
-        ))}
+          );
+        })}
 
         <div style={dividerStyle} />
         </div>
 
-        {!allSet && <p style={hintStyle}>各プレイヤーのカードを2枚ずつ選ぶと自動で勝率を計算します。</p>}
-        {allSet && !VALID_BOARD_COUNTS.has(boardCount) && (
+        {!bothReady && (
+          <p style={hintStyle}>各プレイヤーの具体ハンド(2枚)かレンジを設定すると自動で勝率を計算します。</p>
+        )}
+        {bothReady && !VALID_BOARD_COUNTS.has(boardCount) && (
           <p style={hintStyle}>ボードを3枚以上にすると計算します。</p>
         )}
         {info && <p style={infoStyle}>{info}</p>}
@@ -313,6 +381,10 @@ export function EquityCalculatorPage() {
             onCommit={commitSelection}
             onCancel={cancelSelection}
           />
+        )}
+
+        {rangeEditing && (
+          <RangeMatrix initialRange={ranges[rangeEditing]} onCommit={commitRange} onCancel={cancelRange} />
         )}
       </main>
     </div>
@@ -424,7 +496,15 @@ const rangeBtnStyle: CSSProperties = {
   cursor: 'pointer',
 };
 const rangeBtnFullStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
+const rangeBtnActiveStyle: CSSProperties = {
+  ...rangeBtnStyle,
+  background: THEME.accent,
+  color: '#fff',
+  borderColor: THEME.accent,
+  fontWeight: 700,
+};
 const handBtnStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
+const rangeBadgeStyle: CSSProperties = { fontSize: '0.72rem', color: THEME.textSecondary, textAlign: 'center' };
 const equityStyle: CSSProperties = {
   fontSize: '1.1rem',
   fontWeight: 800,
