@@ -22,9 +22,13 @@ export interface HandRangeMatrixProps {
   highlightHand?: string;
   /** タイトル/キャプション。 */
   caption?: string;
+  /** セルタップ時に呼ぶ (指定時はセルがタップ可能になる)。 */
+  onSelect?: (hand: string) => void;
+  /** タップで選択中のハンド (枠で示す)。 */
+  selectedHand?: string;
 }
 
-export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatrixProps) {
+export function HandRangeMatrix({ hands, highlightHand, caption, onSelect, selectedHand }: HandRangeMatrixProps) {
   return (
     <figure style={figureStyle} aria-label={caption ?? 'ハンドレンジマトリクス'}>
       {caption && <figcaption style={captionStyle}>{caption}</figcaption>}
@@ -34,13 +38,14 @@ export function HandRangeMatrix({ hands, highlightHand, caption }: HandRangeMatr
             const hand = cellHand(row, col);
             const strategy = hands[hand];
             const { segments } = paintCell(strategy);
-            const isHighlight = hand === highlightHand;
             return (
               <Cell
                 key={`${row}-${col}`}
                 hand={hand}
                 segments={segments}
-                highlight={isHighlight}
+                highlight={hand === highlightHand}
+                selected={hand === selectedHand}
+                onClick={onSelect ? () => onSelect(hand) : undefined}
               />
             );
           }),
@@ -55,14 +60,20 @@ function Cell({
   hand,
   segments,
   highlight,
+  selected = false,
+  onClick,
 }: {
   hand: string;
   segments: import('./HandRangeMatrix.helpers').CellSegment[] | null;
   highlight: boolean;
+  selected?: boolean;
+  onClick?: () => void;
 }) {
   // segments null → 描画なし (薄灰)
   // ある → 各セグメントを flex 縦積みで明示的に描画 (上から allin/raise/call/fold)
   const isEmpty = !segments || segments.length === 0;
+  // 出題ハンド=黄枠。タップ選択中 (出題ハンド以外) =アクセント枠。
+  const outline = highlight ? '3px solid #FFEB3B' : selected ? '3px solid #b45309' : 'none';
   const baseStyle: CSSProperties = {
     ...cellBase,
     background: isEmpty ? '#f5f1ea' : 'transparent',
@@ -70,15 +81,21 @@ function Cell({
     textShadow: isEmpty
       ? 'none'
       : '0 1px 2px rgba(255,255,255,0.6), 0 0 1px rgba(255,255,255,0.8)',
-    outline: highlight ? '3px solid #FFEB3B' : 'none',
-    outlineOffset: highlight ? '-2px' : undefined,
+    outline,
+    outlineOffset: highlight || selected ? '-2px' : undefined,
     fontWeight: highlight ? 700 : 500,
-    zIndex: highlight ? 1 : undefined,
+    zIndex: highlight || selected ? 1 : undefined,
     position: 'relative',
     overflow: 'hidden',
+    cursor: onClick ? 'pointer' : undefined,
   };
   return (
-    <div style={baseStyle} role="gridcell" aria-label={hand}>
+    <div
+      style={baseStyle}
+      role={onClick ? 'button' : 'gridcell'}
+      aria-label={hand}
+      onClick={onClick}
+    >
       {!isEmpty && (
         <div style={layerStackStyle} aria-hidden>
           {segments.map((seg, i) => (

@@ -27,6 +27,7 @@ import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
 import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { scenarioLabel } from './scenarioLabel';
+import { NodeRangeSection } from './NodeRangeSection';
 import { TrainingReviewIntermediate } from './TrainingReviewIntermediate';
 import type { Suit, Rank } from '../../types/card';
 
@@ -134,6 +135,8 @@ export function TrainingReview({ level, index }: TrainingReviewProps) {
             isUserChoice={current.userAnswer === 'fold'}
           />
         </section>
+
+        <NodeRangeSection file={beginnerNodeFile(current)} highlightHand={current.hand} />
 
         <nav style={navRowStyle}>
           <button

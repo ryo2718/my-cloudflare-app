@@ -258,6 +258,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
             <NodeRangeSection
               file={positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor })}
               highlightHand={q.hand}
+              actionLabels={q.actionLabels}
             />
           </InstantFeedback>
         ) : q.format === 'slider' ? (
