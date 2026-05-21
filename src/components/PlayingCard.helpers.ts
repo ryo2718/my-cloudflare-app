@@ -14,13 +14,13 @@ export const SUIT_BG_COLORS: Record<Suit, string> = {
 
 export type CardSize = 'xs' | 'sm' | 'md' | 'lg' | 'board';
 
-/** サイズ定義 (md=26×32 が基準)。board=38×57 は縦長 2:3 (エクイティのボード用)。 */
+/** サイズ定義 (md=26×32 が基準)。board=54×76 は縦長トランプ比 (エクイティのボード用)。 */
 export const CARD_SIZES: Record<CardSize, { width: number; height: number; fontSize: number }> = {
   xs: { width: 18, height: 22, fontSize: 11 },
   sm: { width: 22, height: 28, fontSize: 13 },
   md: { width: 26, height: 32, fontSize: 16 },
   lg: { width: 36, height: 48, fontSize: 22 },
-  board: { width: 38, height: 57, fontSize: 18 },
+  board: { width: 54, height: 76, fontSize: 24 },
 };
 
 export const SELECTED_OUTLINE_COLOR = '#FBBF24'; // amber-400

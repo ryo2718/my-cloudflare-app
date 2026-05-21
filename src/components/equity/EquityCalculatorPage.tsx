@@ -370,7 +370,9 @@ export function EquityCalculatorPage() {
                 </button>
               </div>
               <div style={rightBlockStyle}>
-                <span style={{ ...equityStyle, color: equityColorFor(p) }}>{equityText(p)}</span>
+                {equityText(p) && (
+                  <span style={{ ...equityStyle, color: equityColorFor(p) }}>{equityText(p)}</span>
+                )}
                 <div style={rangeBtnsRowStyle}>
                   <button
                     type="button"
@@ -430,8 +432,8 @@ export function EquityCalculatorPage() {
 function TrashIcon() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="18"
+      height="18"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -480,20 +482,21 @@ const boardColumnStyle: CSSProperties = {
 };
 const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch' };
 const boardGroupStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.35rem' };
-const slotsRowStyle: CSSProperties = { display: 'flex', gap: '0.35rem', alignItems: 'flex-start' };
+const slotsRowStyle: CSSProperties = { display: 'flex', gap: '0.3rem', alignItems: 'flex-start' };
 const boardCellStyle: CSSProperties = {
-  width: 38,
+  width: 54,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   gap: '0.3rem',
 };
-const groupDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.4rem' };
+// フロップ群とターンリバー群の区切り。カード拡大のため余白を詰める。
+const groupDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.25rem' };
 const slotDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.1rem' };
 
 const trashBtnStyle: CSSProperties = {
-  width: 38,
-  height: 24,
+  width: 54,
+  height: 28,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
