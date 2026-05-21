@@ -64,7 +64,7 @@ export function NodeRangeSection({ file, highlightHand, caption, actionLabels }:
   return (
     <div style={wrapStyle}>
       <HandRangeMatrix
-        hands={hands as Record<string, HandStrategy>}
+        hands={hands as unknown as Record<string, HandStrategy>}
         highlightHand={highlightHand}
         selectedHand={selected}
         onSelect={toggle}
