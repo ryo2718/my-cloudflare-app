@@ -157,7 +157,10 @@ function LevelRow({
         <span style={cardLevelStyle}>{displayLabel}</span>
         <span style={scoreLineStyle}>
           {record ? (
-            <span style={bestPtStyle}>最高 {pt}pt / {max}pt</span>
+            <>
+              最高スコア <span style={gainPtStyle}>+{pt}pt</span>
+              <span style={maxPtStyle}> / {max}pt</span>
+            </>
           ) : (
             '未挑戦'
           )}
@@ -259,7 +262,8 @@ const scoreLineStyle: CSSProperties = {
   color: THEME.textMuted,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
 };
-const bestPtStyle: CSSProperties = { color: THEME.textPrimary, fontWeight: 700, fontSize: '0.95rem' };
+const gainPtStyle: CSSProperties = { color: '#639922', fontWeight: 700, fontSize: '0.95rem' };
+const maxPtStyle: CSSProperties = { color: THEME.textPrimary, fontWeight: 700, fontSize: '0.95rem' };
 const actionRowStyle: CSSProperties = { display: 'flex', gap: '0.6rem' };
 const rulesBtnStyle: CSSProperties = {
   flex: 1,
