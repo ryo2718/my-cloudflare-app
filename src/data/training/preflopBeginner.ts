@@ -217,6 +217,13 @@ export function handToCards(hand: Hand): PreflopQuestion['cards'] {
   ];
 }
 
+/** 初級問題に対応するノードファイル名 (action_history 読み込み用)。 */
+export function beginnerNodeFile(q: PreflopQuestion): string {
+  const me = q.myPosition.toLowerCase();
+  if (q.scenario === 'open') return `${me}.json`;
+  return `${(q.opener ?? '').toLowerCase()}r_${me}.json`;
+}
+
 // ---------------------------------------------------------------------------
 // データロード
 // ---------------------------------------------------------------------------

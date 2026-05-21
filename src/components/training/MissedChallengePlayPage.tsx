@@ -28,12 +28,13 @@ import {
 } from '../../data/training/preflopIntermediate';
 import type { Position } from '../../types/strategy';
 import { CardSet } from '../CardSet';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
+import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { IntermediateChoices } from './IntermediateChoices';
 import { SliderChoice } from './SliderChoice';
 import { PositionalChoices } from './PositionalChoices';
 import { positionalPillStyle } from './positionalPill';
-import { intermediateScenarioLabel } from './intermediateScenarioLabel';
+import { intermediateScenarioLabel, rangeFileFor } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
 import { THEME } from '../../styles/theme';
 import {
@@ -248,7 +249,9 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
       </header>
 
       <main style={mainStyle}>
-        {item.kind === 'beginner' && <BeginnerStage q={item.question} onAnswer={advanceBeginner} />}
+        {item.kind === 'beginner' && (
+          <BeginnerStage q={item.question} onAnswer={advanceBeginner} key={state.current} />
+        )}
         {item.kind === 'intermediate' && (
           <IntermediateStage q={item.question} onAnswer={advanceIntermediate} key={state.current} />
         )}
@@ -263,7 +266,7 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
 function BeginnerStage({ q, onAnswer }: { q: PreflopQuestion; onAnswer: (a: CorrectAnswer) => void }) {
   return (
     <>
-      <PokerTable mePosition={q.myPosition} opener={q.opener} foldedSet={q.foldedBefore} />
+      <ActionTable file={beginnerNodeFile(q)} mePosition={q.myPosition} animate />
       <section style={handSectionStyle}>
         <span style={handLabelStyle}>ハンド</span>
         <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
@@ -282,12 +285,7 @@ function IntermediateStage({ q, onAnswer }: { q: IntermediateQuestion; onAnswer:
   return (
     <>
       <div style={orangePillStyle}>{scenarioPill}</div>
-      <PokerTable
-        mePosition={q.myPosition}
-        opener={q.scenarioType === 'risky_open' ? null : q.opener}
-        foldedSet={q.foldedBefore}
-        chipExtras={q.chipExtras}
-      />
+      <ActionTable file={rangeFileFor(q)} mePosition={q.myPosition} animate />
       <section style={handSectionStyle}>
         <span style={handLabelStyle}>ハンド</span>
         <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
@@ -301,11 +299,10 @@ function PositionalStage({ q, onAnswer }: { q: PositionalQuestion; onAnswer: (re
   return (
     <>
       <div style={positionalPillStyle(q.scenarioKey)}>{q.label}</div>
-      <PokerTable
+      <ActionTable
+        file={positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor })}
         mePosition={q.myPosition}
-        opener={q.opener}
-        foldedSet={q.foldedBefore}
-        chipExtras={q.chipExtras}
+        animate
       />
       <section style={handSectionStyle}>
         <span style={handLabelStyle}>ハンド</span>

@@ -1,23 +1,15 @@
-// 6max ポーカーテーブル俯瞰図。
+// 6max ポーカーテーブル俯瞰図 (プレゼンテーション専用)。
 //
-// 配置ルール:
-//   - 自分 (mePosition) は常に画面下中央
-//   - 他の 5 player は時計回り (UTG→HJ→CO→BTN→SB→BB) に bottom_left → top_left → top_center
-//     → top_right → bottom_right の順で配置
+// チップは廃止。各ポジションのアクションを「テキストポップアップ」(fold / raise 2.5 / call /
+// limp / allin) で表示する。表示するアクションは popups (= 各座席の最新アクション) で渡す。
+// アニメーション (0.2 秒間隔の順次表示) や action_history の読み込みは ActionTable 側で行う。
 //
-// 入力:
-//   - mePosition: 自分のポジション
-//   - opener: 既に open した player (チップ表示 + アクション表示用)。null = まだ open なし
-//   - foldedSet: opener より前にフォールド済 player の集合 (透明表示用)
-//   - dealerSeat: D マーカー位置 (= BTN)
-//   - bbAmount/sbAmount: 通常 1 / 0.5 を強調表示
-//
-// Note: 同一テーブルは Confirm/Play/Result でも使い回せるよう純粋プレゼンテーション。
+// 配置: 自分 (mePosition) は下中央、他 5 名を時計回りに配置。
 
 import type { CSSProperties } from 'react';
 import type { Position } from '../../types/strategy';
+import { ACTION_COLORS, type SeatPopup } from '../../data/training/actionHistory';
 
-// 順序: UTG → HJ → CO → BTN → SB → BB (preflop action order)
 const PREFLOP_ORDER: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 
 type Slot = 'bottom_center' | 'bottom_left' | 'top_left' | 'top_center' | 'top_right' | 'bottom_right';
@@ -30,38 +22,11 @@ const SLOTS_CW: ReadonlyArray<Slot> = [
   'bottom_right',
 ];
 
-/** チップの種別。'allin' = 5bet ジャム等 (黒背景・白文字)。 */
-export type ChipVariant = 'allin';
-
-export interface PlayerChip {
-  /** ベット額 (chips on table)、bb 単位 (0.5 / 1 / 2.5 等)。 */
-  amount: number;
-  /** 特殊表示 (5bet ジャム = 黒)。 */
-  variant?: ChipVariant;
-}
-
-export interface ChipExtra {
-  position: Position;
-  amount: number;
-  /** 5bet ジャム等を黒チップで表示する場合に 'allin'。 */
-  variant?: ChipVariant;
-}
-
 export interface PokerTableProps {
   /** 自分のポジション。下中央に配置される。 */
   mePosition: Position;
-  /** 既にプリフロップ open した player (raise 額 = openSize で chip 表示)。null なら誰も open してない。 */
-  opener?: Position | null;
-  /** open サイズ (bb)。デフォルト 2.5。 */
-  openSize?: number;
-  /** open より前にフォールド済の player (UI で透明化)。 */
-  foldedSet?: ReadonlyArray<Position>;
-  /**
-   * 複数アクター対応: 指定ポジションに固定額のチップを表示。
-   * chipExtras に存在するポジションは opener や SB/BB ブラインドの値より優先される。
-   * (vs_3bet で opener=2.5 + 3bettor=12、vs_4bet で opener=30 + 3bettor=12 等)
-   */
-  chipExtras?: ReadonlyArray<ChipExtra>;
+  /** 各座席のアクションポップアップ (= その座席の最新アクション)。未指定なら何も表示しない。 */
+  popups?: ReadonlyArray<SeatPopup>;
 }
 
 /** mePosition を「下中央」とした時の slot → position マッピング。 */
@@ -74,28 +39,10 @@ function arrangePositions(me: Position): Record<Slot, Position> {
   return out as Record<Slot, Position>;
 }
 
-const SB_AMOUNT = 0.5;
-const BB_AMOUNT = 1;
-
-export function PokerTable({
-  mePosition,
-  opener = null,
-  openSize = 2.5,
-  foldedSet = [],
-  chipExtras = [],
-}: PokerTableProps) {
+export function PokerTable({ mePosition, popups = [] }: PokerTableProps) {
   const slots = arrangePositions(mePosition);
-  const foldedLookup = new Set(foldedSet);
-
-  const chipFor = (pos: Position): PlayerChip | null => {
-    // chipExtras 優先 (vs_3bet / vs_4bet で複数アクターのチップを表示するため)
-    const extra = chipExtras.find((e) => e.position === pos);
-    if (extra) return { amount: extra.amount, variant: extra.variant };
-    if (pos === opener) return { amount: openSize };
-    if (pos === 'SB' && opener !== 'SB') return { amount: SB_AMOUNT };
-    if (pos === 'BB' && opener !== 'BB') return { amount: BB_AMOUNT };
-    return null;
-  };
+  const popupByPos = new Map<Position, SeatPopup>();
+  for (const p of popups) popupByPos.set(p.position, p);
 
   return (
     <div style={containerStyle}>
@@ -103,7 +50,8 @@ export function PokerTable({
         {SLOTS_CW.map((slot) => {
           const pos = slots[slot];
           const isMe = pos === mePosition;
-          const isFolded = foldedLookup.has(pos);
+          const popup = popupByPos.get(pos) ?? null;
+          const isFolded = popup?.kind === 'fold';
           return (
             <PlayerSeat
               key={slot}
@@ -111,7 +59,7 @@ export function PokerTable({
               position={pos}
               isMe={isMe}
               isFolded={isFolded}
-              chip={chipFor(pos)}
+              popup={popup}
               isDealer={pos === 'BTN'}
             />
           );
@@ -130,21 +78,21 @@ function PlayerSeat({
   position,
   isMe,
   isFolded,
-  chip,
+  popup,
   isDealer,
 }: {
   slot: Slot;
   position: Position;
   isMe: boolean;
   isFolded: boolean;
-  chip: PlayerChip | null;
+  popup: SeatPopup | null;
   isDealer: boolean;
 }) {
   const seatStyle: CSSProperties = {
     ...seatBaseStyle,
     ...SLOT_POSITIONS[slot],
     ...(isMe ? meSeatStyle : {}),
-    opacity: isFolded ? 0.3 : 1,
+    opacity: isFolded ? 0.35 : 1,
   };
 
   return (
@@ -160,38 +108,26 @@ function PlayerSeat({
           D
         </div>
       )}
-      {chip && (
+      {popup && (
         <div
-          style={{ ...chipStyle(chip), ...CHIP_OFFSETS[slot] }}
-          aria-label={`${position} ${chip.amount}bb${chip.variant === 'allin' ? ' (5bet)' : ''}`}
+          style={{ ...popupStyle(popup.kind), ...POPUP_OFFSETS[slot] }}
+          aria-label={`${position} ${popup.label}`}
         >
-          {formatChip(chip.amount)}
+          {popup.label}
         </div>
       )}
     </>
   );
 }
 
-function chipStyle(chip: PlayerChip): CSSProperties {
-  const { bg, fg, border } = chipColor(chip.amount, chip.variant);
+function popupStyle(kind: SeatPopup['kind']): CSSProperties {
+  const c = ACTION_COLORS[kind];
   return {
-    ...chipBaseStyle,
-    background: bg,
-    color: fg,
-    borderColor: border,
-    fontSize: formatChip(chip.amount).length >= 3 ? '10px' : '13px',
+    ...popupBaseStyle,
+    color: c.fg,
+    background: c.bg,
+    borderColor: c.border,
   };
-}
-
-function chipColor(amount: number, variant?: ChipVariant): { bg: string; fg: string; border: string } {
-  if (variant === 'allin') return { bg: '#2C2C2A', fg: '#ffffff', border: '#000000' }; // 黒 = 5bet ジャム
-  if (amount < 3) return { bg: '#ffffff', fg: '#000000', border: '#888780' }; // white = small
-  if (amount < 20) return { bg: '#E24B4A', fg: '#ffffff', border: '#F7C1C1' }; // red = medium
-  return { bg: '#3B6D11', fg: '#ffffff', border: '#C0DD97' }; // green = large
-}
-
-function formatChip(amount: number): string {
-  return Number.isInteger(amount) ? String(amount) : amount.toFixed(1).replace(/\.0$/, '');
 }
 
 // ---------------------------------------------------------------------------
@@ -252,46 +188,45 @@ const dealerStyle: CSSProperties = {
   justifyContent: 'center',
 };
 
-const chipBaseStyle: CSSProperties = {
+const popupBaseStyle: CSSProperties = {
   position: 'absolute',
-  width: 28,
-  height: 28,
-  borderRadius: '50%',
-  border: '2px dashed',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontWeight: 500,
+  padding: '2px 7px',
+  borderRadius: '999px',
+  border: '1.5px solid',
+  fontSize: 11,
+  fontWeight: 700,
+  whiteSpace: 'nowrap',
   fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
-  lineHeight: 1,
+  lineHeight: 1.3,
+  transform: 'translate(-50%, -50%)',
 };
 
 // 各 slot の絶対位置 (テーブル内座標、percentage)
 const SLOT_POSITIONS: Record<Slot, CSSProperties> = {
-  bottom_center: { bottom: '2%',   left: '50%',  transform: 'translateX(-50%)' },
-  bottom_left:   { bottom: '32%',  left: '6%' },
-  top_left:      { top: '20%',     left: '6%' },
-  top_center:    { top: '2%',      left: '50%',  transform: 'translateX(-50%)' },
-  top_right:     { top: '20%',     right: '6%' },
-  bottom_right:  { bottom: '32%',  right: '6%' },
+  bottom_center: { bottom: '2%', left: '50%', transform: 'translateX(-50%)' },
+  bottom_left: { bottom: '32%', left: '6%' },
+  top_left: { top: '20%', left: '6%' },
+  top_center: { top: '2%', left: '50%', transform: 'translateX(-50%)' },
+  top_right: { top: '20%', right: '6%' },
+  bottom_right: { bottom: '32%', right: '6%' },
 };
 
-// チップは座席の「テーブル中央寄り」に置く
-const CHIP_OFFSETS: Record<Slot, CSSProperties> = {
-  bottom_center: { bottom: '20%',  left: '50%',  transform: 'translateX(-50%)' },
-  bottom_left:   { bottom: '36%',  left: '24%' },
-  top_left:      { top: '34%',     left: '24%' },
-  top_center:    { top: '20%',     left: '50%',  transform: 'translateX(-50%)' },
-  top_right:     { top: '34%',     right: '24%' },
-  bottom_right:  { bottom: '36%',  right: '24%' },
+// ポップアップは座席の「テーブル中央寄り」に配置 (transform で中心合わせ)。
+const POPUP_OFFSETS: Record<Slot, CSSProperties> = {
+  bottom_center: { bottom: '22%', left: '50%' },
+  bottom_left: { bottom: '40%', left: '30%' },
+  top_left: { top: '40%', left: '30%' },
+  top_center: { top: '24%', left: '50%' },
+  top_right: { top: '40%', right: '30%', transform: 'translate(50%, -50%)' },
+  bottom_right: { bottom: '40%', right: '30%', transform: 'translate(50%, -50%)' },
 };
 
 // Dealer button は BTN 座席の内側 (テーブル中央寄り) に小さく
 const DEALER_OFFSETS: Record<Slot, CSSProperties> = {
-  bottom_center: { bottom: '8%',   left: '64%' },
-  bottom_left:   { bottom: '38%',  left: '34%' },
-  top_left:      { top: '26%',     left: '34%' },
-  top_center:    { top: '8%',      left: '60%' },
-  top_right:     { top: '26%',     right: '34%' },
-  bottom_right:  { bottom: '38%',  right: '34%' },
+  bottom_center: { bottom: '8%', left: '64%' },
+  bottom_left: { bottom: '38%', left: '34%' },
+  top_left: { top: '26%', left: '34%' },
+  top_center: { top: '8%', left: '60%' },
+  top_right: { top: '26%', right: '34%' },
+  bottom_right: { bottom: '38%', right: '34%' },
 };

@@ -35,7 +35,8 @@ import { apiPostProblemAttempts, type ProblemAttemptInput } from '../../api/stat
 import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
+import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { QuitButton } from './QuitButton';
 import type { Suit, Rank } from '../../types/card';
 
@@ -58,6 +59,13 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
+  // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
+  const [animReady, setAnimReady] = useState(false);
+  const currentIdx = state.kind === 'ready' ? state.current : -1;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAnimReady(false);
+  }, [currentIdx]);
 
   // beforeunload: 途中離脱の警告
   useEffect(() => {
@@ -224,7 +232,7 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
         </div>
       </header>
 
-      {typeof level.timeLimitSec === 'number' && (
+      {animReady && typeof level.timeLimitSec === 'number' && (
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={level.timeLimitSec}
@@ -233,10 +241,12 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
       )}
 
       <main style={mainStyle}>
-        <PokerTable
+        <ActionTable
+          file={beginnerNodeFile(q)}
           mePosition={q.myPosition}
-          opener={q.opener}
-          foldedSet={q.foldedBefore}
+          animate
+          resetKey={state.current}
+          onAnimationDone={() => setAnimReady(true)}
         />
 
         <section style={handSectionStyle}>

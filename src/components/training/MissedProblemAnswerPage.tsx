@@ -28,7 +28,8 @@ import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './IntermediateChoices';
 import { CardSet } from '../CardSet';
 import { HandRangeMatrix } from './HandRangeMatrix';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
+import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { AppHeader } from '../AppHeader';
 import {
   intermediateScenarioLabel,
@@ -161,12 +162,7 @@ function IntermediateBody({ row }: { row: MissedProblemRow }) {
     <>
       <div style={scenarioPillStyle}>{intermediateScenarioLabel(q)}</div>
 
-      <PokerTable
-        mePosition={q.myPosition}
-        opener={q.scenarioType === 'risky_open' ? null : q.opener}
-        foldedSet={q.foldedBefore}
-        chipExtras={q.chipExtras}
-      />
+      <ActionTable file={rangeFileFor(q)} mePosition={q.myPosition} />
 
       <section style={handSectionStyle}>
         <span style={handLabelStyle}>ハンド</span>
@@ -296,11 +292,7 @@ function BeginnerBody({ row }: { row: MissedProblemRow }) {
     <>
       <div style={scenarioPillStyle}>{beginnerScenarioLabel(q)}</div>
 
-      <PokerTable
-        mePosition={q.myPosition}
-        opener={q.opener}
-        foldedSet={q.foldedBefore}
-      />
+      <ActionTable file={beginnerNodeFile(q)} mePosition={q.myPosition} />
 
       <section style={handSectionStyle}>
         <span style={handLabelStyle}>ハンド</span>

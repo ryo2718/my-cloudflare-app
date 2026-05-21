@@ -15,7 +15,7 @@ import {
 } from '../../data/training/preflopIntermediatePositional';
 import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import { CardSet } from '../CardSet';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
 import { HandRangeMatrix } from './HandRangeMatrix';
 import { THEME } from '../../styles/theme';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
@@ -53,11 +53,13 @@ export function PositionalReviewDetail({ question, response, points }: Positiona
 
   return (
     <div style={wrapStyle}>
-      <PokerTable
+      <ActionTable
+        file={positionalNodeFile(question.scenarioKey, {
+          hero: question.myPosition,
+          opener: question.opener,
+          threeBettor: question.threeBettor,
+        })}
         mePosition={question.myPosition}
-        opener={question.opener}
-        foldedSet={question.foldedBefore}
-        chipExtras={question.chipExtras}
       />
 
       <section style={handSectionStyle}>

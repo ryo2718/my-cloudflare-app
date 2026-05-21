@@ -14,11 +14,13 @@ import {
   scorePositionalPoints,
   totalPositionalScore,
   maxScoreForMode,
+  positionalNodeFile,
   type PositionalMode,
   type PositionalQuestion,
   type PositionalResponse,
 } from '../../data/training/preflopIntermediatePositional';
 import { positionalPillStyle } from './positionalPill';
+import { ActionTable } from './ActionTable';
 import { encodeMissedInput } from '../../data/training/positionalReview';
 import {
   savePositionalRecords,
@@ -30,7 +32,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
-import { PokerTable } from './PokerTable';
 import { SliderChoice } from './SliderChoice';
 import { PositionalChoices } from './PositionalChoices';
 import { QuitButton } from './QuitButton';
@@ -60,6 +61,13 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
   const mode = modeFromLevelKey(level.key);
+  // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
+  const [animReady, setAnimReady] = useState(false);
+  const currentIdx = state.kind === 'ready' ? state.current : -1;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAnimReady(false);
+  }, [currentIdx]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -187,19 +195,22 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
         </div>
       </header>
 
-      <Countdown
-        key={`${state.current}-${q.hand}`}
-        seconds={TIMER_SECONDS}
-        onTimeUp={() => advance({ kind: 'timeout' }, state)}
-      />
+      {animReady && (
+        <Countdown
+          key={`${state.current}-${q.hand}`}
+          seconds={TIMER_SECONDS}
+          onTimeUp={() => advance({ kind: 'timeout' }, state)}
+        />
+      )}
 
       <main style={mainStyle}>
         <div style={positionalPillStyle(q.scenarioKey)}>{q.label}</div>
-        <PokerTable
+        <ActionTable
+          file={positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor })}
           mePosition={q.myPosition}
-          opener={q.opener}
-          foldedSet={q.foldedBefore}
-          chipExtras={q.chipExtras}
+          animate
+          resetKey={state.current}
+          onAnimationDone={() => setAnimReady(true)}
         />
 
         <section style={handSectionStyle}>

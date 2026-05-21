@@ -11,7 +11,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { HandRangeMatrix } from './HandRangeMatrix';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
 import type { Rank, Suit } from '../../types/card';
@@ -185,7 +185,7 @@ function BeginnerRule() {
 
       <SectionTitle>テーブル</SectionTitle>
       <Card>
-        <PokerTable mePosition="HJ" opener={null} foldedSet={['UTG']} />
+        <ActionTable file="hj.json" mePosition="HJ" />
       </Card>
 
       <SectionTitle>どう応答する?</SectionTitle>
@@ -242,12 +242,7 @@ function IntermediateRule() {
 
       <SectionTitle>テーブル</SectionTitle>
       <Card>
-        <PokerTable
-          mePosition="BB"
-          opener="HJ"
-          openSize={2.5}
-          foldedSet={['UTG', 'CO', 'BTN', 'SB']}
-        />
+        <ActionTable file="hjr_bb.json" mePosition="BB" />
       </Card>
 
       <SectionTitle>どう応答する?</SectionTitle>

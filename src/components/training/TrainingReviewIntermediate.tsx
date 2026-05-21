@@ -35,7 +35,7 @@ import {
   rangeFileFor,
 } from './intermediateScenarioLabel';
 import { THEME } from '../../styles/theme';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
 import type { Suit, Rank } from '../../types/card';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { useEffect, useState } from 'react';
@@ -107,12 +107,7 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
 
         <div style={scenarioPillStyle}>{intermediateScenarioLabel(current)}</div>
 
-        <PokerTable
-          mePosition={current.myPosition}
-          opener={current.scenarioType === 'risky_open' ? null : current.opener}
-          foldedSet={current.foldedBefore}
-          chipExtras={current.chipExtras}
-        />
+        <ActionTable file={rangeFileFor(current)} mePosition={current.myPosition} />
 
         <section style={handSectionStyle}>
           <span style={handLabelStyle}>ハンド</span>

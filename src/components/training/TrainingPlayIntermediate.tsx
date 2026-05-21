@@ -31,9 +31,9 @@ import { apiPostProblemAttempts, type ProblemAttemptInput } from '../../api/stat
 import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
 import { IntermediateChoices } from './IntermediateChoices';
-import { intermediateScenarioLabel } from './intermediateScenarioLabel';
+import { intermediateScenarioLabel, rangeFileFor } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
 import type { Suit, Rank } from '../../types/card';
 
@@ -58,6 +58,13 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
+  // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
+  const [animReady, setAnimReady] = useState(false);
+  const currentIdx = state.kind === 'ready' ? state.current : -1;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAnimReady(false);
+  }, [currentIdx]);
 
   // beforeunload: 途中離脱の警告
   useEffect(() => {
@@ -224,19 +231,22 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         </div>
       </header>
 
-      <Countdown
-        key={`${state.current}-${q.hand}`}
-        seconds={TIMER_SECONDS}
-        onTimeUp={() => advance([], true, state)}
-      />
+      {animReady && (
+        <Countdown
+          key={`${state.current}-${q.hand}`}
+          seconds={TIMER_SECONDS}
+          onTimeUp={() => advance([], true, state)}
+        />
+      )}
 
       <main style={mainStyle}>
         <div style={scenarioPillStyle}>{intermediateScenarioLabel(q)}</div>
-        <PokerTable
+        <ActionTable
+          file={rangeFileFor(q)}
           mePosition={q.myPosition}
-          opener={q.scenarioType === 'risky_open' ? null : q.opener}
-          foldedSet={q.foldedBefore}
-          chipExtras={q.chipExtras}
+          animate
+          resetKey={state.current}
+          onAnimationDone={() => setAnimReady(true)}
         />
 
         <section style={handSectionStyle}>

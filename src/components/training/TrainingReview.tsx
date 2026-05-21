@@ -24,7 +24,8 @@ import {
 } from '../../data/trainingCatalog';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
-import { PokerTable } from './PokerTable';
+import { ActionTable } from './ActionTable';
+import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { scenarioLabel } from './scenarioLabel';
 import { TrainingReviewIntermediate } from './TrainingReviewIntermediate';
 import type { Suit, Rank } from '../../types/card';
@@ -107,11 +108,7 @@ export function TrainingReview({ level, index }: TrainingReviewProps) {
 
         <div style={scenarioPillStyle}>{scenarioLabel(current)}</div>
 
-        <PokerTable
-          mePosition={current.myPosition}
-          opener={current.opener}
-          foldedSet={current.foldedBefore}
-        />
+        <ActionTable file={beginnerNodeFile(current)} mePosition={current.myPosition} />
 
         <section style={handSectionStyle}>
           <span style={handLabelStyle}>ハンド</span>

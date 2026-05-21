@@ -1,0 +1,96 @@
+// テーブル俯瞰図 + アクションのテキストポップアップ表示。
+//   - file の action_history を読み込み、各座席のアクションをポップアップ表示
+//   - animate=true: 0.2 秒間隔で順次表示し、全アクション再生後に onAnimationDone を呼ぶ
+//     (ヒーローの番 = 制限時間スタートのトリガに使う)
+//   - animate=false: 全アクションを即時表示 (振り返り / 答え合わせ画面)
+//   - resetKey を変えると (問題切替) アニメを最初から再生
+
+import { useEffect, useRef, useState } from 'react';
+import type { Position } from '../../types/strategy';
+import {
+  loadActionHistory,
+  toSeatPopups,
+  type ActionItem,
+} from '../../data/training/actionHistory';
+import { PokerTable } from './PokerTable';
+
+const STEP_MS = 200;
+
+export interface ActionTableProps {
+  /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null なら空テーブル。 */
+  file: string | null;
+  mePosition: Position;
+  /** true: 0.2 秒間隔アニメ。false: 即時全表示。 */
+  animate?: boolean;
+  /** アニメ完了 (ヒーローの番に到達) で呼ばれる。 */
+  onAnimationDone?: () => void;
+  /** 問題切替でアニメを再生し直すためのキー。 */
+  resetKey?: string | number;
+}
+
+export function ActionTable({
+  file,
+  mePosition,
+  animate = false,
+  onAnimationDone,
+  resetKey,
+}: ActionTableProps) {
+  // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
+  const [items, setItems] = useState<ActionItem[] | null>(null);
+  const [revealed, setRevealed] = useState(0);
+  const doneRef = useRef(onAnimationDone);
+  useEffect(() => {
+    doneRef.current = onAnimationDone;
+  }, [onAnimationDone]);
+
+  // action_history の読み込み (file 単位)。
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    let cancelled = false;
+    setItems(null); // 新しい file をロード中は未ロード扱いにする
+    if (!file) {
+      setItems([]);
+      return;
+    }
+    loadActionHistory(file).then((loaded) => {
+      if (!cancelled) setItems(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  // アニメーション (items ロード後、items / animate / resetKey が変わるたび再生)。
+  useEffect(() => {
+    if (items === null) return; // ロード待ち
+    if (!animate) {
+      setRevealed(items.length);
+      doneRef.current?.();
+      return;
+    }
+    setRevealed(0);
+    if (items.length === 0) {
+      doneRef.current?.();
+      return;
+    }
+    let i = 0;
+    let cancelled = false;
+    const tick = window.setInterval(() => {
+      if (cancelled) return;
+      i += 1;
+      setRevealed(i);
+      if (i >= items.length) {
+        window.clearInterval(tick);
+        doneRef.current?.();
+      }
+    }, STEP_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(tick);
+    };
+  }, [items, animate, resetKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const popups = items ? toSeatPopups(items.slice(0, revealed)) : [];
+  return <PokerTable mePosition={mePosition} popups={popups} />;
+}
