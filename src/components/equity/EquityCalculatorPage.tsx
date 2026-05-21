@@ -248,7 +248,6 @@ export function EquityCalculatorPage() {
                   {renderBoardCell(2)}
                 </div>
               </div>
-              <div style={groupDividerStyle} />
               <div style={boardGroupStyle}>
                 <button type="button" style={rangeBtnFullStyle} onClick={() => openSelector({ kind: 'turnriver' })}>
                   ターンリバー
@@ -266,9 +265,9 @@ export function EquityCalculatorPage() {
         <div style={dividerStyle} />
 
         {(['A', 'B'] as PlayerId[]).map((p) => (
-          <div key={p} style={playerBlockStyle}>
-            <div style={playerRowStyle}>
-              <span style={rowLabelStyle}>Player {p}</span>
+          <div key={p} style={playerRowStyle}>
+            <span style={rowLabelStyle}>Player {p}</span>
+            <div style={cardColStyle}>
               <div style={slotsStyle}>
                 <CardSlot
                   card={hands[p][0]}
@@ -281,17 +280,17 @@ export function EquityCalculatorPage() {
                   onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 1 })}
                 />
               </div>
-              <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
-                レンジ
+              <button type="button" style={handBtnStyle} onClick={() => openSelector({ kind: 'player', player: p })}>
+                ハンド
               </button>
-              <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
-                リセット
-              </button>
-              <span style={equityStyle}>{equityText(p)}</span>
             </div>
-            <button type="button" style={handBtnStyle} onClick={() => openSelector({ kind: 'player', player: p })}>
-              ハンド
+            <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
+              レンジ
             </button>
+            <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
+              リセット
+            </button>
+            <span style={equityStyle}>{equityText(p)}</span>
           </div>
         ))}
 
@@ -362,13 +361,14 @@ const dividerStyle: CSSProperties = { height: 1, background: THEME.border };
 
 const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0' };
 const boardColumnStyle: CSSProperties = {
-  display: 'inline-flex',
+  display: 'flex',
   flexDirection: 'column',
   alignItems: 'stretch',
   gap: '0.4rem',
-  width: 'fit-content',
+  width: '100%',
 };
-const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch' };
+// フロップ群を左端・ターンリバー群を右端に寄せ、ボード右端を行の右端に揃える。
+const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch', justifyContent: 'space-between' };
 const boardGroupStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.35rem' };
 const slotsRowStyle: CSSProperties = { display: 'flex', gap: '0.35rem', alignItems: 'flex-start' };
 const boardCellStyle: CSSProperties = {
@@ -378,7 +378,6 @@ const boardCellStyle: CSSProperties = {
   alignItems: 'center',
   gap: '0.3rem',
 };
-const groupDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.4rem' };
 const slotDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.1rem' };
 
 const trashBtnStyle: CSSProperties = {
@@ -396,9 +395,10 @@ const trashBtnStyle: CSSProperties = {
 };
 const trashHiddenStyle: CSSProperties = { ...trashBtnStyle, visibility: 'hidden', cursor: 'default' };
 
-const playerBlockStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0' };
-const playerRowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' };
+const playerRowStyle: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: '0.55rem', flexWrap: 'wrap', padding: '0.5rem 0' };
 const rowLabelStyle: CSSProperties = { fontSize: '0.92rem', fontWeight: 700, color: THEME.textPrimary, minWidth: 64 };
+// カード2枚と [ハンド] ボタンを縦に積む列。ハンドはカード2枚分の幅。
+const cardColStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.4rem' };
 const slotsStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
 const rangeBtnStyle: CSSProperties = {
   padding: '0.4rem 0.7rem',
@@ -411,7 +411,7 @@ const rangeBtnStyle: CSSProperties = {
   cursor: 'pointer',
 };
 const rangeBtnFullStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
-const handBtnStyle: CSSProperties = { ...rangeBtnStyle, alignSelf: 'flex-start' };
+const handBtnStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
 const equityStyle: CSSProperties = {
   marginLeft: 'auto',
   fontSize: '1.1rem',
