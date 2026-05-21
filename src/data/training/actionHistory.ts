@@ -125,6 +125,15 @@ export const ACTION_COLORS: Record<ActionKind, ActionColor> = {
   fold: { fg: '#0C447C', bg: '#E6F1FB', border: '#C3DDF4' },
 };
 
+// アニメーションの待ち時間 (アクションを表示する前に待つ ms)。
+// fold は速め、それ以外 (raise/call/limp/allin) はややタメる。
+export const FOLD_DELAY_MS = 400;
+export const OTHER_DELAY_MS = 600;
+
+export function getActionDelay(kind: ActionKind): number {
+  return kind === 'fold' ? FOLD_DELAY_MS : OTHER_DELAY_MS;
+}
+
 /** テスト用にキャッシュをクリア。 */
 export function __resetActionHistoryCache(): void {
   for (const k of Object.keys(cache)) delete cache[k];

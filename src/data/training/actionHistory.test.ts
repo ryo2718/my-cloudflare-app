@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseActionHistory, toSeatPopups, actionLabel } from './actionHistory';
+import {
+  parseActionHistory,
+  toSeatPopups,
+  actionLabel,
+  getActionDelay,
+  FOLD_DELAY_MS,
+  OTHER_DELAY_MS,
+} from './actionHistory';
 
 describe('parseActionHistory', () => {
   it('Raise/Fold/Allin を額つきで解析', () => {
@@ -40,6 +47,18 @@ describe('actionLabel', () => {
     expect(actionLabel({ position: 'SB', kind: 'limp' })).toBe('limp');
     expect(actionLabel({ position: 'BB', kind: 'call' })).toBe('call');
     expect(actionLabel({ position: 'BTN', kind: 'allin', amount: 100 })).toBe('allin');
+  });
+});
+
+describe('getActionDelay', () => {
+  it('fold は速め (0.4秒)、その他は 0.6秒', () => {
+    expect(getActionDelay('fold')).toBe(FOLD_DELAY_MS);
+    expect(getActionDelay('fold')).toBe(400);
+    expect(getActionDelay('raise')).toBe(OTHER_DELAY_MS);
+    expect(getActionDelay('raise')).toBe(600);
+    expect(getActionDelay('call')).toBe(600);
+    expect(getActionDelay('limp')).toBe(600);
+    expect(getActionDelay('allin')).toBe(600);
   });
 });
 

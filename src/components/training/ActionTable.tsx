@@ -10,11 +10,10 @@ import type { Position } from '../../types/strategy';
 import {
   loadActionHistory,
   toSeatPopups,
+  getActionDelay,
   type ActionItem,
 } from '../../data/training/actionHistory';
 import { PokerTable } from './PokerTable';
-
-const STEP_MS = 200;
 
 export interface ActionTableProps {
   /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null なら空テーブル。 */
@@ -73,20 +72,28 @@ export function ActionTable({
       doneRef.current?.();
       return;
     }
+    // 各アクションを表示する前に、そのアクション種別に応じた待ち時間を入れる
+    // (fold=0.4秒 / それ以外=0.6秒)。setTimeout を連鎖させる。
     let i = 0;
     let cancelled = false;
-    const tick = window.setInterval(() => {
-      if (cancelled) return;
-      i += 1;
-      setRevealed(i);
+    let timer = 0;
+    const scheduleNext = () => {
       if (i >= items.length) {
-        window.clearInterval(tick);
         doneRef.current?.();
+        return;
       }
-    }, STEP_MS);
+      const delay = getActionDelay(items[i].kind);
+      timer = window.setTimeout(() => {
+        if (cancelled) return;
+        i += 1;
+        setRevealed(i);
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
     return () => {
       cancelled = true;
-      window.clearInterval(tick);
+      window.clearTimeout(timer);
     };
   }, [items, animate, resetKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
