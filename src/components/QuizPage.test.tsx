@@ -43,15 +43,20 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
     expect(countText('初級')).toBe(3);   // preflop + flop + missed
-    // preflop/missed 中級は「中級 総合」ラベル → ">中級<" は flop の未実装カードのみ。
-    expect(countText('中級')).toBe(1);
+    // ">中級<" = preflop の「中級」見出し + flop の未実装カード。
+    expect(countText('中級')).toBe(2);
     expect(countText('上級')).toBe(3);   // preflop + flop + missed (未実装表記)
     expect(countText('超上級')).toBe(2); // preflop + flop
-    // 中級ポジション別: メニュー (ロック表示) + 間違えた問題セクション の 2 箇所。
-    expect(countText('中級 総合')).toBe(2);
-    expect(countText('中級 EP')).toBe(2);
-    expect(countText('中級 LP')).toBe(2);
-    expect(countText('中級 Blind')).toBe(2);
+    // 一覧の中級グループは短縮ラベル (見出し「中級」配下)。
+    expect(countText('総合問題')).toBe(1);
+    expect(countText('EP\\(UTG,HJ\\)')).toBe(1);
+    expect(countText('LP\\(CO,BTN\\)')).toBe(1);
+    expect(countText('Blind\\(SB,BB\\)')).toBe(1);
+    // 「中級 総合」「中級 EP」等の完全ラベルは間違えた問題セクションのみ。
+    expect(countText('中級 総合')).toBe(1);
+    expect(countText('中級 EP')).toBe(1);
+    expect(countText('中級 LP')).toBe(1);
+    expect(countText('中級 Blind')).toBe(1);
   });
 
   it('subtitle (オープンレンジ / vs open 等の装飾文言) を表示しない', () => {
@@ -81,15 +86,23 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(html).toContain('初級で 20/20 取るとアンロック');
   });
 
-  it('collapsed 初期状態では [スタート] ボタンは含まれない', () => {
+  it('解放済みレベル (初級) には [ルールを確認] [スタート] が常に表示', () => {
     const html = render();
-    expect(html).not.toContain('>スタート<');
+    expect(html).toContain('>スタート<');
+    expect(html).toContain('>ルールを確認<');
   });
 
-  it('records 空 → 初級だけがアンロック・アコーディオン展開可 (aria-expanded="false" 1 件)', () => {
+  it('中級は「中級」見出し配下に短縮ラベルでネスト表示', () => {
     const html = render();
-    const matches = html.match(/aria-expanded="false"/g) ?? [];
-    expect(matches.length).toBe(1);
+    expect(html).toContain('>中級<');           // サブ見出し
+    expect(html).toContain('EP(UTG,HJ)');        // ポジション補足つき
+    expect(html).toContain('Blind(SB,BB)');
+  });
+
+  it('一覧にソリューション条件 (スタック/レーキ/open額) を表示しない', () => {
+    const html = render();
+    expect(html).not.toContain('スタック: 100BB');
+    expect(html).not.toContain('2.5BB open');
   });
 
   it('「← ホーム」リンク (AppHeader showBack)', () => {

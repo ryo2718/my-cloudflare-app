@@ -58,6 +58,26 @@ export function RuleExplanation({ levelKey }: { levelKey: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// ソリューション条件 (全レベル共通)
+// ---------------------------------------------------------------------------
+
+function SolutionConditions() {
+  return (
+    <>
+      <SectionTitle>ソリューション条件</SectionTitle>
+      <Card>
+        <ul style={solutionListStyle}>
+          <li>スタック: 100BB</li>
+          <li>レーキ: 安め</li>
+          <li>2.5BB open</li>
+        </ul>
+        <div style={solutionHintStyle}>(わからない人は考えなくて大丈夫です)</div>
+      </Card>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 中級ポジション別 (EP / LP / Blind)
 // ---------------------------------------------------------------------------
 
@@ -98,6 +118,7 @@ function PositionalRule({ mode }: { mode: 'ep' | 'lp' | 'blind' }) {
   const hasSlider = mode === 'ep' || mode === 'lp';
   return (
     <div>
+      <SolutionConditions />
       <SectionTitle>{info.title}・出題内訳(満点 {info.max}pt)</SectionTitle>
       <Card>
         <ul style={fourListStyle}>
@@ -144,6 +165,7 @@ function BeginnerRule() {
   const hands = useHands('hj.json');
   return (
     <div>
+      <SolutionConditions />
       <SectionTitle>問題の例</SectionTitle>
       <Card>
         <LabelValue label="ポジション" value="HJ" />
@@ -200,6 +222,7 @@ function IntermediateRule() {
 
   return (
     <div>
+      <SolutionConditions />
       <SectionTitle>問題の例</SectionTitle>
       <Card>
         <LabelValue label="opener" value="HJ raise 2.5BB" />
@@ -530,6 +553,20 @@ const bodyTextStyle: CSSProperties = {
 };
 
 const mutedStyle: CSSProperties = {
+  fontSize: '12px',
+  color: '#8c7d6a',
+};
+
+const solutionListStyle: CSSProperties = {
+  margin: 0,
+  paddingLeft: '1.1rem',
+  color: '#2C2C2A',
+  fontSize: '14px',
+  lineHeight: 1.6,
+};
+
+const solutionHintStyle: CSSProperties = {
+  marginTop: '4px',
   fontSize: '12px',
   color: '#8c7d6a',
 };
