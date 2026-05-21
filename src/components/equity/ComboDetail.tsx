@@ -10,10 +10,12 @@ import { THEME } from '../../styles/theme';
 import { comboAtSuits, comboKeyOf, type MatrixHand } from '../../utils/combos';
 
 const CELL_FULL = '#fcd34d';
+const CELL_PARTIAL = '#86efac';
 
 export interface ComboDetailProps {
   hand: MatrixHand;
-  selected: ReadonlySet<string>;
+  /** コンボ key → weight (0..1)。weight 1=黄 / 0<w<1=緑 / 無し=グレー。 */
+  selected: ReadonlyMap<string, number>;
   onToggle: (key: string) => void;
 }
 
@@ -27,14 +29,15 @@ export function ComboDetail({ hand, selected, onToggle }: ComboDetailProps) {
             const combo = comboAtSuits(hand, row, col);
             if (!combo) return <div key={`${row}-${col}`} style={blankStyle} />;
             const key = comboKeyOf(combo[0], combo[1]);
-            const on = selected.has(key);
+            const w = selected.get(key) ?? 0;
+            const bg = w >= 1 ? CELL_FULL : w > 0 ? CELL_PARTIAL : THEME.cellEmpty;
             return (
               <button
                 key={`${row}-${col}`}
                 type="button"
                 onClick={() => onToggle(key)}
-                aria-pressed={on}
-                style={{ ...cellStyle, background: on ? CELL_FULL : THEME.cellEmpty }}
+                aria-pressed={w > 0}
+                style={{ ...cellStyle, background: bg }}
               >
                 <CardLabel card={combo[0]} />
                 <CardLabel card={combo[1]} />

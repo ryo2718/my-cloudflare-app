@@ -20,7 +20,7 @@ import { cardToString, type Card } from '../../types/card';
 import { computeEquity } from '../../utils/equity';
 import { cardToInt } from '../../utils/handEvaluator';
 import { computeRangeEquity } from '../../utils/rangeEquity';
-import { TOTAL_COMBOS, comboKeyToInts } from '../../utils/combos';
+import { TOTAL_COMBOS, weightedCombos, type WeightedCombo } from '../../utils/combos';
 import { CardSlot } from './CardSlot';
 import { CardSelector } from './CardSelector';
 import { RangeMatrix } from './RangeMatrix';
@@ -77,11 +77,11 @@ export function EquityCalculatorPage() {
     B: [null, null],
   });
   const [board, setBoard] = useState<(Card | null)[]>([null, null, null, null, null]);
-  // 各プレイヤーのレンジ (選択コンボ key の集合)。size>0 ならそのプレイヤーはレンジモード
-  // (具体ハンドとは排他)。
-  const [ranges, setRanges] = useState<Record<PlayerId, Set<string>>>({
-    A: new Set(),
-    B: new Set(),
+  // 各プレイヤーのレンジ (コンボ key → weight 0..1)。size>0 ならレンジモード
+  // (具体ハンドとは排他)。weight は GTO 頻度由来 (黄=1 / 緑=0<w<1)。
+  const [ranges, setRanges] = useState<Record<PlayerId, Map<string, number>>>({
+    A: new Map(),
+    B: new Map(),
   });
   const [selecting, setSelecting] = useState<SelectingTarget | null>(null);
   const [rangeEditing, setRangeEditing] = useState<PlayerId | null>(null);
@@ -114,10 +114,11 @@ export function EquityCalculatorPage() {
   const b0 = hands.B[0] ? cardToString(hands.B[0]!) : '';
   const b1 = hands.B[1] ? cardToString(hands.B[1]!) : '';
   const boardKey = board.map((c) => (c ? cardToString(c) : '_')).join('');
-  const rangeKey = useMemo(
-    () => `A${[...ranges.A].sort().join('')}B${[...ranges.B].sort().join('')}`,
-    [ranges],
-  );
+  const rangeKey = useMemo(() => {
+    const ser = (m: Map<string, number>) =>
+      [...m.entries()].sort((x, y) => (x[0] < y[0] ? -1 : 1)).map(([k, w]) => `${k}${w}`).join('');
+    return `A${ser(ranges.A)}B${ser(ranges.B)}`;
+  }, [ranges]);
 
   // 両者が設定済み + ボードが 0/3/4/5 枚なら自動計算。
   // 重い (プリフロップ全列挙 / レンジ計算) のでペイント後に setTimeout で実行。
@@ -136,12 +137,12 @@ export function EquityCalculatorPage() {
         const r = computeEquity([hands.A[0]!, hands.A[1]!], [hands.B[0]!, hands.B[1]!], boardCards);
         setResult({ a: r.a, b: r.b });
       } else {
-        const aCombos = aRange
-          ? [...ranges.A].map(comboKeyToInts)
-          : [[cardToInt(hands.A[0]!), cardToInt(hands.A[1]!)] as [number, number]];
-        const bCombos = bRange
-          ? [...ranges.B].map(comboKeyToInts)
-          : [[cardToInt(hands.B[0]!), cardToInt(hands.B[1]!)] as [number, number]];
+        const aCombos: WeightedCombo[] = aRange
+          ? weightedCombos(ranges.A)
+          : [[cardToInt(hands.A[0]!), cardToInt(hands.A[1]!), 1]];
+        const bCombos: WeightedCombo[] = bRange
+          ? weightedCombos(ranges.B)
+          : [[cardToInt(hands.B[0]!), cardToInt(hands.B[1]!), 1]];
         const r = computeRangeEquity(aCombos, bCombos, boardCards.map(cardToInt));
         setResult({ a: r.a, b: r.b });
       }
@@ -160,7 +161,7 @@ export function EquityCalculatorPage() {
 
   // 具体ハンドを設定したらそのプレイヤーのレンジは解除 (排他)。
   const clearRange = (player: PlayerId) => {
-    setRanges((prev) => (prev[player].size ? { ...prev, [player]: new Set<string>() } : prev));
+    setRanges((prev) => (prev[player].size ? { ...prev, [player]: new Map<string, number>() } : prev));
   };
 
   // 選択結果を、対象が指すスロット順に格納してパネルを閉じる。
@@ -202,7 +203,7 @@ export function EquityCalculatorPage() {
   };
 
   // レンジ確定: 設定するとそのプレイヤーの具体ハンドはクリア (排他)。
-  const commitRange = (range: Set<string>) => {
+  const commitRange = (range: Map<string, number>) => {
     if (!rangeEditing) return;
     const player = rangeEditing;
     setRanges((prev) => ({ ...prev, [player]: range }));

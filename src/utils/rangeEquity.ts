@@ -1,21 +1,21 @@
-// レンジ (複数コンボ) 同士 / レンジ vs 具体ハンドのエクイティ計算。
+// レンジ (複数コンボ) 同士 / レンジ vs 具体ハンドのエクイティ計算 (重み付き対応)。
 //
-// 各サイドをコンボ集合 (カード整数のペア配列) で表し、A×B の全ペアについて
-// 勝敗を出して「有効ペアのエクイティの平均 (ペア等重み)」を返す。
+// 各サイドを「重み付きコンボ」 [card0, card1, weight] の配列で表す
+// (具体ハンドは weight=1 の単一コンボ)。A×B の全ペアについて勝敗を出し、
+// ペアの重み = weightA × weightB で加重平均する。
 //   - ブロッカー: 互いに or ボードとカードを共有するペア/コンボはスキップ
 //
 // 計算方式の自動切替:
 //   想定 evaluate7 呼び出し回数 = (|A|×|B|) × ボード補完数 × 2 を試算し、
-//   BUDGET 以下なら全列挙 (正確値)、超えるならモンテカルロ (サンプリング)。
-//   BUDGET は単一プリフロップ対決 (約340万 calls) が数百ms で終わる実測から、
-//   約3秒に収まる 2500万 calls に設定。
+//   BUDGET 以下なら全列挙 (正確値)、超えるならモンテカルロ (重み付きサンプリング)。
 
 import { evaluate7 } from './handEvaluator';
+import type { WeightedCombo } from './combos';
 
 export interface RangeEquityResult {
-  /** Player A の平均エクイティ (%)。 */
+  /** Player A の加重平均エクイティ (%)。 */
   a: number;
-  /** Player B の平均エクイティ (%)。 */
+  /** Player B の加重平均エクイティ (%)。 */
   b: number;
   /** 引き分け割合 (%)。 */
   tie: number;
@@ -30,8 +30,6 @@ export interface RangeEquityResult {
 const BUDGET_EVAL = 25_000_000;
 const MC_SAMPLES = 200_000;
 
-type Combo = readonly [number, number];
-
 /** ボード長ごとの未確定ボード補完数の概算 (試算用)。 */
 function completionsFor(boardLen: number): number {
   if (boardLen === 0) return 1_712_304; // C(48,5)
@@ -41,14 +39,15 @@ function completionsFor(boardLen: number): number {
 }
 
 export function computeRangeEquity(
-  aCombos: ReadonlyArray<Combo>,
-  bCombos: ReadonlyArray<Combo>,
+  aCombos: ReadonlyArray<WeightedCombo>,
+  bCombos: ReadonlyArray<WeightedCombo>,
   board: ReadonlyArray<number>,
 ): RangeEquityResult {
   const boardSet = new Set(board);
-  // ボードとカードを共有するコンボは全ペアで無効なので事前に除外。
-  const aF = aCombos.filter(([x, y]) => !boardSet.has(x) && !boardSet.has(y));
-  const bF = bCombos.filter(([x, y]) => !boardSet.has(x) && !boardSet.has(y));
+  // weight 0 / ボードとカードを共有するコンボは事前に除外。
+  const keep = (c: WeightedCombo) => c[2] > 0 && !boardSet.has(c[0]) && !boardSet.has(c[1]);
+  const aF = aCombos.filter(keep);
+  const bF = bCombos.filter(keep);
 
   const need = 5 - board.length;
   const estEval = aF.length * bF.length * completionsFor(board.length) * 2;
@@ -58,14 +57,14 @@ export function computeRangeEquity(
     : monteCarloRange(aF, bF, board, need);
 }
 
-function conflict(ca: Combo, cb: Combo): boolean {
+function conflict(ca: WeightedCombo, cb: WeightedCombo): boolean {
   return ca[0] === cb[0] || ca[0] === cb[1] || ca[1] === cb[0] || ca[1] === cb[1];
 }
 
 /** 1 ペアのボード補完を全列挙して勝敗カウント。 */
 function countMatchup(
-  ca: Combo,
-  cb: Combo,
+  ca: WeightedCombo,
+  cb: WeightedCombo,
   board: ReadonlyArray<number>,
   deck: number[],
   need: number,
@@ -104,37 +103,40 @@ function countMatchup(
 }
 
 function enumerateRange(
-  aF: ReadonlyArray<Combo>,
-  bF: ReadonlyArray<Combo>,
+  aF: ReadonlyArray<WeightedCombo>,
+  bF: ReadonlyArray<WeightedCombo>,
   board: ReadonlyArray<number>,
   need: number,
 ): RangeEquityResult {
   let sumA = 0;
   let sumB = 0;
   let sumTie = 0;
+  let sumW = 0;
   let pairs = 0;
   for (const ca of aF) {
     for (const cb of bF) {
       if (conflict(ca, cb)) continue;
+      const w = ca[2] * cb[2];
       const dead = new Set<number>([ca[0], ca[1], cb[0], cb[1]]);
       for (const x of board) dead.add(x);
       const deck: number[] = [];
       for (let c = 0; c < 52; c++) if (!dead.has(c)) deck.push(c);
-      const [wa, wb, t] = countMatchup(ca, cb, board, deck, need);
-      const tot = wa + wb + t;
+      const [na, nb, t] = countMatchup(ca, cb, board, deck, need);
+      const tot = na + nb + t;
       if (tot > 0) {
-        sumA += (wa + t / 2) / tot;
-        sumB += (wb + t / 2) / tot;
-        sumTie += t / tot;
+        sumA += ((na + t / 2) / tot) * w;
+        sumB += ((nb + t / 2) / tot) * w;
+        sumTie += (t / tot) * w;
+        sumW += w;
         pairs++;
       }
     }
   }
-  if (pairs === 0) return { a: 0, b: 0, tie: 0, method: 'enumerate', pairs: 0, samples: 0 };
+  if (sumW === 0) return { a: 0, b: 0, tie: 0, method: 'enumerate', pairs, samples: 0 };
   return {
-    a: (sumA / pairs) * 100,
-    b: (sumB / pairs) * 100,
-    tie: (sumTie / pairs) * 100,
+    a: (sumA / sumW) * 100,
+    b: (sumB / sumW) * 100,
+    tie: (sumTie / sumW) * 100,
     method: 'enumerate',
     pairs,
     samples: 0,
@@ -142,15 +144,17 @@ function enumerateRange(
 }
 
 function monteCarloRange(
-  aF: ReadonlyArray<Combo>,
-  bF: ReadonlyArray<Combo>,
+  aF: ReadonlyArray<WeightedCombo>,
+  bF: ReadonlyArray<WeightedCombo>,
   board: ReadonlyArray<number>,
   need: number,
 ): RangeEquityResult {
   const bl = board.length;
-  let wa = 0;
-  let wb = 0;
-  let t = 0;
+  // 一様サンプリング + ペア重み (weightA×weightB) で加重平均。
+  let sumA = 0;
+  let sumB = 0;
+  let sumTie = 0;
+  let sumW = 0;
   let samples = 0;
   let attempts = 0;
   const maxAttempts = MC_SAMPLES * 20;
@@ -187,20 +191,26 @@ function monteCarloRange(
     }
     if (!ok) continue;
 
+    const w = ca[2] * cb[2];
     const sa = evaluate7(ca[0], ca[1], comm[0], comm[1], comm[2], comm[3], comm[4]);
     const sb = evaluate7(cb[0], cb[1], comm[0], comm[1], comm[2], comm[3], comm[4]);
-    if (sa > sb) wa++;
-    else if (sb > sa) wb++;
-    else t++;
+    if (sa > sb) sumA += w;
+    else if (sb > sa) sumB += w;
+    else {
+      sumA += w / 2;
+      sumB += w / 2;
+      sumTie += w;
+    }
+    sumW += w;
     samples++;
   }
 
   const pairs = aF.length * bF.length;
-  if (samples === 0) return { a: 0, b: 0, tie: 0, method: 'montecarlo', pairs, samples: 0 };
+  if (sumW === 0) return { a: 0, b: 0, tie: 0, method: 'montecarlo', pairs, samples };
   return {
-    a: ((wa + t / 2) / samples) * 100,
-    b: ((wb + t / 2) / samples) * 100,
-    tie: (t / samples) * 100,
+    a: (sumA / sumW) * 100,
+    b: (sumB / sumW) * 100,
+    tie: (sumTie / sumW) * 100,
     method: 'montecarlo',
     pairs,
     samples,

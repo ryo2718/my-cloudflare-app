@@ -104,3 +104,18 @@ export function comboKeyToInts(key: string): [number, number] {
   const b = stringToCard(key.slice(2, 4))!;
   return [cardToInt(a), cardToInt(b)];
 }
+
+/** 重み付きコンボ: [card0, card1, weight]。weight は 0..1。 */
+export type WeightedCombo = readonly [number, number, number];
+
+/** 頻度付きレンジ (key→weight) を重み付きコンボ整数配列に展開。weight 0 は除外。 */
+export function weightedCombos(range: ReadonlyMap<string, number>): WeightedCombo[] {
+  const out: WeightedCombo[] = [];
+  for (const [key, w] of range) {
+    if (w > 0) {
+      const [a, b] = comboKeyToInts(key);
+      out.push([a, b, w]);
+    }
+  }
+  return out;
+}

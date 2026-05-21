@@ -1,63 +1,76 @@
-// 13×13 ハンドマトリクスのポップアップ。
-//   - グレー=未選択 / 黄色=全コンボ選択 / 緑=一部選択
-//   - ハンドをタップ: 全選択 (グレー/緑→黄) or 全解除 (黄→グレー) + そのハンドのコンボ詳細を展開
-//   - コンボ詳細 (4×4) で個別コンボをトグル
+// 13×13 ハンドマトリクスのポップアップ (頻度付き)。
+//   - グレー=未選択(weight 0) / 黄色=全コンボ weight 1 / 緑=一部 or 部分頻度
+//   - ハンドをタップ: 全選択 (グレー/緑→黄, weight 1) or 全解除 (黄→グレー) + コンボ詳細を展開
+//   - コンボ詳細 (4×4) で個別コンボをトグル (タップ→weight 1, 再タップ→0)
+//   - プリセット (GTO) ピッカーで頻度付きレンジを読み込み → そこから手動調整可
 //   - 全選択 / クリアの一括ボタン、選択コンボ割合% を表示
-//   - 閉じる (✕) / 背景タップで確定 (現在のレンジを反映)
+//   - 閉じる (✕) / 背景タップで確定
 
 import { useState, type CSSProperties } from 'react';
 import { THEME } from '../../styles/theme';
 import { TOTAL_COMBOS, allComboKeys, handAt, handKeys, type MatrixHand } from '../../utils/combos';
 import { ComboDetail } from './ComboDetail';
+import { PresetRangePicker } from './PresetRangePicker';
 
 const CELL_FULL = '#fcd34d';
 const CELL_PARTIAL = '#86efac';
 
 export interface RangeMatrixProps {
-  initialRange: ReadonlySet<string>;
-  onCommit: (range: Set<string>) => void;
+  /** コンボ key → weight (0..1)。 */
+  initialRange: ReadonlyMap<string, number>;
+  onCommit: (range: Map<string, number>) => void;
   onCancel: () => void;
 }
 
 export function RangeMatrix({ initialRange, onCommit }: RangeMatrixProps) {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(initialRange));
+  const [selected, setSelected] = useState<Map<string, number>>(() => new Map(initialRange));
   const [expanded, setExpanded] = useState<{ row: number; col: number } | null>(null);
 
   const pct = ((selected.size / TOTAL_COMBOS) * 100).toFixed(1);
 
   const handState = (h: MatrixHand): 'empty' | 'partial' | 'full' => {
     const keys = handKeys(h);
-    let n = 0;
-    for (const k of keys) if (selected.has(k)) n++;
-    if (n === 0) return 'empty';
-    if (n === keys.length) return 'full';
+    let any = false;
+    let allFull = true;
+    for (const k of keys) {
+      const w = selected.get(k) ?? 0;
+      if (w > 0) any = true;
+      if (w < 1) allFull = false;
+    }
+    if (!any) return 'empty';
+    if (allFull) return 'full';
     return 'partial';
   };
 
   const onHandClick = (row: number, col: number) => {
     const keys = handKeys(handAt(row, col));
     setSelected((prev) => {
-      const next = new Set(prev);
-      let n = 0;
-      for (const k of keys) if (next.has(k)) n++;
-      if (n === keys.length) keys.forEach((k) => next.delete(k));
-      else keys.forEach((k) => next.add(k));
+      const next = new Map(prev);
+      const full = keys.every((k) => (next.get(k) ?? 0) >= 1);
+      if (full) keys.forEach((k) => next.delete(k));
+      else keys.forEach((k) => next.set(k, 1));
       return next;
     });
     setExpanded({ row, col });
   };
 
+  // 手動タップ: weight 1 ↔ 0 (部分頻度のコンボは 1 に引き上げ)。
   const toggleCombo = (key: string) => {
     setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      const next = new Map(prev);
+      if ((next.get(key) ?? 0) >= 1) next.delete(key);
+      else next.set(key, 1);
       return next;
     });
   };
 
-  const selectAll = () => setSelected(new Set(allComboKeys()));
-  const clearAll = () => setSelected(new Set());
+  const selectAll = () => setSelected(new Map(allComboKeys().map((k) => [k, 1])));
+  const clearAll = () => setSelected(new Map());
+
+  const applyPreset = (range: Map<string, number>) => {
+    setSelected(new Map(range));
+    setExpanded(null);
+  };
 
   const expandedHand = expanded ? handAt(expanded.row, expanded.col) : null;
 
@@ -68,6 +81,9 @@ export function RangeMatrix({ initialRange, onCommit }: RangeMatrixProps) {
           <span style={headerTitleStyle}>レンジ {selected.size}コンボ ({pct}%)</span>
           <button type="button" onClick={() => onCommit(selected)} style={closeBtnStyle} aria-label="閉じる">✕</button>
         </div>
+
+        <PresetRangePicker onApply={applyPreset} />
+
         <div style={toolbarStyle}>
           <button type="button" style={toolBtnStyle} onClick={selectAll}>全選択</button>
           <button type="button" style={toolBtnStyle} onClick={clearAll}>クリア</button>
