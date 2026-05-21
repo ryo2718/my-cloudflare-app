@@ -45,6 +45,22 @@ describe('computeRangeEquity (重み付き)', () => {
     expect(r.b).toBe(0);
   });
 
+  it('チョップ(tie): 両者がボードでロイヤル成立 → tie=100, a=b=50', () => {
+    const board = ['Ah', 'Kh', 'Qh', 'Jh', 'Th'].map(ci);
+    const r = computeRangeEquity([combo('2c', '3d')], [combo('2s', '3h')], board);
+    expect(r.tie).toBe(100);
+    expect(r.a).toBe(50);
+    expect(r.b).toBe(50);
+  });
+
+  it('チョップ無し: AhAc vs JdTd リバーで決着 → tie=0 (a/b は不変)', () => {
+    const board = ['Kh', '7s', '2d', 'Qc', '3s'].map(ci);
+    const r = computeRangeEquity([combo('Ah', 'Ac')], [combo('Jd', 'Td')], board);
+    expect(r.tie).toBe(0);
+    expect(r.a).toBe(100);
+    expect(r.b).toBe(0);
+  });
+
   it('重みは加重平均に効く: AA(w0.5)+KK(w0.5) と AA(w1)+KK(w1) は同値、AA偏重で上がる', () => {
     const all = fullRange();
     const balanced = [...handCombos(0, 0, 1), ...handCombos(1, 1, 1)];

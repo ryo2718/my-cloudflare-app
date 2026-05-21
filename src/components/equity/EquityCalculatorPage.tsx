@@ -87,7 +87,7 @@ export function EquityCalculatorPage() {
   });
   const [selecting, setSelecting] = useState<SelectingTarget | null>(null);
   const [rangeEditing, setRangeEditing] = useState<PlayerId | null>(null);
-  const [result, setResult] = useState<{ a: number; b: number } | null>(null);
+  const [result, setResult] = useState<{ a: number; b: number; tie: number } | null>(null);
   const [computing, setComputing] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -137,7 +137,7 @@ export function EquityCalculatorPage() {
       if (!aRange && !bRange) {
         // 具体ハンド同士は既存の正確計算を使う。
         const r = computeEquity([hands.A[0]!, hands.A[1]!], [hands.B[0]!, hands.B[1]!], boardCards);
-        setResult({ a: r.a, b: r.b });
+        setResult({ a: r.a, b: r.b, tie: r.tie });
       } else {
         const aCombos: WeightedCombo[] = aRange
           ? weightedCombos(ranges.A)
@@ -146,7 +146,7 @@ export function EquityCalculatorPage() {
           ? weightedCombos(ranges.B)
           : [[cardToInt(hands.B[0]!), cardToInt(hands.B[1]!), 1]];
         const r = computeRangeEquity(aCombos, bCombos, boardCards.map(cardToInt));
-        setResult({ a: r.a, b: r.b });
+        setResult({ a: r.a, b: r.b, tie: r.tie });
       }
       setComputing(false);
     }, 30);
@@ -396,6 +396,10 @@ export function EquityCalculatorPage() {
           );
         })}
 
+        {result && result.tie >= 0.05 && (
+          <p style={chopStyle}>チョップ {result.tie.toFixed(1)}%</p>
+        )}
+
         <div style={dividerStyle} />
 
         {bothReady && !VALID_BOARD_COUNTS.has(boardCount) && (
@@ -471,14 +475,14 @@ const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 
 const dividerStyle: CSSProperties = { height: 1, background: THEME.border };
 
 const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0' };
-// ボードは縦長カードでコンパクトに左寄せ (行の右側に余白を作る)。
+// ボードは縦長カードのコンパクト幅を中央寄せ (左右の余白を均等にしてバランスを取る)。
 const boardColumnStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'stretch',
   gap: '0.4rem',
   width: 'fit-content',
-  alignSelf: 'flex-start',
+  alignSelf: 'center',
 };
 const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch' };
 const boardGroupStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.35rem' };
@@ -575,3 +579,12 @@ const equityStyle: CSSProperties = {
 };
 const hintStyle: CSSProperties = { fontSize: '0.85rem', color: THEME.textMuted };
 const infoStyle: CSSProperties = { fontSize: '0.85rem', color: THEME.textSecondary };
+// チョップ率 (両者共通の単一値)。
+const chopStyle: CSSProperties = {
+  margin: 0,
+  fontSize: '0.9rem',
+  fontWeight: 600,
+  color: THEME.textSecondary,
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums',
+};
