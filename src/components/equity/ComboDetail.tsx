@@ -16,10 +16,12 @@ export interface ComboDetailProps {
   hand: MatrixHand;
   /** コンボ key → weight (0..1)。weight 1=黄 / 0<w<1=緑 / 無し=グレー。 */
   selected: ReadonlyMap<string, number>;
+  /** 物理的に使えないカード文字列集合 (ボード + 相手の確定ハンド)。含むコンボは選択不可。 */
+  excludedCards?: ReadonlySet<string>;
   onToggle: (key: string) => void;
 }
 
-export function ComboDetail({ hand, selected, onToggle }: ComboDetailProps) {
+export function ComboDetail({ hand, selected, excludedCards, onToggle }: ComboDetailProps) {
   return (
     <div style={wrapStyle}>
       <span style={titleStyle}>{hand.label}</span>
@@ -29,15 +31,20 @@ export function ComboDetail({ hand, selected, onToggle }: ComboDetailProps) {
             const combo = comboAtSuits(hand, row, col);
             if (!combo) return <div key={`${row}-${col}`} style={blankStyle} />;
             const key = comboKeyOf(combo[0], combo[1]);
+            const excluded =
+              !!excludedCards &&
+              (excludedCards.has(`${combo[0].rank}${combo[0].suit}`) ||
+                excludedCards.has(`${combo[1].rank}${combo[1].suit}`));
             const w = selected.get(key) ?? 0;
             const bg = w >= 1 ? CELL_FULL : w > 0 ? CELL_PARTIAL : THEME.cellEmpty;
             return (
               <button
                 key={`${row}-${col}`}
                 type="button"
-                onClick={() => onToggle(key)}
+                disabled={excluded}
+                onClick={excluded ? undefined : () => onToggle(key)}
                 aria-pressed={w > 0}
-                style={{ ...cellStyle, background: bg }}
+                style={{ ...cellStyle, background: bg, ...(excluded ? cellDisabledStyle : null) }}
               >
                 <CardLabel card={combo[0]} />
                 <CardLabel card={combo[1]} />
@@ -87,3 +94,5 @@ const cellStyle: CSSProperties = {
   padding: 0,
 };
 const blankStyle: CSSProperties = { height: 34 };
+// ボード衝突・相手の確定ハンドと同じ「選択不可」表現 (薄表示)。
+const cellDisabledStyle: CSSProperties = { opacity: 0.3, cursor: 'not-allowed' };

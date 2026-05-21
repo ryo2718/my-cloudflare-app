@@ -92,3 +92,43 @@ describe('handFilter: 適用 (置き換え / 和集合 / スート単位)', () =
     expect(result.get(k('Ad', 'Qd'))).toBe(1);
   });
 });
+
+describe('handFilter: 相手の確定ハンド除外 (exclude)', () => {
+  // AsAc=ツーペア(AA+JJ), AhQh=ワンペア, Th9c=ワンペア。相手が As・Qh を持つ想定。
+  const range = new Map<string, number>([
+    [k('As', 'Ac'), 1],
+    [k('Ah', 'Qh'), 1],
+    [k('Th', '9c'), 1],
+  ]);
+
+  it('exclude に相手の確定ハンドを渡すと、そのカードを含むコンボが消える', () => {
+    const exclude = new Set([ci('As'), ci('Qh')]);
+    const groups = analyzeBoard(range, BOARD, exclude);
+    const all = groups.flatMap((g) => g.combos);
+    // As を含む AsAc、Qh を含む AhQh は除外。Th9c は残る。
+    expect(all).not.toContain(k('As', 'Ac'));
+    expect(all).not.toContain(k('Ah', 'Qh'));
+    expect(all).toContain(k('Th', '9c'));
+  });
+
+  it('exclude 無し / 空 (相手がレンジ・未設定) では何も除外しない', () => {
+    const without = analyzeBoard(range, BOARD).flatMap((g) => g.combos);
+    const empty = analyzeBoard(range, BOARD, new Set<number>()).flatMap((g) => g.combos);
+    expect(new Set(without)).toEqual(new Set(empty));
+    expect(without).toContain(k('As', 'Ac'));
+    expect(without).toContain(k('Ah', 'Qh'));
+  });
+
+  it('ボード衝突カードと相手の確定ハンドの両方が同時に除外される', () => {
+    // Kd はボード上 → AdKd 等が除外。相手 As → AsAc が除外。
+    const range2 = new Map<string, number>([
+      [k('Ad', 'Kd'), 1], // Kd はボード衝突
+      [k('As', 'Ac'), 1], // As は相手の確定ハンド
+      [k('Th', '9c'), 1], // 残る
+    ]);
+    const all = analyzeBoard(range2, BOARD, new Set([ci('As')])).flatMap((g) => g.combos);
+    expect(all).not.toContain(k('Ad', 'Kd'));
+    expect(all).not.toContain(k('As', 'Ac'));
+    expect(all).toContain(k('Th', '9c'));
+  });
+});

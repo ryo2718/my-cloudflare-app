@@ -8,7 +8,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { THEME } from '../../styles/theme';
-import type { Card } from '../../types/card';
+import { cardToString, type Card } from '../../types/card';
 import { TOTAL_COMBOS, allComboKeys, handAt, handKeys, type MatrixHand } from '../../utils/combos';
 import type { AppliedPreset, PresetInfo } from '../../utils/presetRange';
 import { ComboDetail } from './ComboDetail';
@@ -25,16 +25,21 @@ export interface RangeMatrixProps {
   initialPreset: AppliedPreset | null;
   /** 現在のボード (役フィルターは3枚以上で表示)。 */
   board: ReadonlyArray<Card>;
+  /** 相手の確定ハンド (2枚)。これらを含むコンボは選択不可 + 役候補から除外。レンジ/未設定なら空。 */
+  opponentCards: ReadonlyArray<Card>;
   onCommit: (range: Map<string, number>, preset: AppliedPreset | null) => void;
   onCancel: () => void;
 }
 
-export function RangeMatrix({ initialRange, initialPreset, board, onCommit }: RangeMatrixProps) {
+export function RangeMatrix({ initialRange, initialPreset, board, opponentCards, onCommit }: RangeMatrixProps) {
   const [selected, setSelected] = useState<Map<string, number>>(() => new Map(initialRange));
   const [presetApplied, setPresetApplied] = useState<AppliedPreset | null>(initialPreset);
   const [expanded, setExpanded] = useState<{ row: number; col: number } | null>(null);
 
   const pct = ((selected.size / TOTAL_COMBOS) * 100).toFixed(1);
+
+  // コンボ詳細で選択不可にするカード集合 (ボード + 相手の確定ハンド)。
+  const excludedCards = new Set<string>([...board, ...opponentCards].map(cardToString));
 
   const handState = (h: MatrixHand): 'empty' | 'partial' | 'full' => {
     const keys = handKeys(h);
@@ -99,6 +104,7 @@ export function RangeMatrix({ initialRange, initialPreset, board, onCommit }: Ra
           <HandFilter
             board={board}
             range={selected}
+            excludeCards={opponentCards}
             onApply={(range) => {
               setSelected(range);
               setExpanded(null);
@@ -130,7 +136,9 @@ export function RangeMatrix({ initialRange, initialPreset, board, onCommit }: Ra
             }),
           )}
         </div>
-        {expandedHand && <ComboDetail hand={expandedHand} selected={selected} onToggle={toggleCombo} />}
+        {expandedHand && (
+          <ComboDetail hand={expandedHand} selected={selected} excludedCards={excludedCards} onToggle={toggleCombo} />
+        )}
       </div>
     </div>
   );

@@ -222,10 +222,14 @@ function comboStrength(c0: number, c1: number): number {
 // 逆引き / 適用
 // ---------------------------------------------------------------------------
 
-/** ボード + レンジから成立する役を逆引き (強い順、空の役は除外)。 */
+/**
+ * ボード + レンジから成立する役を逆引き (強い順、空の役は除外)。
+ * exclude: ボード以外で物理的に使えないカード (例: 相手の確定ハンド) を含むコンボも除外。
+ */
 export function analyzeBoard(
   range: ReadonlyMap<string, number>,
   board: ReadonlyArray<number>,
+  exclude?: ReadonlySet<number>,
 ): RoleGroup[] {
   const boardSet = new Set(board);
   const roles = new Map<RoleKey, { combos: string[]; items: Map<string, BreakdownItemAcc> }>();
@@ -242,6 +246,7 @@ export function analyzeBoard(
     if (w <= 0) continue;
     const [c0, c1] = comboKeyToInts(key);
     if (boardSet.has(c0) || boardSet.has(c1)) continue; // ボード衝突
+    if (exclude && (exclude.has(c0) || exclude.has(c1))) continue; // 相手の確定ハンド等
     const m = madeHand([c0, c1, ...board]);
     const rk = ROLE_OF[m.cat];
     const role = ensure(rk);

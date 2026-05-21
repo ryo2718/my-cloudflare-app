@@ -21,16 +21,19 @@ export interface HandFilterProps {
   board: ReadonlyArray<Card>;
   /** 現在のレンジ (コンボ key → weight)。 */
   range: ReadonlyMap<string, number>;
+  /** 相手の確定ハンド (2枚)。これらを含むコンボは役候補から除外。レンジ/未設定なら空。 */
+  excludeCards?: ReadonlyArray<Card>;
   /** 適用時に新しいレンジを渡す。 */
   onApply: (range: Map<string, number>) => void;
 }
 
-export function HandFilter({ board, range, onApply }: HandFilterProps) {
+export function HandFilter({ board, range, excludeCards, onApply }: HandFilterProps) {
   const boardKey = board.map(cardToString).join('');
+  const excludeKey = (excludeCards ?? []).map(cardToString).join('');
   const groups = useMemo(
-    () => analyzeBoard(range, board.map(cardToInt)),
+    () => analyzeBoard(range, board.map(cardToInt), new Set((excludeCards ?? []).map(cardToInt))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [range, boardKey],
+    [range, boardKey, excludeKey],
   );
 
   // オンにした役 (オン順)。最後尾が「直近にオンにした役」。

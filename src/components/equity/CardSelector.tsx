@@ -1,20 +1,21 @@
 // カード選択パネル: 4 スート × 13 ランクのグリッドを画面上部にポップアップ。
-//   - 個別モード (max=1): タップした 1 枚で即確定して閉じる (枠色なし / トグルなし)
-//   - 範囲モード (max≥2): max 枚を連続選択。順番に格納、再タップで解除、
-//     selectionColors[index] の枠色が付く。必要枚数に達したら自動で確定して閉じる
+//   - 個別モード (max=1): タップした 1 枚で即確定して閉じる (枠なし / トグルなし)
+//   - 範囲モード (max≥2): max 枚を連続選択。順番に格納、再タップで解除。
+//     選択中カードは黄色の枠 (スート背景に依らず統一)。必要枚数で自動確定して閉じる
 //   - 「閉じる」ボタンは無し。背景タップでキャンセル (変更を破棄)
-//   - 他グループで使用中のカードはグレーアウト (選択不可)
+//   - 他で使用中のカードはグレーアウト (選択不可)
 
 import { useState, type CSSProperties } from 'react';
 import { RANKS, SUITS, cardToString, type Card, type Suit } from '../../types/card';
 import { SUIT_BG_COLORS, defaultPlayingCardAriaLabel } from '../PlayingCard.helpers';
 import { THEME } from '../../styles/theme';
 
+// 選択中の枠色。マトリクスの「全コンボ選択=黄」と整合する黄色 (どのスート背景上でも視認可)。
+const SELECT_BORDER = '#fcd34d';
+
 export interface CardSelectorProps {
   /** 選択する枚数。1=個別 (1枚で即確定)、2/3/5=範囲 (連続選択)。 */
   max: number;
-  /** index → 枠色 (範囲モードのみ使用)。 */
-  selectionColors: ReadonlyArray<string>;
   /** 既にこの対象に入っているカード (順序付き)。範囲モードは選択済み状態で開く。 */
   initialSelected: ReadonlyArray<Card>;
   /** 他で使用中のカード文字列集合 (例: "Ah")。選択不可。 */
@@ -27,12 +28,9 @@ export interface CardSelectorProps {
 
 const SUIT_LABEL: Record<Suit, string> = { s: 'スペード', h: 'ハート', d: 'ダイヤ', c: 'クラブ' };
 
-export function CardSelector({ max, selectionColors, initialSelected, usedByOthers, onCommit, onCancel }: CardSelectorProps) {
+export function CardSelector({ max, initialSelected, usedByOthers, onCommit, onCancel }: CardSelectorProps) {
   const single = max === 1;
   const [selected, setSelected] = useState<Card[]>(() => [...initialSelected]);
-
-  const colorFor = (index: number): string =>
-    selectionColors[Math.min(index, selectionColors.length - 1)] ?? THEME.accent;
 
   const handleTap = (card: Card) => {
     if (single) {
@@ -83,7 +81,7 @@ export function CardSelector({ max, selectionColors, initialSelected, usedByOthe
                       ...cellStyle,
                       background: SUIT_BG_COLORS[suit],
                       ...(usedElsewhere ? cellDisabledStyle : null),
-                      ...(isSelected ? { boxShadow: `inset 0 0 0 3px ${colorFor(selIdx)}` } : null),
+                      ...(isSelected ? { boxShadow: `inset 0 0 0 3px ${SELECT_BORDER}` } : null),
                     }}
                   >
                     {rank}

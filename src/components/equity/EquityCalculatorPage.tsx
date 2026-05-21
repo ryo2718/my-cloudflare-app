@@ -41,15 +41,6 @@ type SelectingTarget =
 // 計算対象になるボード枚数 (0=プリフロップ, 3=フロップ, 4=ターン, 5=リバー)。
 const VALID_BOARD_COUNTS = new Set([0, 3, 4, 5]);
 
-// 何枚目かを示す枠色。
-const SEL_BLUE = '#2563eb';
-const SEL_GREEN = '#16a34a';
-const SEL_RED = '#dc2626';
-const COLORS_BOARD = [SEL_BLUE, SEL_BLUE, SEL_BLUE, SEL_GREEN, SEL_RED];
-const COLORS_FLOP = [SEL_BLUE, SEL_GREEN, SEL_RED];
-const COLORS_TWO = [SEL_BLUE, SEL_GREEN];
-const COLORS_NONE: string[] = [];
-
 // 勝率の勝敗色 (緑=コール系 / 赤=レイズ系)。引分は中立 (THEME.accent)。
 const WIN_COLOR = '#3B8A1E';
 const LOSE_COLOR = '#D8443C';
@@ -68,13 +59,6 @@ function rangeMax(target: SelectingTarget): number {
   if (target.kind === 'flop') return 3;
   if (target.kind === 'turnriver' || target.kind === 'player') return 2;
   return 1; // boardSlot / playerSlot
-}
-
-function rangeColors(target: SelectingTarget): ReadonlyArray<string> {
-  if (target.kind === 'board') return COLORS_BOARD;
-  if (target.kind === 'flop') return COLORS_FLOP;
-  if (target.kind === 'turnriver' || target.kind === 'player') return COLORS_TWO;
-  return COLORS_NONE; // 個別 (max 1) は枠色なし
 }
 
 /** 2 つの weight マップが完全一致か (編集済み判定用)。 */
@@ -274,6 +258,16 @@ export function EquityCalculatorPage() {
     return s;
   }, [usedCards, selecting, board, hands]);
 
+  // レンジ編集中プレイヤーの相手が「確定ハンド(2枚)」を持つなら、その2枚を除外対象に。
+  // 相手がレンジ・未設定なら除外しない (レンジ同士はカード重複しうる)。
+  const opponentLockedCards = useMemo<Card[]>(() => {
+    if (!rangeEditing) return [];
+    const opp: PlayerId = rangeEditing === 'A' ? 'B' : 'A';
+    if (ranges[opp].size > 0) return [];
+    const [c0, c1] = hands[opp];
+    return c0 && c1 ? [c0, c1] : [];
+  }, [rangeEditing, ranges, hands]);
+
   const equityText = (p: PlayerId): string => {
     if (computing) return '計算中…';
     if (result) return `${(p === 'A' ? result.a : result.b).toFixed(1)}%`;
@@ -415,7 +409,6 @@ export function EquityCalculatorPage() {
         {selecting && (
           <CardSelector
             max={rangeMax(selecting)}
-            selectionColors={rangeColors(selecting)}
             initialSelected={initialSelected}
             usedByOthers={usedByOthers}
             onCommit={commitSelection}
@@ -428,6 +421,7 @@ export function EquityCalculatorPage() {
             initialRange={ranges[rangeEditing]}
             initialPreset={presets[rangeEditing]}
             board={boardCards}
+            opponentCards={opponentLockedCards}
             onCommit={commitRange}
             onCancel={cancelRange}
           />
