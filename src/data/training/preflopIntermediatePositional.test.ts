@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
