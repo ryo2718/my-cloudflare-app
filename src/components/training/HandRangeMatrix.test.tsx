@@ -121,6 +121,29 @@ describe('<HandRangeMatrix /> 描画', () => {
     expect(html).toContain('コール');
   });
 
+  it('check のあるノード (limp系) は凡例の緑を「チェック」表記にする (「コール」を出さない)', () => {
+    const html = renderToStaticMarkup(
+      <HandRangeMatrix hands={{ '72o': { allin: 0, raise: 0, call: 0, check: 100, fold: 0 } }} />,
+    );
+    expect(html).toContain('チェック');
+    expect(html).not.toContain('コール');
+  });
+
+  it('check のない通常ノードは凡例の緑が「コール」のまま', () => {
+    const html = renderToStaticMarkup(
+      <HandRangeMatrix hands={{ AA: s(0, 0, 100, 0) }} />,
+    );
+    expect(html).toContain('コール');
+    expect(html).not.toContain('チェック');
+  });
+
+  it('check セルは call と同じ緑 (#639922) で描画される', () => {
+    const html = renderToStaticMarkup(
+      <HandRangeMatrix hands={{ '72o': { allin: 0, raise: 0, call: 0, check: 100, fold: 0 } }} />,
+    );
+    expect(html).toContain('#639922');
+  });
+
   it('A8s = {0, 0, 58, 42} で緑 (#639922) と 青 (#378ADD) の両方が描画される', () => {
     const html = renderToStaticMarkup(
       <HandRangeMatrix hands={{ A8s: s(0, 0, 58, 42) }} />,

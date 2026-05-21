@@ -13,7 +13,7 @@
 
 import type { CSSProperties } from 'react';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
-import { ACTION_BG, MATRIX_RANKS, cellHand, paintCell } from './HandRangeMatrix.helpers';
+import { ACTION_BG, MATRIX_RANKS, cellHand, paintCell, hasCheckAction } from './HandRangeMatrix.helpers';
 
 export interface HandRangeMatrixProps {
   /** 戦略マップ: hand 表記 ("AA", "AKs", "72o" 等) → HandStrategy。 */
@@ -51,7 +51,7 @@ export function HandRangeMatrix({ hands, highlightHand, caption, onSelect, selec
           }),
         )}
       </div>
-      <Legend showCheck={Object.values(hands).some((h) => (h.check ?? 0) > 0)} />
+      <Legend hasCheck={hasCheckAction(hands)} />
     </figure>
   );
 }
@@ -115,13 +115,14 @@ function Cell({
   );
 }
 
-function Legend({ showCheck = false }: { showCheck?: boolean }) {
+function Legend({ hasCheck = false }: { hasCheck?: boolean }) {
+  // 緑の凡例は常に1行。そのノードに check があれば「チェック」、無ければ「コール」
+  // (call と check は同色 + 同一ノードに共存しないため一意に出し分けられる)。
   return (
     <div style={legendStyle} aria-label="凡例">
       <LegendItem color={ACTION_BG.allin} label="オールイン" />
       <LegendItem color={ACTION_BG.raise} label="レイズ" />
-      <LegendItem color={ACTION_BG.call} label="コール" />
-      {showCheck && <LegendItem color={ACTION_BG.check} label="チェック" />}
+      <LegendItem color={ACTION_BG.call} label={hasCheck ? 'チェック' : 'コール'} />
       <LegendItem color={ACTION_BG.fold} label="フォールド" />
     </div>
   );

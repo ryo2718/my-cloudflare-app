@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { paintCell, ACTION_BG } from './HandRangeMatrix.helpers';
+import { paintCell, ACTION_BG, hasCheckAction } from './HandRangeMatrix.helpers';
 
 describe('paintCell (check 対応 / BB vs SB limp バグ修正)', () => {
   it('100% check は cream(null) ではなく check 色のセル', () => {
@@ -35,5 +35,15 @@ describe('paintCell (check 対応 / BB vs SB limp バグ修正)', () => {
     for (const a of ['allin', 'raise', 'call', 'check', 'fold']) {
       expect(typeof ACTION_BG[a]).toBe('string');
     }
+  });
+
+  it('check の色は call と同色 (緑 #639922)', () => {
+    expect(ACTION_BG.check).toBe(ACTION_BG.call);
+    expect(ACTION_BG.check).toBe('#639922');
+  });
+
+  it('hasCheckAction: check を持つノードのみ true', () => {
+    expect(hasCheckAction({ AA: { allin: 0, raise: 0, call: 0, check: 100, fold: 0 } })).toBe(true);
+    expect(hasCheckAction({ AA: { allin: 0, raise: 100, call: 0, fold: 0 } })).toBe(false);
   });
 });

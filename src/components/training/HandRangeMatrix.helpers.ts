@@ -11,7 +11,7 @@ export const MATRIX_RANKS: ReadonlyArray<string> = [
  *  - allin: 紫
  *  - raise: 赤
  *  - call:  緑
- *  - check: ティール (limp pot の BB 等)
+ *  - check: 緑 (call と同色。受け身に進むアクションなので同種扱い)
  *  - fold:  青 (#378ADD)
  *
  * 「前のノードに存在しないハンド (全戦略 0%)」 は paintCell が null を返し、
@@ -21,9 +21,14 @@ export const ACTION_BG: Record<string, string> = {
   allin: '#993C9D',
   raise: '#E24B4A',
   call:  '#639922',
-  check: '#0D9488',
+  check: '#639922', // = call (同色)
   fold:  '#378ADD',
 };
+
+/** そのノードのレンジに check を持つハンドがあるか (凡例の緑表記をコール/チェックで出し分ける)。 */
+export function hasCheckAction(hands: Record<string, HandStrategy>): boolean {
+  return Object.values(hands).some((h) => (h.check ?? 0) > 0);
+}
 
 const MIN_FREQ = 0.01;
 
