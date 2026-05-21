@@ -43,15 +43,15 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
     expect(countText('初級')).toBe(3);   // preflop + flop + missed
-    // preflop 中級は「中級 総合」ラベルに変更 → ">中級<" は flop + missed のみ。
-    expect(countText('中級')).toBe(2);
+    // preflop/missed 中級は「中級 総合」ラベル → ">中級<" は flop の未実装カードのみ。
+    expect(countText('中級')).toBe(1);
     expect(countText('上級')).toBe(3);   // preflop + flop + missed (未実装表記)
     expect(countText('超上級')).toBe(2); // preflop + flop
-    // 中級ポジション別 (records 空 → ロック表示 "🔒 中級 EP" 等)。
-    expect(countText('中級 総合')).toBe(1);
-    expect(countText('中級 EP')).toBe(1);
-    expect(countText('中級 LP')).toBe(1);
-    expect(countText('中級 Blind')).toBe(1);
+    // 中級ポジション別: メニュー (ロック表示) + 間違えた問題セクション の 2 箇所。
+    expect(countText('中級 総合')).toBe(2);
+    expect(countText('中級 EP')).toBe(2);
+    expect(countText('中級 LP')).toBe(2);
+    expect(countText('中級 Blind')).toBe(2);
   });
 
   it('subtitle (オープンレンジ / vs open 等の装飾文言) を表示しない', () => {

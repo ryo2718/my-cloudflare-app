@@ -643,6 +643,115 @@ export async function generatePositionalQuestions(mode: PositionalMode): Promise
   return shuffle(out);
 }
 
+// ---------------------------------------------------------------------------
+// 振り返り / 挑戦モード / 間違えた問題集 向けの公開ヘルパー
+// ---------------------------------------------------------------------------
+
+export const POSITIONAL_MODES: ReadonlyArray<PositionalMode> = ['ep', 'lp', 'blind'];
+
+/** level.key → PositionalMode。 */
+export function positionalModeFromLevelKey(key: string): PositionalMode | null {
+  if (key === 'preflop_intermediate_ep') return 'ep';
+  if (key === 'preflop_intermediate_lp') return 'lp';
+  if (key === 'preflop_intermediate_blind') return 'blind';
+  return null;
+}
+
+export function positionalTrainingType(mode: PositionalMode): string {
+  return `preflop_intermediate_${mode}`;
+}
+
+/** vs 5bet シナリオ (EP/LP の opener が 5bet ジャムを受ける) か。 */
+export function isVs5betScenario(scenarioKey: string): boolean {
+  return scenarioKey === 'ep_vs_4bet' || scenarioKey === 'lp_vs_4bet';
+}
+
+export function scenarioFormat(scenarioKey: string): QuestionFormat {
+  return SPECS[scenarioKey]?.format ?? 'select';
+}
+
+export function scenarioLimp(scenarioKey: string): 'call' | 'check' | null {
+  return SPECS[scenarioKey]?.limp ?? null;
+}
+
+export function isPositionalScenario(scenarioKey: string): boolean {
+  return scenarioKey in SPECS;
+}
+
+/** シナリオに対応するアクションラベル (call=リンプ 等の出し分け込み)。 */
+export function labelsForScenario(scenarioKey: string): Record<PositionalAction, string> {
+  const spec = SPECS[scenarioKey];
+  return spec ? labelsFor(spec) : { ...BASE_LABELS };
+}
+
+export { availableActionsOf };
+
+/** シナリオ + ポジションから PokerTable 表示情報を再構築。 */
+export function positionalTableInfo(
+  scenarioKey: string,
+  pos: { hero: Position; opener: Position | null; threeBettor?: Position },
+): TableInfo {
+  const spec = SPECS[scenarioKey];
+  if (!spec) {
+    return { label: scenarioKey, opener: pos.opener, foldedBefore: [], chipExtras: [] };
+  }
+  return tableInfo(spec, { file: '', hero: pos.hero, opener: pos.opener, threeBettor: pos.threeBettor });
+}
+
+/** シナリオ + ポジションから対応ノードのファイル名を再構築 (challenge 用)。 */
+export function positionalNodeFile(
+  scenarioKey: string,
+  pos: { hero: Position; opener: Position | null; threeBettor?: Position },
+): string | null {
+  const h = lower(pos.hero);
+  const op = pos.opener ? lower(pos.opener) : null;
+  const tb = pos.threeBettor ? lower(pos.threeBettor) : null;
+  switch (scenarioKey) {
+    case 'ep_open':
+    case 'lp_open':
+      return `${h}.json`;
+    case 'sb_open':
+      return 'sb.json';
+    case 'sb_limp_vs_raise':
+      return 'sbc_bbr_sb.json';
+    case 'bb_vs_limp':
+      return 'sbc_bb.json';
+    case 'bb_vs_limp_raise':
+      return 'sbc_bbr_sbr_bb.json';
+    case 'ep_vs_3bet':
+    case 'lp_vs_3bet':
+    case 'sb_vs_3bet':
+      return tb ? `${h}r_${tb}r_${h}.json` : null;
+    case 'ep_vs_4bet':
+    case 'lp_vs_4bet':
+      return tb ? `${h}r_${tb}r_${h}r_${tb}ai_${h}.json` : null;
+    case 'sb_vs_4bet':
+    case 'bb_vs_4bet':
+      return op ? `${op}r_${h}r_${op}r_${h}.json` : null;
+    case 'lp_vs_open_btn':
+    case 'lp_vs_open_co':
+    case 'sb_vs_open':
+    case 'bb_vs_open_other':
+    case 'bb_vs_open_sb':
+      return op ? `${op}r_${h}.json` : null;
+    default:
+      return null;
+  }
+}
+
+/** 指定ノードを取得して hands を返す (キャッシュ利用)。失敗時 null。 */
+export async function loadPositionalNode(
+  file: string,
+): Promise<Record<string, PositionalStrategy> | null> {
+  if (cache[file]) return cache[file];
+  try {
+    cache[file] = await fetchNode(file);
+    return cache[file];
+  } catch {
+    return null;
+  }
+}
+
 // テスト用に内部を露出
 export const __testing__ = {
   cache,

@@ -1,7 +1,30 @@
 // 挑戦モードの結果を Play → Result 画面に渡すための sessionStorage 経由ストア。
 // DB には書き込まない (training_results / problem_attempts / missed_problems 更新なし)。
 
-export type MissedReviewLevel = 'beginner' | 'intermediate';
+export type MissedReviewLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+
+/** 間違えた問題の判定フィルター。 */
+export type MissedFilter = 'all' | 'partial' | 'zero' | 'miss';
+
+const FILTERS: ReadonlyArray<MissedFilter> = ['all', 'partial', 'zero', 'miss'];
+
+export function parseMissedFilter(raw: string | null | undefined): MissedFilter {
+  return raw && (FILTERS as ReadonlyArray<string>).includes(raw) ? (raw as MissedFilter) : 'all';
+}
+
+/** score_obtained が指定フィルターに一致するか (all は常に true)。 */
+export function scoreMatchesFilter(score: number, filter: MissedFilter): boolean {
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'partial':
+      return score === 1; // ○
+    case 'zero':
+      return score === 0; // △
+    case 'miss':
+      return score <= -1; // ✕
+  }
+}
 
 export interface MissedChallengeItem {
   /** missed_problems.id (結果画面の「消去」ボタンで使う)。 */

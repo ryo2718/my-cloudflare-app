@@ -11,12 +11,19 @@ import { navigate } from '../../router/router-core';
 import { useAuth } from '../../hooks/useAuth';
 import {
   apiGetMissedProblems,
+  type MissedLevel,
   type MissedProblemRow,
 } from '../../api/missedProblems';
 import {
   recordToBeginnerQuestion,
   recordToIntermediateQuestion,
 } from '../../data/training/reviewMode';
+import {
+  recordToPositionalQuestion,
+  decodeAnswer,
+  isPositionalRow,
+} from '../../data/training/positionalReview';
+import { PositionalReviewDetail } from './PositionalReviewDetail';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './IntermediateChoices';
 import { CardSet } from '../CardSet';
@@ -33,7 +40,7 @@ import type { Rank, Suit } from '../../types/card';
 import type { HandStrategy, PreflopQuestion } from '../../data/training/preflopBeginner';
 import type { IntermediateQuestion } from '../../data/training/preflopIntermediate';
 
-export type MissedAnswerLevel = 'beginner' | 'intermediate';
+export type MissedAnswerLevel = MissedLevel;
 
 const STRATEGY_COLORS: Record<Action, { check: string; text: string }> = {
   allin: { check: '#7F77DD', text: '#534AB7' },
@@ -108,7 +115,9 @@ export function MissedProblemAnswerPage({ level, id }: Props) {
           </div>
         )}
         {state.kind === 'ok' &&
-          (level === 'intermediate' ? (
+          (isPositionalRow(state.row) ? (
+            <PositionalBody row={state.row} />
+          ) : level === 'intermediate' ? (
             <IntermediateBody row={state.row} />
           ) : (
             <BeginnerBody row={state.row} />
@@ -116,6 +125,19 @@ export function MissedProblemAnswerPage({ level, id }: Props) {
       </main>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Positional body (EP/LP/Blind)
+// ---------------------------------------------------------------------------
+
+function PositionalBody({ row }: { row: MissedProblemRow }) {
+  const q = recordToPositionalQuestion(row);
+  if (!q) {
+    return <div style={errorStyle}>データ復元失敗 (id={row.id})</div>;
+  }
+  const { response } = decodeAnswer(row);
+  return <PositionalReviewDetail question={q} response={response} points={row.score_obtained} />;
 }
 
 // ---------------------------------------------------------------------------

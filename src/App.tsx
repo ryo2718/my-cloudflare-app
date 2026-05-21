@@ -20,10 +20,13 @@ import { MissedProblemsListPage } from './components/training/MissedProblemsList
 import { MissedProblemAnswerPage } from './components/training/MissedProblemAnswerPage';
 import { MissedChallengePlayPage } from './components/training/MissedChallengePlayPage';
 import { MissedChallengeResultPage } from './components/training/MissedChallengeResultPage';
+import { parseMissedFilter } from './components/training/missedChallengeStore';
+import type { MissedLevel } from './api/missedProblems';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
+import { TrainingResultPositional } from './components/training/TrainingResultPositional';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingRules } from './components/training/TrainingRules';
@@ -70,37 +73,38 @@ export default function App() {
 
   // /quiz/review/preflop/{level}/answer/{id}: 答え合わせ画面 (復習)
   const answerMatch = path.match(
-    /^\/quiz\/review\/preflop\/(beginner|intermediate)\/answer\/(\d+)\/?$/,
+    /^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/answer\/(\d+)\/?$/,
   );
   if (answerMatch) {
-    const lv = answerMatch[1] as 'beginner' | 'intermediate';
+    const lv = answerMatch[1] as MissedLevel;
     const id = Number(answerMatch[2]);
     if (Number.isFinite(id) && id > 0) {
       return <MissedProblemAnswerPage level={lv} id={id} />;
     }
   }
-  // /quiz/review/preflop/{level}/play?count=N: 挑戦モード
-  const playMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate)\/play\/?$/);
+  // /quiz/review/preflop/{level}/play?count=N&filter=F: 挑戦モード
+  const playMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/play\/?$/);
   if (playMatch) {
-    const lv = playMatch[1] as 'beginner' | 'intermediate';
+    const lv = playMatch[1] as MissedLevel;
     const params =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search)
         : new URLSearchParams();
     const countRaw = Number(params.get('count'));
     const count = Number.isFinite(countRaw) && countRaw > 0 ? Math.min(countRaw, 100) : 10;
-    return <MissedChallengePlayPage level={lv} count={count} />;
+    const filter = parseMissedFilter(params.get('filter'));
+    return <MissedChallengePlayPage level={lv} count={count} filter={filter} />;
   }
   // /quiz/review/preflop/{level}/result: 挑戦モード完了画面
-  const resultMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate)\/result\/?$/);
+  const resultMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/result\/?$/);
   if (resultMatch) {
-    const lv = resultMatch[1] as 'beginner' | 'intermediate';
+    const lv = resultMatch[1] as MissedLevel;
     return <MissedChallengeResultPage level={lv} />;
   }
   // /quiz/review/preflop/{level}: 復習リスト画面
-  const listMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate)\/?$/);
+  const listMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/?$/);
   if (listMatch) {
-    const lv = listMatch[1] as 'beginner' | 'intermediate';
+    const lv = listMatch[1] as MissedLevel;
     return <MissedProblemsListPage level={lv} />;
   }
 
@@ -144,7 +148,16 @@ export default function App() {
         ? <TrainingPlayIntermediate level={level} />
         : <TrainingPlay level={level} />;
     }
-    if (screen === 'result') return <TrainingResult level={level} />;
+    if (screen === 'result') {
+      if (
+        level.key === 'preflop_intermediate_ep' ||
+        level.key === 'preflop_intermediate_lp' ||
+        level.key === 'preflop_intermediate_blind'
+      ) {
+        return <TrainingResultPositional level={level} />;
+      }
+      return <TrainingResult level={level} />;
+    }
     if (screen === 'review') return <TrainingReview level={level} index={trainingMatch.index} />;
   }
 

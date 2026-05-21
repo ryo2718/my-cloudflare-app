@@ -9,38 +9,43 @@ import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
 import { THEME } from '../../styles/theme';
 
-type Counts = {
-  beginner: number | null;
-  intermediate: number | null;
-};
+type CountKey = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+type Counts = Partial<Record<CountKey, number | null>>;
 
 interface LevelEntry {
-  key: keyof Counts | 'advanced';
+  key: CountKey | 'advanced';
   label: string;
   href: string | null;
   implemented: boolean;
 }
 
 const PREFLOP_LEVELS: LevelEntry[] = [
-  { key: 'beginner',     label: '初級', href: '/quiz/review/preflop/beginner',     implemented: true },
-  { key: 'intermediate', label: '中級', href: '/quiz/review/preflop/intermediate', implemented: true },
-  { key: 'advanced',     label: '上級', href: null,                                implemented: false },
+  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true },
+  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true },
+  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true },
+  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true },
+  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true },
+  { key: 'advanced',     label: '上級',      href: null,                                implemented: false },
 ];
+
+const COUNT_KEYS: ReadonlyArray<CountKey> = ['beginner', 'intermediate', 'ep', 'lp', 'blind'];
 
 export function MissedProblemsSection() {
   const auth = useAuth();
-  const [counts, setCounts] = useState<Counts>({ beginner: null, intermediate: null });
+  const [counts, setCounts] = useState<Counts>({});
 
   useEffect(() => {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    Promise.all([
-      apiGetMissedProblems(sid, { level: 'beginner', limit: 1000 }),
-      apiGetMissedProblems(sid, { level: 'intermediate', limit: 1000 }),
-    ])
-      .then(([b, i]) => {
-        if (!cancelled) setCounts({ beginner: b.length, intermediate: i.length });
+    Promise.all(COUNT_KEYS.map((k) => apiGetMissedProblems(sid, { level: k, limit: 1000 })))
+      .then((results) => {
+        if (cancelled) return;
+        const next: Counts = {};
+        COUNT_KEYS.forEach((k, i) => {
+          next[k] = results[i].length;
+        });
+        setCounts(next);
       })
       .catch(() => {
         /* silent fallback */
@@ -61,7 +66,7 @@ export function MissedProblemsSection() {
             <LevelCard
               key={lv.key}
               entry={lv}
-              count={lv.key === 'beginner' || lv.key === 'intermediate' ? counts[lv.key] : null}
+              count={lv.key === 'advanced' ? null : counts[lv.key] ?? null}
             />
           ))}
         </div>

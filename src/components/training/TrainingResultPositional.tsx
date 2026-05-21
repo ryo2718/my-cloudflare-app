@@ -1,0 +1,301 @@
+// 中級ポジション別 (EP/LP/Blind) の結果画面。中級総合と同じ構成:
+//   スコア + 達成率 / スコア内訳 (◎○△×) / 振り返り一覧 (各問タップで詳細)。
+// best_score は POST /api/account/training-result で保存。
+// 各問記録は positionalRecordsStore (ローカル) から読む。
+
+import { useEffect, useState, type CSSProperties } from 'react';
+import { apiSubmitTrainingResult, type TrainingResultSubmission } from '../../api/account';
+import { useAuth } from '../../hooks/useAuth';
+import { Link } from '../../router/router';
+import { navigate } from '../../router/router-core';
+import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
+import {
+  loadPositionalRecords,
+  type PositionalRecord,
+} from '../../data/training/positionalRecordsStore';
+import { judgmentIcon, judgmentColor } from './judgmentIcon';
+import { positionalPillStyle } from './positionalPill';
+import { PositionalReviewDetail } from './PositionalReviewDetail';
+import { THEME } from '../../styles/theme';
+
+export interface TrainingResultPositionalProps {
+  level: TrainingLevel;
+}
+
+const SUBMIT_CACHE_PREFIX = 'training_submission:';
+
+function parseQuery(): { score: number; total: number } | null {
+  if (typeof window === 'undefined') return null;
+  const sp = new URLSearchParams(window.location.search);
+  const s = Number(sp.get('score'));
+  const t = Number(sp.get('total'));
+  if (!Number.isFinite(s) || !Number.isFinite(t) || t <= 0) return null;
+  return { score: s, total: t };
+}
+
+export function TrainingResultPositional({ level }: TrainingResultPositionalProps) {
+  const auth = useAuth();
+  const scoreInfo = parseQuery();
+  const [records, setRecords] = useState<PositionalRecord[]>(() => loadPositionalRecords(level.key) ?? []);
+  const [save, setSave] = useState<TrainingResultSubmission | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  useEffect(() => {
+    const r = loadPositionalRecords(level.key);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (r) setRecords(r);
+  }, [level.key]);
+
+  useEffect(() => {
+    if (!scoreInfo || !auth.sessionId) return;
+    const sid = auth.sessionId;
+    const submitScore = Math.max(0, scoreInfo.score);
+    const cacheKey = `${SUBMIT_CACHE_PREFIX}${level.key}:${submitScore}:${scoreInfo.total}`;
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSave(JSON.parse(cached) as TrainingResultSubmission);
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    let cancelled = false;
+    apiSubmitTrainingResult(sid, { training_type: level.key, score: submitScore })
+      .then((sub) => {
+        if (cancelled) return;
+        setSave(sub);
+        try {
+          sessionStorage?.setItem(cacheKey, JSON.stringify(sub));
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {
+        /* silent */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.sessionId, level.key, scoreInfo?.score, scoreInfo?.total]);
+
+  if (!scoreInfo) {
+    return (
+      <div style={pageStyle}>
+        <main style={mainStyle}>
+          <p style={infoStyle}>結果情報が見つかりません。</p>
+          <button type="button" onClick={() => navigate('/quiz')} style={listBtnStyle}>
+            トレーニングに戻る
+          </button>
+        </main>
+      </div>
+    );
+  }
+
+  const { score, total } = scoreInfo;
+  const displayScore = Math.max(0, score);
+  const pct = total > 0 ? Math.round((displayScore / total) * 100) : 0;
+
+  const breakdown = { perfect: 0, partial: 0, zero: 0, miss: 0 };
+  for (const r of records) {
+    if (r.points >= 2) breakdown.perfect++;
+    else if (r.points === 1) breakdown.partial++;
+    else if (r.points === 0) breakdown.zero++;
+    else breakdown.miss++;
+  }
+
+  return (
+    <div style={pageStyle}>
+      <main style={mainStyle}>
+        <Link to="/quiz" style={crumbStyle}>← トレーニングに戻る</Link>
+        <h1 style={titleStyle}>お疲れさまでした!</h1>
+
+        <div style={scoreCardStyle}>
+          <div style={scoreCellStyle}>
+            <span style={scoreLabelStyle}>スコア</span>
+            <span style={scoreValueStyle}>{displayScore}/{total}</span>
+          </div>
+          <div style={scoreCellStyle}>
+            <span style={scoreLabelStyle}>達成率</span>
+            <span style={scoreValueStyle}>{pct}%</span>
+          </div>
+        </div>
+
+        {save && (
+          <div style={ptCardStyle}>
+            {save.is_best ? (
+              <span style={bestStyle}>ベスト更新! {save.current_best}pt</span>
+            ) : (
+              <span style={ptInfoStyle}>ベスト: {save.current_best}pt(今回 {displayScore}pt)</span>
+            )}
+          </div>
+        )}
+
+        {records.length > 0 && (
+          <section style={breakdownStyle} aria-label="スコア内訳">
+            <header style={sectionHeaderStyle}>スコア内訳</header>
+            <div style={breakdownRowStyle}>
+              <BreakdownPill icon="◎" label="満点" count={breakdown.perfect} score={2} />
+              <BreakdownPill icon="○" label="部分点" count={breakdown.partial} score={1} />
+              <BreakdownPill icon="△" label="無回答" count={breakdown.zero} score={0} />
+              <BreakdownPill icon="✕" label="ミス" count={breakdown.miss} score={-1} />
+            </div>
+          </section>
+        )}
+
+        {records.length > 0 && (
+          <section style={reviewSectionStyle} aria-label="振り返り一覧">
+            <header style={sectionHeaderStyle}>振り返り一覧 ({records.length}問)</header>
+            <ul style={listStyle}>
+              {records.map((r) => {
+                const open = expanded === r.id;
+                return (
+                  <li key={r.id} style={itemStyle}>
+                    <button
+                      type="button"
+                      style={itemHeaderStyle}
+                      onClick={() => setExpanded(open ? null : r.id)}
+                      aria-expanded={open}
+                    >
+                      <span style={{ ...iconStyle, color: judgmentColor(r.points) }}>
+                        {judgmentIcon(r.points)}
+                      </span>
+                      <span style={positionalPillStyle(r.question.scenarioKey)}>{r.question.label}</span>
+                      <span style={handStyle}>{r.question.hand}</span>
+                      <span style={chevronStyle} aria-hidden>{open ? '▼' : '▶'}</span>
+                    </button>
+                    {open && (
+                      <div style={detailWrapStyle}>
+                        <PositionalReviewDetail question={r.question} response={r.response} points={r.points} />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        <div style={btnRowStyle}>
+          <button type="button" onClick={() => navigate(trainingPath(level.key, 'confirm'))} style={retryBtnStyle}>
+            もう一度挑戦
+          </button>
+          <Link to="/quiz" style={listBtnStyle}>トレーニング一覧</Link>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function BreakdownPill({ icon, label, count, score }: { icon: string; label: string; count: number; score: number }) {
+  return (
+    <div style={bdPillStyle}>
+      <span style={{ ...bdIconStyle, color: judgmentColor(score) }}>{icon}</span>
+      <span style={bdCountStyle}>{count}</span>
+      <span style={bdLabelStyle}>{label}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
+const pageStyle: CSSProperties = { minHeight: '100vh', background: THEME.bg, display: 'flex', flexDirection: 'column' };
+const mainStyle: CSSProperties = {
+  flex: 1,
+  padding: '1.25rem 1rem',
+  maxWidth: 560,
+  width: '100%',
+  margin: '0 auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.85rem',
+};
+const crumbStyle: CSSProperties = { fontSize: '0.82rem', color: THEME.textSecondary, textDecoration: 'none' };
+const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 700, color: THEME.textPrimary };
+const scoreCardStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '0.6rem',
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.5rem',
+  padding: '1rem',
+};
+const scoreCellStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' };
+const scoreLabelStyle: CSSProperties = { fontSize: '0.8rem', color: THEME.textSecondary };
+const scoreValueStyle: CSSProperties = { fontSize: '1.6rem', fontWeight: 800, color: THEME.textPrimary, fontVariantNumeric: 'tabular-nums' };
+const ptCardStyle: CSSProperties = {
+  background: '#EAF3DE',
+  border: '1px solid #B9D79A',
+  borderRadius: '0.45rem',
+  padding: '0.7rem 0.9rem',
+};
+const bestStyle: CSSProperties = { fontSize: '0.95rem', fontWeight: 700, color: '#3B6D11' };
+const ptInfoStyle: CSSProperties = { fontSize: '0.9rem', color: THEME.textPrimary };
+const breakdownStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem' };
+const sectionHeaderStyle: CSSProperties = { fontSize: '0.85rem', fontWeight: 700, color: THEME.textSecondary };
+const breakdownRowStyle: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' };
+const bdPillStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.15rem',
+  padding: '0.5rem 0.3rem',
+  background: '#fff',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.4rem',
+};
+const bdIconStyle: CSSProperties = { fontSize: '1.2rem', fontWeight: 700 };
+const bdCountStyle: CSSProperties = { fontSize: '1.1rem', fontWeight: 800, color: THEME.textPrimary };
+const bdLabelStyle: CSSProperties = { fontSize: '0.7rem', color: THEME.textSecondary };
+const reviewSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem' };
+const listStyle: CSSProperties = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' };
+const itemStyle: CSSProperties = { background: '#fff', border: `1px solid ${THEME.border}`, borderRadius: '0.45rem', overflow: 'hidden' };
+const itemHeaderStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  width: '100%',
+  padding: '0.6rem 0.7rem',
+  background: '#fff',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  textAlign: 'left',
+};
+const iconStyle: CSSProperties = { fontSize: '1.1rem', fontWeight: 700, minWidth: '1.2rem' };
+const handStyle: CSSProperties = { fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: '0.95rem', fontWeight: 700, color: THEME.textPrimary, marginLeft: 'auto' };
+const chevronStyle: CSSProperties = { fontSize: '0.75rem', color: THEME.textMuted };
+const detailWrapStyle: CSSProperties = { padding: '0.7rem', borderTop: `1px solid ${THEME.border}`, background: '#FCFBF8' };
+const btnRowStyle: CSSProperties = { display: 'flex', gap: '0.6rem', marginTop: '0.5rem' };
+const retryBtnStyle: CSSProperties = {
+  flex: 1,
+  padding: '0.8rem 1rem',
+  background: THEME.accent,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.45rem',
+  fontSize: '0.95rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+const listBtnStyle: CSSProperties = {
+  flex: 1,
+  padding: '0.8rem 1rem',
+  background: '#fff',
+  color: THEME.textPrimary,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.45rem',
+  fontSize: '0.95rem',
+  fontWeight: 700,
+  textDecoration: 'none',
+  textAlign: 'center',
+};
+const infoStyle: CSSProperties = { fontSize: '0.9rem', color: THEME.textMuted };

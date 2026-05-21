@@ -18,6 +18,15 @@ import {
   type PositionalQuestion,
   type PositionalResponse,
 } from '../../data/training/preflopIntermediatePositional';
+import { positionalPillStyle } from './positionalPill';
+import { encodeMissedInput } from '../../data/training/positionalReview';
+import {
+  savePositionalRecords,
+  clearPositionalRecords,
+  type PositionalRecord,
+} from '../../data/training/positionalRecordsStore';
+import { apiPostMissedProblems } from '../../api/missedProblems';
+import { useAuth } from '../../hooks/useAuth';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
@@ -44,9 +53,10 @@ export interface TrainingPlayPositionalProps {
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; questions: PositionalQuestion[]; current: number; points: number[] };
+  | { kind: 'ready'; questions: PositionalQuestion[]; current: number; records: PositionalRecord[] };
 
 export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
+  const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
   const mode = modeFromLevelKey(level.key);
@@ -64,6 +74,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
   useEffect(() => {
     if (!mode) return;
     let cancelled = false;
+    clearPositionalRecords(level.key);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: 'loading' });
     generatePositionalQuestions(mode)
@@ -73,7 +84,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
           setState({ kind: 'error', message: '出題データの読み込みに失敗しました' });
           return;
         }
-        setState({ kind: 'ready', questions, current: 0, points: [] });
+        setState({ kind: 'ready', questions, current: 0, records: [] });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -90,20 +101,33 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
     advancingRef.current = true;
     const q = prev.questions[prev.current];
     const pts = scorePositionalPoints(q, res);
-    const newPoints = [...prev.points, pts];
+    const newRecord: PositionalRecord = { id: prev.current + 1, question: q, response: res, points: pts };
+    const newRecords = [...prev.records, newRecord];
     const next = prev.current + 1;
 
     if (next >= prev.questions.length && mode) {
-      const score = totalPositionalScore(newPoints);
+      savePositionalRecords(level.key, newRecords);
+      // 満点未達 (素点 < 2) を間違えた問題集 (DB) に記録。ベスト努力で実行、失敗は silent。
+      if (auth.sessionId) {
+        const missed = newRecords
+          .filter((r) => r.points < 2)
+          .map((r) => encodeMissedInput(r.question, r.response, r.points));
+        if (missed.length > 0) {
+          void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
+            /* silent */
+          });
+        }
+      }
+      const score = totalPositionalScore(newRecords.map((r) => r.points));
       const params = new URLSearchParams({
         score: String(score),
         total: String(maxScoreForMode(mode)),
-        mode: 'intermediate',
+        mode: 'positional',
       });
       navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
       return;
     }
-    setState({ kind: 'ready', questions: prev.questions, current: next, points: newPoints });
+    setState({ kind: 'ready', questions: prev.questions, current: next, records: newRecords });
     Promise.resolve().then(() => {
       advancingRef.current = false;
     });
@@ -170,7 +194,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
       />
 
       <main style={mainStyle}>
-        <div style={scenarioPillStyle}>{q.label}</div>
+        <div style={positionalPillStyle(q.scenarioKey)}>{q.label}</div>
         <PokerTable
           mePosition={q.myPosition}
           opener={q.opener}
@@ -271,16 +295,6 @@ const mainStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
-};
-const scenarioPillStyle: CSSProperties = {
-  alignSelf: 'flex-start',
-  fontSize: '0.78rem',
-  fontWeight: 700,
-  color: '#993C1D',
-  background: '#FAEEDA',
-  border: '1px solid #E5A551',
-  borderRadius: '999px',
-  padding: '0.2rem 0.7rem',
 };
 const handSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' };
 const handLabelStyle: CSSProperties = {

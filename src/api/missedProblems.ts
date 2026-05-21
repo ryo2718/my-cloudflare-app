@@ -22,15 +22,27 @@ export interface MissedProblemRow {
   created_at: number;
 }
 
+export type MissedTrainingType =
+  | 'preflop_beginner'
+  | 'preflop_intermediate'
+  | 'preflop_intermediate_ep'
+  | 'preflop_intermediate_lp'
+  | 'preflop_intermediate_blind';
+
+/** 取得用 level クエリ。 */
+export type MissedLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+
 export interface MissedProblemInput {
-  training_type: 'preflop_beginner' | 'preflop_intermediate';
+  training_type: MissedTrainingType;
   scenario_type: string;
   hero_position: string;
   opener_position?: string | null;
   three_bettor_position?: string | null;
   hand: string;
+  /** 複数選択は ['raise','call'] 等。スライダーは ['__slider__','<回答%>']。 */
   user_selections: string[];
-  gto_strategy: { allin: number; raise: number; call: number; fold: number };
+  /** check はポジション別 (BB vs limp) でのみ使用。 */
+  gto_strategy: { allin: number; raise: number; call: number; fold: number; check?: number };
   score_obtained: number;
   is_timeout?: boolean;
 }
@@ -67,7 +79,7 @@ export async function apiPostMissedProblems(
 
 export async function apiGetMissedProblems(
   sessionId: string,
-  params: { level?: 'beginner' | 'intermediate'; limit?: number; includeRemoved?: boolean } = {},
+  params: { level?: MissedLevel; limit?: number; includeRemoved?: boolean } = {},
 ): Promise<MissedProblemRow[]> {
   const qs = new URLSearchParams();
   if (params.level) qs.set('level', params.level);

@@ -6,7 +6,14 @@
 import { jsonResponse, resolveAccountFromRequest } from '../../lib/auth';
 import type { Env, MissedProblemRow } from '../../lib/types';
 
-const ALLOWED_TRAINING_TYPES = new Set(['preflop_beginner', 'preflop_intermediate']);
+const ALLOWED_TRAINING_TYPES = new Set([
+  'preflop_beginner',
+  'preflop_intermediate',
+  // 中級ポジション別 (EP/LP/Blind)
+  'preflop_intermediate_ep',
+  'preflop_intermediate_lp',
+  'preflop_intermediate_blind',
+]);
 const ALLOWED_SCENARIOS = new Set([
   'bb_response',
   'vs_3bet',
@@ -15,8 +22,25 @@ const ALLOWED_SCENARIOS = new Set([
   'risky_open',
   'beginner_open',
   'beginner_vs_open',
+  // 中級ポジション別シナリオ
+  'ep_open', 'ep_vs_3bet', 'ep_vs_4bet',
+  'lp_open', 'lp_vs_open_btn', 'lp_vs_open_co', 'lp_vs_3bet', 'lp_vs_4bet',
+  'sb_open', 'sb_limp_vs_raise', 'sb_vs_3bet', 'sb_vs_4bet', 'sb_vs_open',
+  'bb_vs_open_other', 'bb_vs_open_sb', 'bb_vs_limp', 'bb_vs_limp_raise', 'bb_vs_4bet',
 ]);
 const ALLOWED_POSITIONS = new Set(['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']);
+
+/** level クエリ → training_type。 */
+const LEVEL_TO_TRAINING_TYPE: Record<string, string> = {
+  beginner: 'preflop_beginner',
+  intermediate: 'preflop_intermediate',
+  ep: 'preflop_intermediate_ep',
+  lp: 'preflop_intermediate_lp',
+  blind: 'preflop_intermediate_blind',
+};
+
+/** 取得 limit の上限。 */
+const MAX_LIMIT = 1000;
 
 // ---------------------------------------------------------------------------
 // GET: 自分の missed_problems を取得
@@ -28,10 +52,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const url = new URL(request.url);
   const level = url.searchParams.get('level') ?? 'intermediate';
-  const trainingType = level === 'beginner' ? 'preflop_beginner' : 'preflop_intermediate';
+  const trainingType = LEVEL_TO_TRAINING_TYPE[level] ?? 'preflop_intermediate';
   const limitRaw = parseInt(url.searchParams.get('limit') ?? '10', 10);
   const limit = Number.isFinite(limitRaw)
-    ? Math.min(100, Math.max(1, limitRaw))
+    ? Math.min(MAX_LIMIT, Math.max(1, limitRaw))
     : 10;
   const includeRemoved = url.searchParams.get('include_removed') === 'true';
 
