@@ -2,7 +2,8 @@
 //   - ボードカード5スロット (フロップ3 + ターン1 + リバー1)。置いた枚数で
 //     ストリートが自動で決まる (ストリートタブは廃止)。
 //   - Player A / B の 2 人固定。各 2 枚のカードスロット + レンジ(未実装) + リセット
-//   - スロットをタップ → 画面上部にカード選択ポップアップ
+//   - スロットをタップ → 画面上部のパネルで必要枚数を連続選択 (ボード最大5 / ハンド2)
+//   - ボード各スロットの下にゴミ箱 (そのスロットのカードを削除)
 //   - プレイヤー4枚が揃い、ボードが 0/3/4/5 枚のとき自動で全列挙エクイティを計算
 //     (ボード 1/2 枚は中途半端なので計算しない)
 //
@@ -18,11 +19,8 @@ import { CardSlot } from './CardSlot';
 import { CardSelector } from './CardSelector';
 
 type PlayerId = 'A' | 'B';
-type SlotIdx = 0 | 1;
 
-type SelectingTarget =
-  | { kind: 'player'; player: PlayerId; slot: SlotIdx }
-  | { kind: 'board'; index: number };
+type SelectingTarget = { kind: 'player'; player: PlayerId } | { kind: 'board' };
 
 // 計算対象になるボード枚数 (0=プリフロップ, 3=フロップ, 4=ターン, 5=リバー)。
 const VALID_BOARD_COUNTS = new Set([0, 3, 4, 5]);
@@ -87,22 +85,18 @@ export function EquityCalculatorPage() {
     setSelecting(target);
   };
 
-  const pickCard = (card: Card) => {
+  // 連続選択の結果をスロット順に格納してパネルを閉じる。
+  const commitSelection = (cards: Card[]) => {
     if (!selecting) return;
-    if (selecting.kind === 'player') {
-      const { player, slot } = selecting;
-      setHands((prev) => {
-        const next = { ...prev, [player]: [...prev[player]] as [Card | null, Card | null] };
-        next[player][slot] = card;
-        return next;
+    if (selecting.kind === 'board') {
+      const next: (Card | null)[] = [null, null, null, null, null];
+      cards.slice(0, 5).forEach((c, i) => {
+        next[i] = c;
       });
+      setBoard(next);
     } else {
-      const { index } = selecting;
-      setBoard((prev) => {
-        const next = [...prev];
-        next[index] = card;
-        return next;
-      });
+      const player = selecting.player;
+      setHands((prev) => ({ ...prev, [player]: [cards[0] ?? null, cards[1] ?? null] }));
     }
     setSelecting(null);
   };
@@ -115,22 +109,42 @@ export function EquityCalculatorPage() {
     setBoard([null, null, null, null, null]);
   };
 
-  // 選択中スロットの現在のカードは選び直せるよう usedCards から除外。
-  const selectorUsed = useMemo(() => {
-    if (!selecting) return usedCards;
-    const cur =
-      selecting.kind === 'player' ? hands[selecting.player][selecting.slot] : board[selecting.index];
-    if (!cur) return usedCards;
-    const s = new Set(usedCards);
-    s.delete(cardToString(cur));
+  const deleteBoardCard = (index: number) => {
+    setBoard((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+  };
+
+  // パネルに渡す初期選択 (このグループの既存カード) と他グループの使用中カード。
+  const initialSelected = useMemo<Card[]>(() => {
+    if (!selecting) return [];
+    if (selecting.kind === 'board') return board.filter((c): c is Card => c !== null);
+    return hands[selecting.player].filter((c): c is Card => c !== null);
+  }, [selecting, board, hands]);
+
+  const usedByOthers = useMemo<Set<string>>(() => {
+    const own = new Set<string>();
+    if (selecting) {
+      if (selecting.kind === 'board') {
+        for (const c of board) if (c) own.add(cardToString(c));
+      } else {
+        for (const c of hands[selecting.player]) if (c) own.add(cardToString(c));
+      }
+    }
+    const s = new Set<string>();
+    for (const k of usedCards) if (!own.has(k)) s.add(k);
     return s;
-  }, [usedCards, selecting, hands, board]);
+  }, [usedCards, selecting, board, hands]);
 
   const equityText = (p: PlayerId): string => {
     if (computing) return '計算中…';
     if (result) return `${(p === 'A' ? result.a : result.b).toFixed(1)}%`;
     return '';
   };
+
+  const boardActive = selecting?.kind === 'board';
 
   return (
     <div style={pageStyle}>
@@ -139,49 +153,52 @@ export function EquityCalculatorPage() {
         <Link to="/" style={crumbStyle}>← ホーム</Link>
         <h1 style={titleStyle}>エクイティ計算</h1>
 
-        <div style={boardRowStyle}>
-          <span style={rowLabelStyle}>ボード</span>
-          <div style={boardSlotsStyle}>
+        <div style={boardSectionStyle}>
+          <div style={boardHeaderStyle}>
+            <span style={rowLabelStyle}>ボード</span>
+            <button type="button" style={resetBtnStyle} onClick={resetBoard}>
+              リセット
+            </button>
+          </div>
+          <div style={boardGridStyle}>
             {board.map((c, i) => (
-              <CardSlot
-                key={i}
-                card={c}
-                active={selecting?.kind === 'board' && selecting.index === i}
-                onClick={() => openSelector({ kind: 'board', index: i })}
-              />
+              <div key={i} style={boardCellStyle}>
+                <CardSlot card={c} active={boardActive} onClick={() => openSelector({ kind: 'board' })} />
+                <button
+                  type="button"
+                  onClick={() => deleteBoardCard(i)}
+                  disabled={!c}
+                  aria-label={`ボード${i + 1}枚目を削除`}
+                  style={c ? trashBtnStyle : trashHiddenStyle}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
             ))}
           </div>
-          <button type="button" style={resetBtnStyle} onClick={resetBoard}>
-            リセット
-          </button>
         </div>
 
         <div style={dividerStyle} />
 
-        {(['A', 'B'] as PlayerId[]).map((p) => (
-          <div key={p} style={playerRowStyle}>
-            <span style={rowLabelStyle}>Player {p}</span>
-            <div style={slotsStyle}>
-              <CardSlot
-                card={hands[p][0]}
-                active={selecting?.kind === 'player' && selecting.player === p && selecting.slot === 0}
-                onClick={() => openSelector({ kind: 'player', player: p, slot: 0 })}
-              />
-              <CardSlot
-                card={hands[p][1]}
-                active={selecting?.kind === 'player' && selecting.player === p && selecting.slot === 1}
-                onClick={() => openSelector({ kind: 'player', player: p, slot: 1 })}
-              />
+        {(['A', 'B'] as PlayerId[]).map((p) => {
+          const playerActive = selecting?.kind === 'player' && selecting.player === p;
+          return (
+            <div key={p} style={playerRowStyle}>
+              <span style={rowLabelStyle}>Player {p}</span>
+              <div style={slotsStyle}>
+                <CardSlot card={hands[p][0]} active={playerActive} onClick={() => openSelector({ kind: 'player', player: p })} />
+                <CardSlot card={hands[p][1]} active={playerActive} onClick={() => openSelector({ kind: 'player', player: p })} />
+              </div>
+              <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
+                レンジ
+              </button>
+              <button type="button" style={resetBtnStyle} onClick={() => resetPlayer(p)}>
+                リセット
+              </button>
+              <span style={equityStyle}>{equityText(p)}</span>
             </div>
-            <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
-              レンジ
-            </button>
-            <button type="button" style={resetBtnStyle} onClick={() => resetPlayer(p)}>
-              リセット
-            </button>
-            <span style={equityStyle}>{equityText(p)}</span>
-          </div>
-        ))}
+          );
+        })}
 
         <div style={dividerStyle} />
 
@@ -192,10 +209,38 @@ export function EquityCalculatorPage() {
         {info && <p style={infoStyle}>{info}</p>}
 
         {selecting && (
-          <CardSelector usedCards={selectorUsed} onSelect={pickCard} onClose={() => setSelecting(null)} />
+          <CardSelector
+            mode={selecting.kind === 'board' ? 'board' : 'hand'}
+            initialSelected={initialSelected}
+            usedByOthers={usedByOthers}
+            onCommit={commitSelection}
+          />
         )}
       </main>
     </div>
+  );
+}
+
+// 絵文字を使わないゴミ箱アイコン (Feather 系のアウトライン)。
+function TrashIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
   );
 }
 
@@ -217,14 +262,26 @@ const mainStyle: CSSProperties = {
 const crumbStyle: CSSProperties = { fontSize: '0.82rem', color: THEME.textSecondary, textDecoration: 'none' };
 const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 700, color: THEME.textPrimary };
 const dividerStyle: CSSProperties = { height: 1, background: THEME.border };
-const boardRowStyle: CSSProperties = {
+
+const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0' };
+const boardHeaderStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.55rem' };
+const boardGridStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
+const boardCellStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' };
+const trashBtnStyle: CSSProperties = {
+  width: 44,
+  height: 28,
   display: 'flex',
   alignItems: 'center',
-  gap: '0.55rem',
-  flexWrap: 'wrap',
-  padding: '0.5rem 0',
+  justifyContent: 'center',
+  background: '#fff',
+  color: THEME.textSecondary,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.4rem',
+  cursor: 'pointer',
+  padding: 0,
 };
-const boardSlotsStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
+const trashHiddenStyle: CSSProperties = { ...trashBtnStyle, visibility: 'hidden', cursor: 'default' };
+
 const playerRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
