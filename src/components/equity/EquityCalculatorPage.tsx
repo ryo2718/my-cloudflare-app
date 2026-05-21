@@ -1,9 +1,12 @@
-// /equity: エクイティ計算 (フェーズ1)。
-//   - ストリートタブ (プリフロップのみ実装、他は準備中)
+// /equity: エクイティ計算 (フェーズ2)。
+//   - ボードカード5スロット (フロップ3 + ターン1 + リバー1)。置いた枚数で
+//     ストリートが自動で決まる (ストリートタブは廃止)。
 //   - Player A / B の 2 人固定。各 2 枚のカードスロット + レンジ(未実装) + リセット
-//   - 4 枚揃うと自動で全列挙エクイティを計算して勝率 % を表示
+//   - スロットをタップ → 画面上部にカード選択ポップアップ
+//   - プレイヤー4枚が揃い、ボードが 0/3/4/5 枚のとき自動で全列挙エクイティを計算
+//     (ボード 1/2 枚は中途半端なので計算しない)
 //
-// フェーズ1: フロップ以降・レンジ指定・3人以上は未実装。
+// 未実装: レンジ指定・3人以上。
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AppHeader } from '../AppHeader';
@@ -16,49 +19,49 @@ import { CardSelector } from './CardSelector';
 
 type PlayerId = 'A' | 'B';
 type SlotIdx = 0 | 1;
-type Street = 'preflop' | 'flop' | 'turn' | 'river';
 
-interface SelectingTarget {
-  player: PlayerId;
-  slot: SlotIdx;
-}
+type SelectingTarget =
+  | { kind: 'player'; player: PlayerId; slot: SlotIdx }
+  | { kind: 'board'; index: number };
 
-const STREETS: Array<{ key: Street; label: string; implemented: boolean }> = [
-  { key: 'preflop', label: 'プリフロップ', implemented: true },
-  { key: 'flop', label: 'フロップ', implemented: false },
-  { key: 'turn', label: 'ターン', implemented: false },
-  { key: 'river', label: 'リバー', implemented: false },
-];
+// 計算対象になるボード枚数 (0=プリフロップ, 3=フロップ, 4=ターン, 5=リバー)。
+const VALID_BOARD_COUNTS = new Set([0, 3, 4, 5]);
 
 export function EquityCalculatorPage() {
-  const [street] = useState<Street>('preflop');
   const [hands, setHands] = useState<Record<PlayerId, [Card | null, Card | null]>>({
     A: [null, null],
     B: [null, null],
   });
+  const [board, setBoard] = useState<(Card | null)[]>([null, null, null, null, null]);
   const [selecting, setSelecting] = useState<SelectingTarget | null>(null);
   const [result, setResult] = useState<EquityResult | null>(null);
   const [computing, setComputing] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
 
-  // 使用中カード集合 (重複防止 + 選択不可表示)。
+  // 使用中カード集合 (重複防止 + 選択不可表示)。プレイヤー + ボード全体。
   const usedCards = useMemo(() => {
     const set = new Set<string>();
     for (const p of ['A', 'B'] as PlayerId[]) {
       for (const c of hands[p]) if (c) set.add(cardToString(c));
     }
+    for (const c of board) if (c) set.add(cardToString(c));
     return set;
-  }, [hands]);
+  }, [hands, board]);
+
+  const allSet = !!(hands.A[0] && hands.A[1] && hands.B[0] && hands.B[1]);
+  const boardCards = useMemo(() => board.filter((c): c is Card => c !== null), [board]);
+  const boardCount = boardCards.length;
 
   const a0 = hands.A[0] ? cardToString(hands.A[0]!) : '';
   const a1 = hands.A[1] ? cardToString(hands.A[1]!) : '';
   const b0 = hands.B[0] ? cardToString(hands.B[0]!) : '';
   const b1 = hands.B[1] ? cardToString(hands.B[1]!) : '';
-  const allSet = !!(hands.A[0] && hands.A[1] && hands.B[0] && hands.B[1]);
+  const boardKey = board.map((c) => (c ? cardToString(c) : '_')).join('');
 
-  // 4 枚揃ったら自動計算。重い (約170万通り) のでペイント後に setTimeout で実行。
+  // プレイヤー4枚が揃い、ボードが 0/3/4/5 枚なら自動計算。
+  // プリフロップは重い (約170万通り) のでペイント後に setTimeout で実行。
   useEffect(() => {
-    if (!allSet) {
+    if (!allSet || !VALID_BOARD_COUNTS.has(boardCount)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setResult(null);
       setComputing(false);
@@ -70,26 +73,37 @@ export function EquityCalculatorPage() {
       const r = computeEquity(
         [hands.A[0]!, hands.A[1]!],
         [hands.B[0]!, hands.B[1]!],
+        boardCards,
       );
       setResult(r);
       setComputing(false);
     }, 30);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSet, a0, a1, b0, b1]);
+  }, [allSet, boardCount, a0, a1, b0, b1, boardKey]);
 
-  const openSelector = (player: PlayerId, slot: SlotIdx) => {
+  const openSelector = (target: SelectingTarget) => {
     setInfo(null);
-    setSelecting({ player, slot });
+    setSelecting(target);
   };
 
   const pickCard = (card: Card) => {
     if (!selecting) return;
-    setHands((prev) => {
-      const next = { ...prev, [selecting.player]: [...prev[selecting.player]] as [Card | null, Card | null] };
-      next[selecting.player][selecting.slot] = card;
-      return next;
-    });
+    if (selecting.kind === 'player') {
+      const { player, slot } = selecting;
+      setHands((prev) => {
+        const next = { ...prev, [player]: [...prev[player]] as [Card | null, Card | null] };
+        next[player][slot] = card;
+        return next;
+      });
+    } else {
+      const { index } = selecting;
+      setBoard((prev) => {
+        const next = [...prev];
+        next[index] = card;
+        return next;
+      });
+    }
     setSelecting(null);
   };
 
@@ -97,15 +111,20 @@ export function EquityCalculatorPage() {
     setHands((prev) => ({ ...prev, [player]: [null, null] }));
   };
 
+  const resetBoard = () => {
+    setBoard([null, null, null, null, null]);
+  };
+
   // 選択中スロットの現在のカードは選び直せるよう usedCards から除外。
   const selectorUsed = useMemo(() => {
     if (!selecting) return usedCards;
-    const cur = hands[selecting.player][selecting.slot];
+    const cur =
+      selecting.kind === 'player' ? hands[selecting.player][selecting.slot] : board[selecting.index];
     if (!cur) return usedCards;
     const s = new Set(usedCards);
     s.delete(cardToString(cur));
     return s;
-  }, [usedCards, selecting, hands]);
+  }, [usedCards, selecting, hands, board]);
 
   const equityText = (p: PlayerId): string => {
     if (computing) return '計算中…';
@@ -120,39 +139,38 @@ export function EquityCalculatorPage() {
         <Link to="/" style={crumbStyle}>← ホーム</Link>
         <h1 style={titleStyle}>エクイティ計算</h1>
 
-        <div style={tabRowStyle} role="tablist" aria-label="ストリート">
-          {STREETS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              role="tab"
-              aria-selected={street === s.key}
-              onClick={() => {
-                if (!s.implemented) setInfo(`${s.label}は準備中です`);
-              }}
-              style={street === s.key ? tabActiveStyle : s.implemented ? tabStyle : tabDisabledStyle}
-            >
-              {s.label}
-              {!s.implemented && <span style={soonStyle}>(未実装)</span>}
-            </button>
-          ))}
+        <div style={boardRowStyle}>
+          <span style={rowLabelStyle}>ボード</span>
+          <div style={boardSlotsStyle}>
+            {board.map((c, i) => (
+              <CardSlot
+                key={i}
+                card={c}
+                active={selecting?.kind === 'board' && selecting.index === i}
+                onClick={() => openSelector({ kind: 'board', index: i })}
+              />
+            ))}
+          </div>
+          <button type="button" style={resetBtnStyle} onClick={resetBoard}>
+            リセット
+          </button>
         </div>
 
         <div style={dividerStyle} />
 
         {(['A', 'B'] as PlayerId[]).map((p) => (
           <div key={p} style={playerRowStyle}>
-            <span style={playerNameStyle}>Player {p}</span>
+            <span style={rowLabelStyle}>Player {p}</span>
             <div style={slotsStyle}>
               <CardSlot
                 card={hands[p][0]}
-                active={selecting?.player === p && selecting.slot === 0}
-                onClick={() => openSelector(p, 0)}
+                active={selecting?.kind === 'player' && selecting.player === p && selecting.slot === 0}
+                onClick={() => openSelector({ kind: 'player', player: p, slot: 0 })}
               />
               <CardSlot
                 card={hands[p][1]}
-                active={selecting?.player === p && selecting.slot === 1}
-                onClick={() => openSelector(p, 1)}
+                active={selecting?.kind === 'player' && selecting.player === p && selecting.slot === 1}
+                onClick={() => openSelector({ kind: 'player', player: p, slot: 1 })}
               />
             </div>
             <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
@@ -168,6 +186,9 @@ export function EquityCalculatorPage() {
         <div style={dividerStyle} />
 
         {!allSet && <p style={hintStyle}>各プレイヤーのカードを2枚ずつ選ぶと自動で勝率を計算します。</p>}
+        {allSet && !VALID_BOARD_COUNTS.has(boardCount) && (
+          <p style={hintStyle}>ボードを3枚以上にすると計算します。</p>
+        )}
         {info && <p style={infoStyle}>{info}</p>}
 
         {selecting && (
@@ -195,21 +216,15 @@ const mainStyle: CSSProperties = {
 };
 const crumbStyle: CSSProperties = { fontSize: '0.82rem', color: THEME.textSecondary, textDecoration: 'none' };
 const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 700, color: THEME.textPrimary };
-const tabRowStyle: CSSProperties = { display: 'flex', gap: '0.35rem', flexWrap: 'wrap' };
-const tabStyle: CSSProperties = {
-  padding: '0.4rem 0.7rem',
-  background: '#fff',
-  color: THEME.textPrimary,
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '0.4rem',
-  fontSize: '0.85rem',
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-};
-const tabActiveStyle: CSSProperties = { ...tabStyle, background: THEME.accent, color: '#fff', borderColor: THEME.accent, fontWeight: 700 };
-const tabDisabledStyle: CSSProperties = { ...tabStyle, color: THEME.textMuted, cursor: 'default', opacity: 0.7 };
-const soonStyle: CSSProperties = { fontSize: '0.65rem', marginLeft: '0.2rem' };
 const dividerStyle: CSSProperties = { height: 1, background: THEME.border };
+const boardRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.55rem',
+  flexWrap: 'wrap',
+  padding: '0.5rem 0',
+};
+const boardSlotsStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
 const playerRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -217,7 +232,7 @@ const playerRowStyle: CSSProperties = {
   flexWrap: 'wrap',
   padding: '0.5rem 0',
 };
-const playerNameStyle: CSSProperties = { fontSize: '0.92rem', fontWeight: 700, color: THEME.textPrimary, minWidth: 64 };
+const rowLabelStyle: CSSProperties = { fontSize: '0.92rem', fontWeight: 700, color: THEME.textPrimary, minWidth: 64 };
 const slotsStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
 const rangeBtnStyle: CSSProperties = {
   padding: '0.4rem 0.7rem',

@@ -1,9 +1,10 @@
 // カード選択パネル: 4 スート × 13 ランクのグリッド。
+// 画面上部にポップアップし、カードは行幅いっぱいに広げてタップしやすくする。
 // 既に他スロットで使用中のカードはグレーアウト (選択不可)。
 
 import type { CSSProperties } from 'react';
-import { PlayingCard } from '../PlayingCard';
 import { RANKS, SUITS, cardToString, type Card, type Suit } from '../../types/card';
+import { SUIT_BG_COLORS, defaultPlayingCardAriaLabel } from '../PlayingCard.helpers';
 import { THEME } from '../../styles/theme';
 
 export interface CardSelectorProps {
@@ -30,14 +31,20 @@ export function CardSelector({ usedCards, onSelect, onClose }: CardSelectorProps
                 const card: Card = { rank, suit };
                 const used = usedCards.has(cardToString(card));
                 return (
-                  <PlayingCard
+                  <button
                     key={rank}
-                    rank={rank}
-                    suit={suit}
-                    size="sm"
+                    type="button"
                     disabled={used}
-                    onClick={() => onSelect(card)}
-                  />
+                    onClick={used ? undefined : () => onSelect(card)}
+                    aria-label={defaultPlayingCardAriaLabel(rank, suit)}
+                    style={{
+                      ...cellStyle,
+                      background: SUIT_BG_COLORS[suit],
+                      ...(used ? cellDisabledStyle : null),
+                    }}
+                  >
+                    {rank}
+                  </button>
                 );
               })}
             </div>
@@ -48,47 +55,67 @@ export function CardSelector({ usedCards, onSelect, onClose }: CardSelectorProps
   );
 }
 
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
 const overlayStyle: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(0,0,0,0.45)',
   display: 'flex',
-  alignItems: 'flex-end',
+  alignItems: 'flex-start',
   justifyContent: 'center',
   zIndex: 1000,
+  padding: '0.5rem',
 };
 
 const panelStyle: CSSProperties = {
   width: '100%',
-  maxWidth: 520,
+  maxWidth: 560,
   background: THEME.bg,
-  borderTopLeftRadius: '0.8rem',
-  borderTopRightRadius: '0.8rem',
-  padding: '0.9rem',
-  boxShadow: '0 -2px 12px rgba(0,0,0,0.2)',
-  maxHeight: '80vh',
-  overflowY: 'auto',
+  borderRadius: '0.8rem',
+  padding: '0.8rem',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+  marginTop: '0.5rem',
 };
 
 const headerStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  marginBottom: '0.7rem',
+  marginBottom: '0.6rem',
 };
 const headerTitleStyle: CSSProperties = { fontSize: '1rem', fontWeight: 700, color: THEME.textPrimary };
 const closeBtnStyle: CSSProperties = {
   background: 'transparent',
   border: 'none',
-  fontSize: '1.1rem',
+  fontSize: '1.2rem',
   color: THEME.textSecondary,
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
 
-const gridStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.4rem' };
+const gridStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.3rem' };
 const rowStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(13, 1fr)',
-  gap: '0.2rem',
+  gap: '0.25rem',
 };
+const cellStyle: CSSProperties = {
+  width: '100%',
+  aspectRatio: '3 / 4',
+  border: 'none',
+  borderRadius: 5,
+  color: '#fff',
+  fontWeight: 600,
+  fontSize: 'clamp(13px, 3.6vw, 20px)',
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  lineHeight: 1,
+};
+const cellDisabledStyle: CSSProperties = { opacity: 0.3, cursor: 'not-allowed' };
