@@ -40,6 +40,13 @@ describe('<HomePage />', () => {
     expect(html).toContain('href="/account"');
   });
 
+  it('「エクイティ計算」メニュー (円グラフアイコン + /equity リンク)', () => {
+    const html = render(makeAuth());
+    expect(html).toContain('>エクイティ計算<');
+    expect(html).toContain('href="/equity"');
+    expect(html).toContain('円グラフ'); // PieChartIcon の aria-label
+  });
+
   it('一般ユーザー: AppHeader の「管理画面」リンクは出ない', () => {
     const html = render(makeAuth());
     expect(html).not.toContain('href="/admin"');

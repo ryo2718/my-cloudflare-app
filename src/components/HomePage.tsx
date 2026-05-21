@@ -29,6 +29,14 @@ export function HomePage() {
             <span style={bigButtonSubStyle}>クイズ・練習問題</span>
           </Link>
 
+          <Link to="/equity" style={bigButtonStyle}>
+            <span style={bigButtonIconStyle} aria-hidden>
+              <PieChartIcon />
+            </span>
+            <span style={bigButtonTitleStyle}>エクイティ計算</span>
+            <span style={bigButtonSubStyle}>ハンドの勝率を計算</span>
+          </Link>
+
           <Link to="/ranking" style={bigButtonStyle}>
             <span style={bigButtonIconStyle}>🏆</span>
             <span style={bigButtonTitleStyle}>ランキング</span>
@@ -43,6 +51,18 @@ export function HomePage() {
         </nav>
       </main>
     </div>
+  );
+}
+
+/** 円グラフ (パイチャート) アイコン。 */
+function PieChartIcon() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 36 36" role="img" aria-label="円グラフ">
+      <circle cx="18" cy="18" r="16" fill="#E24B4A" />
+      {/* 約 22% のスライス (エクイティのイメージ) を別色で */}
+      <path d="M18 18 L18 2 A16 16 0 0 1 33.2 13 Z" fill="#3B6D11" />
+      <circle cx="18" cy="18" r="16" fill="none" stroke="#5F5E5A" strokeWidth="1.5" />
+    </svg>
   );
 }
 

@@ -9,6 +9,7 @@ import { AccountPage } from './components/AccountPage';
 import { AchievementTierPage } from './components/AchievementTierPage';
 import type { TierId } from './data/achievements';
 import { HomePage } from './components/HomePage';
+import { EquityCalculatorPage } from './components/equity/EquityCalculatorPage';
 import { QuizPage } from './components/QuizPage';
 import { RankingPage } from './components/RankingPage';
 import { StrategyPage } from './components/StrategyPage';
@@ -162,6 +163,7 @@ export default function App() {
   }
 
   if (path === '/strategy') return <StrategyPage />;
+  if (path === '/equity') return <EquityCalculatorPage />;
   if (path === '/quiz') return <QuizPage />;
   if (path === '/ranking') return <RankingPage />;
   if (path === '/account') return <AccountPage />;
