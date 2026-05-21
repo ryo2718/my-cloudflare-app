@@ -192,7 +192,7 @@ const popupBaseStyle: CSSProperties = {
   position: 'absolute',
   padding: '2px 7px',
   borderRadius: '999px',
-  border: '1.5px solid',
+  border: '1px solid',
   fontSize: 11,
   fontWeight: 700,
   whiteSpace: 'nowrap',
@@ -221,12 +221,12 @@ const POPUP_OFFSETS: Record<Slot, CSSProperties> = {
   bottom_right: { bottom: '40%', right: '30%', transform: 'translate(50%, -50%)' },
 };
 
-// Dealer button は BTN 座席の内側 (テーブル中央寄り) に小さく
+// Dealer button は BTN 座席の「外側」(テーブル縁寄り) に配置し、座席円と重ねない。
 const DEALER_OFFSETS: Record<Slot, CSSProperties> = {
-  bottom_center: { bottom: '8%', left: '64%' },
-  bottom_left: { bottom: '38%', left: '34%' },
-  top_left: { top: '26%', left: '34%' },
-  top_center: { top: '8%', left: '60%' },
-  top_right: { top: '26%', right: '34%' },
-  bottom_right: { bottom: '38%', right: '34%' },
+  bottom_center: { bottom: '1%', left: '63%' },
+  bottom_left: { bottom: '24%', left: '0%' },
+  top_left: { top: '12%', left: '0%' },
+  top_center: { top: '1%', left: '63%' },
+  top_right: { top: '12%', right: '0%' },
+  bottom_right: { bottom: '24%', right: '0%' },
 };

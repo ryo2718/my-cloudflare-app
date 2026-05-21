@@ -112,13 +112,17 @@ export interface ActionColor {
   border: string;
 }
 
-/** アクション種別 → 色 (raise赤 / allin紫 / call・limp緑 / fold青)。 */
+/**
+ * アクション種別 → 色。淡いパステル背景 + 濃い文字 + 控えめな枠線
+ * (テーブルの緑から浮きすぎず、文字は読みやすく)。
+ *   raise=淡赤 / allin=淡紫 / call・limp=淡緑 / fold=淡青
+ */
 export const ACTION_COLORS: Record<ActionKind, ActionColor> = {
-  raise: { fg: '#A32D2D', bg: 'rgba(226, 75, 74, 0.14)', border: '#E24B4A' },
-  allin: { fg: '#6A2A6E', bg: 'rgba(153, 60, 157, 0.14)', border: '#993C9D' },
-  call: { fg: '#3B6D11', bg: 'rgba(99, 153, 34, 0.16)', border: '#639922' },
-  limp: { fg: '#3B6D11', bg: 'rgba(99, 153, 34, 0.16)', border: '#639922' },
-  fold: { fg: '#185FA5', bg: 'rgba(55, 138, 221, 0.12)', border: '#378ADD' },
+  raise: { fg: '#993C1D', bg: '#FAECE7', border: '#EBC9BE' },
+  allin: { fg: '#2E2A6B', bg: '#ECEAF7', border: '#D3CEEE' },
+  call: { fg: '#27500A', bg: '#E8F0DA', border: '#CFE0B4' },
+  limp: { fg: '#27500A', bg: '#E8F0DA', border: '#CFE0B4' },
+  fold: { fg: '#0C447C', bg: '#E6F1FB', border: '#C3DDF4' },
 };
 
 /** テスト用にキャッシュをクリア。 */

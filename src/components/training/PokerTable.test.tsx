@@ -33,10 +33,10 @@ describe('PokerTable アクションポップアップ', () => {
         ]}
       />,
     );
-    expect(html).toContain('#E24B4A'); // raise 赤
-    expect(html).toContain('#378ADD'); // fold 青
-    expect(html).toContain('#993C9D'); // allin 紫
-    expect(html).toContain('#639922'); // call/limp 緑
+    expect(html).toContain('#FAECE7'); // raise 淡赤背景
+    expect(html).toContain('#E6F1FB'); // fold 淡青背景
+    expect(html).toContain('#ECEAF7'); // allin 淡紫背景
+    expect(html).toContain('#E8F0DA'); // call/limp 淡緑背景
   });
 
   it('チップ (点線円) は描画されない', () => {
