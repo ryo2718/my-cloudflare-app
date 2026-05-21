@@ -8,10 +8,12 @@
 
 import { useState, type CSSProperties } from 'react';
 import { THEME } from '../../styles/theme';
+import type { Card } from '../../types/card';
 import { TOTAL_COMBOS, allComboKeys, handAt, handKeys, type MatrixHand } from '../../utils/combos';
 import type { AppliedPreset, PresetInfo } from '../../utils/presetRange';
 import { ComboDetail } from './ComboDetail';
 import { PresetRangePicker } from './PresetRangePicker';
+import { HandFilter } from './HandFilter';
 
 const CELL_FULL = '#fcd34d';
 const CELL_PARTIAL = '#86efac';
@@ -21,11 +23,13 @@ export interface RangeMatrixProps {
   initialRange: ReadonlyMap<string, number>;
   /** 既に適用済みのプリセット (再編集時に引き継ぐ)。 */
   initialPreset: AppliedPreset | null;
+  /** 現在のボード (役フィルターは3枚以上で表示)。 */
+  board: ReadonlyArray<Card>;
   onCommit: (range: Map<string, number>, preset: AppliedPreset | null) => void;
   onCancel: () => void;
 }
 
-export function RangeMatrix({ initialRange, initialPreset, onCommit }: RangeMatrixProps) {
+export function RangeMatrix({ initialRange, initialPreset, board, onCommit }: RangeMatrixProps) {
   const [selected, setSelected] = useState<Map<string, number>>(() => new Map(initialRange));
   const [presetApplied, setPresetApplied] = useState<AppliedPreset | null>(initialPreset);
   const [expanded, setExpanded] = useState<{ row: number; col: number } | null>(null);
@@ -90,6 +94,17 @@ export function RangeMatrix({ initialRange, initialPreset, onCommit }: RangeMatr
         </div>
 
         <PresetRangePicker onApply={applyPreset} />
+
+        {board.length >= 3 && (
+          <HandFilter
+            board={board}
+            range={selected}
+            onApply={(range) => {
+              setSelected(range);
+              setExpanded(null);
+            }}
+          />
+        )}
 
         <div style={toolbarStyle}>
           <button type="button" style={toolBtnStyle} onClick={selectAll}>全選択</button>

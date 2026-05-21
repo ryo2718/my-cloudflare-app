@@ -409,6 +409,7 @@ export function EquityCalculatorPage() {
           <RangeMatrix
             initialRange={ranges[rangeEditing]}
             initialPreset={presets[rangeEditing]}
+            board={boardCards}
             onCommit={commitRange}
             onCancel={cancelRange}
           />
