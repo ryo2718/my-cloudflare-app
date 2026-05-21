@@ -78,6 +78,8 @@ export interface HandStrategy {
   call: number;
   raise: number;
   allin: number;
+  /** limp pot で BB が check できるノード (例 sbc_bb) のみ存在。 */
+  check?: number;
 }
 
 interface RawNode {

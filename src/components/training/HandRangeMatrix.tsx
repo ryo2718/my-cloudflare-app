@@ -51,7 +51,7 @@ export function HandRangeMatrix({ hands, highlightHand, caption, onSelect, selec
           }),
         )}
       </div>
-      <Legend />
+      <Legend showCheck={Object.values(hands).some((h) => (h.check ?? 0) > 0)} />
     </figure>
   );
 }
@@ -115,12 +115,13 @@ function Cell({
   );
 }
 
-function Legend() {
+function Legend({ showCheck = false }: { showCheck?: boolean }) {
   return (
     <div style={legendStyle} aria-label="凡例">
       <LegendItem color={ACTION_BG.allin} label="オールイン" />
       <LegendItem color={ACTION_BG.raise} label="レイズ" />
       <LegendItem color={ACTION_BG.call} label="コール" />
+      {showCheck && <LegendItem color={ACTION_BG.check} label="チェック" />}
       <LegendItem color={ACTION_BG.fold} label="フォールド" />
     </div>
   );

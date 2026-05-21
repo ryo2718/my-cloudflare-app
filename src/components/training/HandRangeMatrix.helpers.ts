@@ -1,6 +1,5 @@
 // HandRangeMatrix 用の純粋ヘルパー (react-refresh の only-export-components 規約回避のため分離)。
 
-import { type Action } from '../../data/training/preflopIntermediate';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 
 export const MATRIX_RANKS: ReadonlyArray<string> = [
@@ -12,15 +11,17 @@ export const MATRIX_RANKS: ReadonlyArray<string> = [
  *  - allin: 紫
  *  - raise: 赤
  *  - call:  緑
+ *  - check: ティール (limp pot の BB 等)
  *  - fold:  青 (#378ADD)
  *
  * 「前のノードに存在しないハンド (全戦略 0%)」 は paintCell が null を返し、
  * 呼び出し側でクリーム色 (空白) を描画する。
  */
-export const ACTION_BG: Record<Action, string> = {
+export const ACTION_BG: Record<string, string> = {
   allin: '#993C9D',
   raise: '#E24B4A',
   call:  '#639922',
+  check: '#0D9488',
   fold:  '#378ADD',
 };
 
@@ -54,16 +55,19 @@ export function paintCell(strategy: HandStrategy | undefined): CellPaint {
   const allin = strategy.allin ?? 0;
   const raise = strategy.raise ?? 0;
   const call = strategy.call ?? 0;
+  const check = strategy.check ?? 0;
   const fold = strategy.fold ?? 0;
-  const total = allin + raise + call + fold;
+  // check を含めて合計 (limp pot の BB 等。check 漏れで全 raise / クリーム化していたバグ修正)。
+  const total = allin + raise + call + check + fold;
   if (total < MIN_FREQ) return { segments: null };
 
-  // 上から順: allin (紫) → raise (赤) → call (緑) → fold (青)
+  // 上から順: allin (紫) → raise (赤) → call (緑) → check (ティール) → fold (青)
   const segments: CellSegment[] = [];
   const norm = (v: number) => (v / total) * 100;
   if (allin > 0) segments.push({ color: ACTION_BG.allin, ratio: norm(allin) });
   if (raise > 0) segments.push({ color: ACTION_BG.raise, ratio: norm(raise) });
   if (call > 0) segments.push({ color: ACTION_BG.call, ratio: norm(call) });
+  if (check > 0) segments.push({ color: ACTION_BG.check, ratio: norm(check) });
   if (fold > 0) segments.push({ color: ACTION_BG.fold, ratio: norm(fold) });
   if (segments.length === 0) return { segments: null };
   return { segments };
