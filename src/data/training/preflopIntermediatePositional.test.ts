@@ -132,11 +132,11 @@ describe('maxScoreForMode / MODE_RECIPES', () => {
     expect(sum('lp')).toBe(20);
     expect(sum('blind')).toBe(30);
   });
-  it('EP 内訳: open 6 / vs3bet 7 / vs4bet 7', () => {
+  it('EP 内訳: ジャム受け上限3 → open 8 / vs3bet 9 / vs4bet 3 (合計20)', () => {
     expect(MODE_RECIPES.ep).toEqual([
-      { spec: 'ep_open', count: 6 },
-      { spec: 'ep_vs_3bet', count: 7 },
-      { spec: 'ep_vs_4bet', count: 7 },
+      { spec: 'ep_open', count: 8 },
+      { spec: 'ep_vs_3bet', count: 9 },
+      { spec: 'ep_vs_4bet', count: 3 },
     ]);
   });
   it('Blind: SB limp vs raise = 2 問', () => {
@@ -392,6 +392,33 @@ describe('generatePositionalQuestions (実データ)', () => {
       expect(q.availableActions).toContain('check');
       expect(q.availableActions).not.toContain('fold');
       expect(q.limpAction).toBe('check');
+    }
+  });
+
+  it('変更3: EP のジャム受け (ep_vs_4bet) は最大3問・総数は20問', async () => {
+    for (let trial = 0; trial < 5; trial++) {
+      __testing__.resetCache();
+      const qs = await generatePositionalQuestions('ep');
+      expect(qs).toHaveLength(20);
+      const jam = qs.filter((q) => q.scenarioKey === 'ep_vs_4bet');
+      expect(jam.length).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('変更4: 同一シナリオ内でハンド重複なし (lp_vs_4bet はプール枯渇のため例外)', async () => {
+    for (const mode of ['ep', 'lp', 'blind'] as PositionalMode[]) {
+      __testing__.resetCache();
+      const qs = await generatePositionalQuestions(mode);
+      const byScenario = new Map<string, string[]>();
+      for (const q of qs) {
+        const arr = byScenario.get(q.scenarioKey) ?? [];
+        arr.push(q.hand);
+        byScenario.set(q.scenarioKey, arr);
+      }
+      for (const [scenario, hands] of byScenario) {
+        if (scenario === 'lp_vs_4bet') continue; // ユニーク4 < 6: 枯渇時のみ重複許容
+        expect(new Set(hands).size).toBe(hands.length);
+      }
     }
   });
 });

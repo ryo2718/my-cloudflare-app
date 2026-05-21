@@ -365,8 +365,9 @@ export function generateVsOpenQuestion(
 // 20 問生成
 // ---------------------------------------------------------------------------
 
+// 同一シナリオ内ではハンド重複を排除する (scenario:hand)。
 function questionKey(q: PreflopQuestion): string {
-  return `${q.scenario}:${q.myPosition}:${q.hand}`;
+  return `${q.scenario}:${q.hand}`;
 }
 
 /** 重複排除付き 10 問を生成 (リトライ上限超過で重複許容)。 */

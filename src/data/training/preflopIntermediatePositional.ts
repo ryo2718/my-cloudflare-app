@@ -334,10 +334,12 @@ const SPECS: Record<string, ScenarioSpec> = {
 
 /** モード別の出題レシピ (シナリオ → 問題数)。合計が満点と一致。 */
 export const MODE_RECIPES: Record<PositionalMode, Array<{ spec: string; count: number }>> = {
+  // ジャム受け (ep_vs_4bet = vs 5bet) は最大3問。空いた4問は open/vs3bet に比率維持で補充
+  // (GLOSSARY EP 構成: 6:7 → +2/+2)。合計 20 問は不変。
   ep: [
-    { spec: 'ep_open', count: 6 },
-    { spec: 'ep_vs_3bet', count: 7 },
-    { spec: 'ep_vs_4bet', count: 7 },
+    { spec: 'ep_open', count: 8 },
+    { spec: 'ep_vs_3bet', count: 9 },
+    { spec: 'ep_vs_4bet', count: 3 },
   ],
   lp: [
     { spec: 'lp_open', count: 3 },
@@ -687,7 +689,9 @@ function generateOne(
     const hands = cache[c.file];
     const hand = pickHand(spec, hands);
     if (!hand) continue;
-    const key = `${c.file}:${hand}`;
+    // 同一シナリオ内ではハンド重複を排除 (scenario:hand)。プール枯渇時 (例 lp_vs_4bet:
+    // ユニーク4 < 6) のみ末尾リトライで重複を許容し、問題数を維持する。
+    const key = `${spec.key}:${hand}`;
     if (seen.has(key) && i < GENERATE_RETRIES - 10) continue;
     seen.add(key);
     return buildQuestion(mode, spec, c, hand, hands);

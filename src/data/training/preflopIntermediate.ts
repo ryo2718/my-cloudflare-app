@@ -582,8 +582,9 @@ function shuffle<T>(arr: T[]): T[] {
   return arr;
 }
 
+// 同一シナリオ内ではハンド重複を排除する (scenarioType:hand)。
 function questionKey(q: IntermediateQuestion): string {
-  return `${q.scenarioType}:${q.opener ?? '-'}:${q.threeBettor ?? '-'}:${q.hand}`;
+  return `${q.scenarioType}:${q.hand}`;
 }
 
 export async function generateIntermediateQuestions(): Promise<IntermediateQuestion[]> {
