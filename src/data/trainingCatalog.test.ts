@@ -14,10 +14,35 @@ describe('TRAINING_CATALOG', () => {
     expect(TRAINING_CATALOG.map((c) => c.key)).toEqual(['preflop', 'flop']);
   });
 
-  it('各カテゴリ 4 レベル', () => {
-    for (const cat of TRAINING_CATALOG) {
-      expect(cat.levels).toHaveLength(4);
-    }
+  it('preflop 7 レベル (初級/中級総合/EP/LP/Blind/上級/超上級), flop 4 レベル', () => {
+    expect(TRAINING_CATALOG[0].levels).toHaveLength(7);
+    expect(TRAINING_CATALOG[1].levels).toHaveLength(4);
+  });
+
+  it('中級ポジション別 (EP/LP/Blind) が中級総合の直後に並ぶ', () => {
+    expect(TRAINING_CATALOG[0].levels.map((l) => l.key)).toEqual([
+      'preflop_beginner',
+      'preflop_intermediate',
+      'preflop_intermediate_ep',
+      'preflop_intermediate_lp',
+      'preflop_intermediate_blind',
+      'preflop_advanced',
+      'preflop_expert',
+    ]);
+  });
+
+  it('中級 EP/LP=20問, Blind=30問, 全て implemented=true・20s', () => {
+    const [ep, lp, blind] = [
+      TRAINING_CATALOG[0].levels[2],
+      TRAINING_CATALOG[0].levels[3],
+      TRAINING_CATALOG[0].levels[4],
+    ];
+    expect([ep.key, lp.key, blind.key]).toEqual([
+      'preflop_intermediate_ep', 'preflop_intermediate_lp', 'preflop_intermediate_blind',
+    ]);
+    expect([ep.questionCount, lp.questionCount, blind.questionCount]).toEqual([20, 20, 30]);
+    expect([ep.implemented, lp.implemented, blind.implemented]).toEqual([true, true, true]);
+    expect([ep.timeLimitSec, lp.timeLimitSec, blind.timeLimitSec]).toEqual([20, 20, 20]);
   });
 
   it('preflop 初級: points=1, questionCount=20, implemented=true', () => {
@@ -39,14 +64,14 @@ describe('TRAINING_CATALOG', () => {
   });
 
   it('preflop 上級/超上級 と flop 全 level は implemented=false', () => {
-    expect(TRAINING_CATALOG[0].levels[2].implemented).toBe(false);
-    expect(TRAINING_CATALOG[0].levels[3].implemented).toBe(false);
+    expect(TRAINING_CATALOG[0].levels[5].implemented).toBe(false); // 上級
+    expect(TRAINING_CATALOG[0].levels[6].implemented).toBe(false); // 超上級
     expect(TRAINING_CATALOG[1].levels.every((l) => l.implemented === false)).toBe(true);
   });
 
   it('preflop 上級/超上級 と flop 全 level は questionCount=null (未計画)', () => {
-    expect(TRAINING_CATALOG[0].levels[2].questionCount).toBeNull();
-    expect(TRAINING_CATALOG[0].levels[3].questionCount).toBeNull();
+    expect(TRAINING_CATALOG[0].levels[5].questionCount).toBeNull();
+    expect(TRAINING_CATALOG[0].levels[6].questionCount).toBeNull();
     expect(TRAINING_CATALOG[1].levels.every((l) => l.questionCount === null)).toBe(true);
   });
 });
@@ -55,14 +80,16 @@ describe('helpers', () => {
   it('isPlanned: questionCount !== null は planned', () => {
     expect(isPlanned(TRAINING_CATALOG[0].levels[0])).toBe(true);
     expect(isPlanned(TRAINING_CATALOG[0].levels[1])).toBe(true);
-    expect(isPlanned(TRAINING_CATALOG[0].levels[2])).toBe(false);
+    expect(isPlanned(TRAINING_CATALOG[0].levels[2])).toBe(true);  // EP (questionCount=20)
+    expect(isPlanned(TRAINING_CATALOG[0].levels[5])).toBe(false); // 上級 (未計画)
     expect(isPlanned(TRAINING_CATALOG[1].levels[0])).toBe(false);
   });
 
   it('isPlayable: implemented=true かつ pt/問数あり', () => {
     expect(isPlayable(TRAINING_CATALOG[0].levels[0])).toBe(true);
     expect(isPlayable(TRAINING_CATALOG[0].levels[1])).toBe(true);
-    expect(isPlayable(TRAINING_CATALOG[0].levels[2])).toBe(false);
+    expect(isPlayable(TRAINING_CATALOG[0].levels[2])).toBe(true);  // EP
+    expect(isPlayable(TRAINING_CATALOG[0].levels[5])).toBe(false); // 上級 (未実装)
     expect(isPlayable(TRAINING_CATALOG[1].levels[0])).toBe(false);
   });
 
@@ -88,8 +115,13 @@ describe('maxScoreFor', () => {
   it('中級: 40 (questionCount * 2)', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[1])).toBe(40);
   });
+  it('中級ポジション別: EP/LP=20, Blind=30 (questionCount, ÷2 済の満点)', () => {
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[2])).toBe(20); // EP
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[3])).toBe(20); // LP
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[4])).toBe(30); // Blind
+  });
   it('未計画 (questionCount=null) → 0', () => {
-    expect(maxScoreFor(TRAINING_CATALOG[0].levels[2])).toBe(0);
+    expect(maxScoreFor(TRAINING_CATALOG[0].levels[5])).toBe(0); // 上級
     expect(maxScoreFor(TRAINING_CATALOG[1].levels[0])).toBe(0);
   });
 });

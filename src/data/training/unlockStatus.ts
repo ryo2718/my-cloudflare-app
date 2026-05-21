@@ -42,7 +42,11 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
   switch (levelKey) {
     case 'preflop_beginner':
       return status.beginnerUnlocked;
+    // 中級ポジション別 (EP/LP/Blind) は中級総合と同じタイミングで解放 (初級 100%)。
     case 'preflop_intermediate':
+    case 'preflop_intermediate_ep':
+    case 'preflop_intermediate_lp':
+    case 'preflop_intermediate_blind':
       return status.intermediateUnlocked;
     case 'preflop_advanced':
       return status.advancedUnlocked;
@@ -58,6 +62,9 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
 export function lockHintFor(levelKey: string): string | null {
   switch (levelKey) {
     case 'preflop_intermediate':
+    case 'preflop_intermediate_ep':
+    case 'preflop_intermediate_lp':
+    case 'preflop_intermediate_blind':
       return `初級で ${INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     case 'preflop_advanced':
       return `中級で ${ADVANCED_UNLOCK_THRESHOLD}pt 取るとアンロック`;

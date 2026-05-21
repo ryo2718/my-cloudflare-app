@@ -23,6 +23,7 @@ import { MissedChallengeResultPage } from './components/training/MissedChallenge
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
+import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingRules } from './components/training/TrainingRules';
@@ -130,7 +131,15 @@ export default function App() {
     if (screen === 'confirm') return <TrainingConfirm level={level} />;
     if (screen === 'rules') return <TrainingRules level={level} />;
     if (screen === 'play') {
-      // 中級は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
+      // 中級ポジション別 (EP/LP/Blind): スライダー / ノード別複数選択 / limp 緩和
+      if (
+        level.key === 'preflop_intermediate_ep' ||
+        level.key === 'preflop_intermediate_lp' ||
+        level.key === 'preflop_intermediate_blind'
+      ) {
+        return <TrainingPlayPositional level={level} />;
+      }
+      // 中級総合は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
       return level.key === 'preflop_intermediate'
         ? <TrainingPlayIntermediate level={level} />
         : <TrainingPlay level={level} />;

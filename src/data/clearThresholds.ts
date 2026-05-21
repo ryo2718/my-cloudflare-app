@@ -16,10 +16,14 @@ export interface ClearThreshold {
 }
 
 export const CLEAR_THRESHOLDS: Record<string, ClearThreshold> = {
-  preflop_beginner:       { maxScore: 20, clearPercent: 100, clearScore: 20, implemented: true },
-  preflop_intermediate:   { maxScore: 40, clearPercent:  80, clearScore: 32, implemented: true },
-  preflop_advanced:       { maxScore: 40, clearPercent:  70, clearScore: 28, implemented: false },
-  preflop_super_advanced: { maxScore: 40, clearPercent:  60, clearScore: 24, implemented: false },
+  preflop_beginner:           { maxScore: 20, clearPercent: 100, clearScore: 20, implemented: true },
+  preflop_intermediate:       { maxScore: 40, clearPercent:  80, clearScore: 32, implemented: true },
+  // 中級ポジション別 (EP/LP/Blind): クリア基準 80%。
+  preflop_intermediate_ep:    { maxScore: 20, clearPercent:  80, clearScore: 16, implemented: true },
+  preflop_intermediate_lp:    { maxScore: 20, clearPercent:  80, clearScore: 16, implemented: true },
+  preflop_intermediate_blind: { maxScore: 30, clearPercent:  80, clearScore: 24, implemented: true },
+  preflop_advanced:           { maxScore: 40, clearPercent:  70, clearScore: 28, implemented: false },
+  preflop_super_advanced:     { maxScore: 40, clearPercent:  60, clearScore: 24, implemented: false },
 };
 
 export function isCleared(trainingType: string, bestScore: number): boolean {

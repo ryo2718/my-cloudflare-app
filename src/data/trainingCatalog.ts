@@ -34,8 +34,12 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'プリフロップトレーニング',
     levels: [
       { key: 'preflop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      // 中級は best_score が finalSum (0-40) を直接表す pt 値。 points=1 で累計と整合。
-      { key: 'preflop_intermediate', label: '中級',   points: 1,    questionCount: 20,   timeLimitSec: 20,     implemented: true  },
+      // 中級総合は best_score が finalSum (0-40) を直接表す pt 値。 points=1 で累計と整合。
+      { key: 'preflop_intermediate',       label: '中級 総合',  points: 1, questionCount: 20, timeLimitSec: 20, implemented: true },
+      // 中級ポジション別 (EP/LP/Blind)。 best_score = 全問素点÷2 (満点 = questionCount)。
+      { key: 'preflop_intermediate_ep',    label: '中級 EP',    points: 1, questionCount: 20, timeLimitSec: 20, implemented: true },
+      { key: 'preflop_intermediate_lp',    label: '中級 LP',    points: 1, questionCount: 20, timeLimitSec: 20, implemented: true },
+      { key: 'preflop_intermediate_blind', label: '中級 Blind', points: 1, questionCount: 30, timeLimitSec: 20, implemented: true },
       { key: 'preflop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null,   implemented: false },
       { key: 'preflop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null,   implemented: false },
     ],
@@ -64,10 +68,19 @@ export function isPlanned(level: TrainingLevel): boolean {
 
 /** "1pt × 20問・制限時間なし" 形式の補助情報。 */
 export function formatLevelInfo(level: TrainingLevel): string {
-  // 中級 (preflop_intermediate) は満点 40pt 表記 (1問 -1〜+2pt の合計)。
+  // 中級総合 (preflop_intermediate) は満点 40pt 表記 (1問 -1〜+2pt の合計)。
   if (level.key === 'preflop_intermediate') {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
+  }
+  // 中級ポジション別 (EP/LP/Blind) は満点 = questionCount (素点÷2)。
+  if (
+    level.key === 'preflop_intermediate_ep' ||
+    level.key === 'preflop_intermediate_lp' ||
+    level.key === 'preflop_intermediate_blind'
+  ) {
+    const qc = level.questionCount ?? 0;
+    return `${qc}問・最大 ${qc}pt・制限時間 20s`;
   }
   const parts: string[] = [];
   if (level.points !== null) parts.push(`${level.points}pt`);

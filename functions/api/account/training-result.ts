@@ -27,6 +27,10 @@ interface Body {
 const TRAINING_TYPES = new Set<string>([
   'preflop_beginner',
   'preflop_intermediate',
+  // 中級ポジション別 (EP/LP/Blind)
+  'preflop_intermediate_ep',
+  'preflop_intermediate_lp',
+  'preflop_intermediate_blind',
   'preflop_advanced',
   'preflop_expert',
   'flop_beginner',

@@ -35,17 +35,23 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(html).toContain('フロップトレーニング');
   });
 
-  it('4 レベル × 2 カテゴリ = 8 カード分のラベル (ロック表示 + MissedProblemsSection の各レベルカード含む)', () => {
+  it('各レベルのラベル表示 (ロック表示 + MissedProblemsSection の各レベルカード含む)', () => {
     const html = render();
-    // ロック中は "🔒 中級" の prefix。
-    // 加えて MissedProblemsSection が「プリフロップトレーニング」配下に
+    // ロック中は "🔒 ◯◯" の prefix。
+    // MissedProblemsSection が「プリフロップトレーニング」配下に
     // 初級 / 中級 / 上級 (未実装) の 3 カードを描画するため、 それぞれ +1。
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
-    expect(countText('初級')).toBe(3);   // 通常 2 + missed 1
-    expect(countText('中級')).toBe(3);   // 通常 2 + missed 1
-    expect(countText('上級')).toBe(3);   // 通常 2 + missed 1 (未実装表記)
-    expect(countText('超上級')).toBe(2); // missed には超上級なし
+    expect(countText('初級')).toBe(3);   // preflop + flop + missed
+    // preflop 中級は「中級 総合」ラベルに変更 → ">中級<" は flop + missed のみ。
+    expect(countText('中級')).toBe(2);
+    expect(countText('上級')).toBe(3);   // preflop + flop + missed (未実装表記)
+    expect(countText('超上級')).toBe(2); // preflop + flop
+    // 中級ポジション別 (records 空 → ロック表示 "🔒 中級 EP" 等)。
+    expect(countText('中級 総合')).toBe(1);
+    expect(countText('中級 EP')).toBe(1);
+    expect(countText('中級 LP')).toBe(1);
+    expect(countText('中級 Blind')).toBe(1);
   });
 
   it('subtitle (オープンレンジ / vs open 等の装飾文言) を表示しない', () => {

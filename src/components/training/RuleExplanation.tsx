@@ -51,7 +51,89 @@ function useHands(file: string): Record<string, HandStrategy> | null {
 export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_beginner') return <BeginnerRule />;
   if (levelKey === 'preflop_intermediate') return <IntermediateRule />;
+  if (levelKey === 'preflop_intermediate_ep') return <PositionalRule mode="ep" />;
+  if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
+  if (levelKey === 'preflop_intermediate_blind') return <PositionalRule mode="blind" />;
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// 中級ポジション別 (EP / LP / Blind)
+// ---------------------------------------------------------------------------
+
+const POSITIONAL_INFO = {
+  ep: {
+    title: '中級 EP(UTG / HJ)',
+    max: 20,
+    rows: [
+      'open 6問 … スライダー形式・境界出題',
+      'vs 3bet 7問 … 複数選択・全ハンド出題',
+      'vs 4bet 7問 … 複数選択・全ハンド出題',
+    ],
+  },
+  lp: {
+    title: '中級 LP(CO / BTN)',
+    max: 20,
+    rows: [
+      'open 3問 … スライダー形式・境界出題',
+      'vs open(BTN)3問 … 複数選択・境界出題',
+      'vs open(CO)2問 … スライダー形式・境界出題',
+      'vs 3bet 6問 … 複数選択・境界出題',
+      'vs 4bet 6問 … 複数選択・境界出題',
+    ],
+  },
+  blind: {
+    title: '中級 Blind(SB / BB)',
+    max: 30,
+    rows: [
+      'SB open / SB limp vs raise / SB vs 3bet・4bet・open',
+      'BB vs open / BB vs limp / BB vs limp-raise / BB vs 4bet',
+      'すべて複数選択・境界出題(全30問)',
+    ],
+  },
+} as const;
+
+function PositionalRule({ mode }: { mode: 'ep' | 'lp' | 'blind' }) {
+  const info = POSITIONAL_INFO[mode];
+  const hasSlider = mode === 'ep' || mode === 'lp';
+  return (
+    <div>
+      <SectionTitle>{info.title}・出題内訳(満点 {info.max}pt)</SectionTitle>
+      <Card>
+        <ul style={fourListStyle}>
+          {info.rows.map((r) => (
+            <li key={r} style={{ ...fourRowStyle, color: '#2C2C2A' }}>{r}</li>
+          ))}
+        </ul>
+        <p style={mutedSmallStyle}>各問は -1/0/1/2pt。全問合計を最後に 2 で割って満点 {info.max}pt。</p>
+      </Card>
+
+      {hasSlider && (
+        <>
+          <SectionTitle>スライダー形式の採点</SectionTitle>
+          <div style={scoringBoxStyle}>
+            <p style={scoringRowStyle}><span style={bullet}>●</span>レイズ頻度を 0〜100%・10% 刻みで回答(「飛ばす」可)</p>
+            <p style={scoringRowStyle}><span style={bullet}>●</span>正解が端(0%/100%):ピッタリ <span style={ptGreenStyle}>+2pt</span> / ±10% <span style={ptGreenStyle}>+1pt</span> / それ以外 <span style={ptRedStyle}>-1pt</span></p>
+            <p style={scoringRowStyle}><span style={bullet}>●</span>正解が中間(10〜90%):±10% <span style={ptGreenStyle}>+2pt</span> / ±20% <span style={ptGreenStyle}>+1pt</span> / それ以外 <span style={ptRedStyle}>-1pt</span></p>
+            <p style={scoringRowStyle}><span style={bullet}>●</span>飛ばす → 0pt / 時間切れ → <span style={ptRedStyle}>-1pt</span></p>
+          </div>
+        </>
+      )}
+
+      <SectionTitle>複数選択の採点</SectionTitle>
+      <ScoringRulesBox />
+
+      {mode === 'blind' && (
+        <>
+          <SectionTitle>limp 配点緩和(Blind 専用)</SectionTitle>
+          <div style={scoringBoxStyle}>
+            <p style={scoringRowStyle}><span style={bullet}>●</span>GTO が レイズ+リンプ 主体(fold 僅少)で、レイズ/リンプのみを選び fold を選ばなければ、本来 <span style={ptRedStyle}>-1pt</span> のケースを <span style={ptGreenStyle}>+1pt</span> に救済</p>
+            <p style={scoringRowStyle}><span style={bullet}>●</span>fold を選ぶと救済なし。オールインは救済対象外</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
