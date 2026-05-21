@@ -1,11 +1,13 @@
-// /quiz: トレーニングメニュー。
+// /quiz: トレーニングメニュー (難易度別アコーディオン)。
 //
-// プリフロップは 初級 / 中級 (総合問題・EP・LP・Blind) / 上級・超上級 (未実装) を表示。
-// 中級は「中級」見出し配下に 4 レベルをネスト。各レベル行に [ルールを確認] [スタート]。
-// ソリューション条件 (スタック/レーキ/open額) は各レベルのルール説明ページに移動。
-// マウント時に GET /api/account/training-results を取得して最高スコアを表示。
+// 各カテゴリ (プリフロップ / フロップ) の中で難易度ごとにグループ化:
+//   - 初級: 1 問なのでアコーディオンにせず常時表示
+//   - 中級: アコーディオン (総合問題・EP・LP・Blind)。既定で開く
+//   - 上級 / 超上級: アコーディオン枠のみ。中身が無ければ「準備中」
+// 各レベル行 (LevelRow) のデザイン (進捗 pt / [ルールを確認] [スタート]) は現状維持。
+// ソリューション条件 (スタック/レーキ/open額) は各レベルのルール説明ページ側。
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { MissedProblemsSection } from './training/MissedProblemsSection';
 import {
   TRAINING_CATALOG,
@@ -36,17 +38,26 @@ const INTERMEDIATE_SHORT_LABEL: Record<string, string> = {
   preflop_intermediate_blind: 'Blind(SB,BB)',
 };
 
-function isIntermediateFamily(key: string): boolean {
-  return key === 'preflop_intermediate' || key.startsWith('preflop_intermediate_');
-}
-
 function displayLabelFor(level: TrainingLevel): string {
   return INTERMEDIATE_SHORT_LABEL[level.key] ?? level.label;
+}
+
+type TierId = '初級' | '中級' | '上級' | '超上級';
+const TIER_ORDER: ReadonlyArray<TierId> = ['初級', '中級', '上級', '超上級'];
+
+/** level.key → 難易度 tier。 */
+function tierOf(key: string): TierId {
+  if (key.includes('intermediate')) return '中級';
+  if (key.includes('advanced')) return '上級';
+  if (key.includes('expert')) return '超上級';
+  return '初級';
 }
 
 export function QuizPage() {
   const auth = useAuth();
   const [records, setRecords] = useState<TrainingResult[]>([]);
+  // 既定で「プリフロップ 中級」を開いておく。
+  const [openTiers, setOpenTiers] = useState<Set<string>>(() => new Set(['preflop:中級']));
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -67,39 +78,82 @@ export function QuizPage() {
 
   const unlockStatus = computeUnlockStatus(records);
 
+  const toggleTier = (key: string) => {
+    setOpenTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const renderRow = (lv: TrainingLevel) => (
+    <LevelRow
+      key={lv.key}
+      level={lv}
+      displayLabel={displayLabelFor(lv)}
+      record={records.find((r) => r.training_type === lv.key)}
+      unlocked={isLevelUnlocked(lv.key, unlockStatus)}
+      lockHint={lockHintFor(lv.key)}
+      onStart={() => navigate(trainingPath(lv.key, 'play'))}
+      onRules={() => navigate(trainingPath(lv.key, 'rules'))}
+    />
+  );
+
   return (
     <div style={pageStyle}>
       <AppHeader showBack />
       <main style={mainStyle}>
         <h1 style={titleStyle}>トレーニング</h1>
 
-        {TRAINING_CATALOG.map((cat) => (
-          <section key={cat.key} style={categorySectionStyle}>
-            <header style={categoryHeaderStyle}>{cat.label}</header>
-            <div style={levelListStyle}>
-              {cat.levels.map((lv, i) => {
-                const fam = isIntermediateFamily(lv.key);
-                const prevFam = i > 0 && isIntermediateFamily(cat.levels[i - 1].key);
-                return (
-                  <div key={lv.key}>
-                    {fam && !prevFam && <div style={subHeadingStyle}>中級</div>}
-                    <div style={fam ? indentStyle : undefined}>
-                      <LevelRow
-                        level={lv}
-                        displayLabel={displayLabelFor(lv)}
-                        record={records.find((r) => r.training_type === lv.key)}
-                        unlocked={isLevelUnlocked(lv.key, unlockStatus)}
-                        lockHint={lockHintFor(lv.key)}
-                        onStart={() => navigate(trainingPath(lv.key, 'play'))}
-                        onRules={() => navigate(trainingPath(lv.key, 'rules'))}
-                      />
+        {TRAINING_CATALOG.map((cat) => {
+          // 難易度ごとにグループ化 (出現順を維持)。
+          const groups = new Map<TierId, TrainingLevel[]>();
+          for (const lv of cat.levels) {
+            const t = tierOf(lv.key);
+            (groups.get(t) ?? groups.set(t, []).get(t)!).push(lv);
+          }
+          return (
+            <section key={cat.key} style={categorySectionStyle}>
+              <header style={categoryHeaderStyle}>{cat.label}</header>
+              <div style={levelListStyle}>
+                {TIER_ORDER.map((tier) => {
+                  const levels = groups.get(tier);
+                  if (!levels || levels.length === 0) return null;
+                  // 初級: アコーディオンにせずそのまま表示。
+                  if (tier === '初級') {
+                    return <div key={tier} style={tierFlatStyle}>{levels.map(renderRow)}</div>;
+                  }
+                  const tierKey = `${cat.key}:${tier}`;
+                  const open = openTiers.has(tierKey);
+                  const anyPlayable = levels.some((lv) => isPlayable(lv));
+                  return (
+                    <div key={tierKey} style={accordionStyle}>
+                      <button
+                        type="button"
+                        style={accordionHeaderStyle}
+                        onClick={() => toggleTier(tierKey)}
+                        aria-expanded={open}
+                      >
+                        <span style={accordionTitleStyle}>{tier}</span>
+                        <span style={accordionChevronStyle} aria-hidden>{open ? '▼' : '▶'}</span>
+                      </button>
+                      {open && (
+                        <div style={accordionBodyStyle}>
+                          {anyPlayable ? (
+                            levels.map(renderRow)
+                          ) : (
+                            <div style={placeholderStyle}>準備中</div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
 
         <MissedProblemsSection />
       </main>
@@ -202,19 +256,45 @@ const categoryHeaderStyle: CSSProperties = {
   letterSpacing: '0.04em',
 };
 const levelListStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.55rem' };
-const subHeadingStyle: CSSProperties = {
-  fontSize: '0.86rem',
-  fontWeight: 700,
-  color: THEME.textPrimary,
-  margin: '0.2rem 0 0.45rem',
-  paddingLeft: '0.1rem',
-  borderLeft: `3px solid ${THEME.accent}`,
-  paddingTop: '0.05rem',
-  paddingBottom: '0.05rem',
-  textIndent: '0.4rem',
-};
-const indentStyle: CSSProperties = { paddingLeft: '0.7rem', marginBottom: '0.55rem' };
+const tierFlatStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.55rem' };
 
+// アコーディオン
+const accordionStyle: CSSProperties = {
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.5rem',
+  background: '#fff',
+  overflow: 'hidden',
+};
+const accordionHeaderStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%',
+  padding: '0.85rem 0.95rem',
+  background: '#fff',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  textAlign: 'left',
+};
+const accordionTitleStyle: CSSProperties = { fontSize: '1rem', fontWeight: 700, color: THEME.textPrimary };
+const accordionChevronStyle: CSSProperties = { fontSize: '0.8rem', color: THEME.textMuted };
+const accordionBodyStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.55rem',
+  padding: '0 0.7rem 0.7rem',
+  borderTop: `1px solid ${THEME.border}`,
+  paddingTop: '0.6rem',
+};
+const placeholderStyle: CSSProperties = {
+  fontSize: '0.88rem',
+  color: THEME.textMuted,
+  padding: '0.6rem 0.3rem',
+  textAlign: 'center',
+};
+
+// レベルカード
 const cardBase: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',

@@ -71,13 +71,20 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('未実装 level は「未実装」バッジ表示 (preflop 上級/超上級 + flop 全 6 + missed の上級 1 = 7 枚)', () => {
-    // preflop_advanced / preflop_expert は implemented=false なので unlocked 判定より
-    // 先に「未実装」ブランチに入る。中級のみがロック扱い (playable + !unlocked)。
-    // MissedProblemsSection の「上級」カードにも「未実装」テキストが入る (+1)。
+  it('未実装バッジ: 閉じたアコーディオン内は未描画。フラットの未実装のみ (flop初級 + missed上級 = 2)', () => {
+    // 上級/超上級 (preflop・flop) は既定で閉じたアコーディオン → 中身 (準備中) 未描画。
+    // フラット表示の flop 初級 (未実装) と MissedProblemsSection の上級カードのみバッジが出る。
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    expect(matches.length).toBe(7);
+    expect(matches.length).toBe(2);
+  });
+
+  it('上級/超上級はアコーディオン枠で表示 (既定は閉、準備中は未描画)', () => {
+    const html = render();
+    expect(html).toContain('>上級<');
+    expect(html).toContain('>超上級<');
+    // 既定で閉じているため中身の「準備中」は描画されない。
+    expect(html).not.toContain('準備中');
   });
 
   it('ロック中 level は "🔒" + ヒント文を表示 (中級: "初級で 20/20 取るとアンロック")', () => {
