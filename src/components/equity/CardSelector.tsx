@@ -1,9 +1,8 @@
 // カード選択パネル: 4 スート × 13 ランクのグリッドを画面上部にポップアップ。
-// 範囲ごとの連続選択モード:
-//   - max 枚を連続選択 (順番に格納)。再タップで選択解除 (トグル)
-//   - 選択済みカードは selectionColors[index] の枠色が付く (何枚目かの目印)
-//   - max 枚に達したら自動で確定して閉じる
-//   - max 未満でも「閉じる」(✕) で途中確定できる (ボード系の途中確定用)
+//   - 個別モード (max=1): タップした 1 枚で即確定して閉じる (枠色なし / トグルなし)
+//   - 範囲モード (max≥2): max 枚を連続選択。順番に格納、再タップで解除、
+//     selectionColors[index] の枠色が付く。必要枚数に達したら自動で確定して閉じる
+//   - 「閉じる」ボタンは無し。背景タップでキャンセル (変更を破棄)
 //   - 他グループで使用中のカードはグレーアウト (選択不可)
 
 import { useState, type CSSProperties } from 'react';
@@ -12,29 +11,35 @@ import { SUIT_BG_COLORS, defaultPlayingCardAriaLabel } from '../PlayingCard.help
 import { THEME } from '../../styles/theme';
 
 export interface CardSelectorProps {
-  /** 選択できる最大枚数。 */
+  /** 選択する枚数。1=個別 (1枚で即確定)、2/3/5=範囲 (連続選択)。 */
   max: number;
-  /** index → 枠色 (length は max を想定。超過時は末尾色を流用)。 */
+  /** index → 枠色 (範囲モードのみ使用)。 */
   selectionColors: ReadonlyArray<string>;
-  /** 既にこのグループに入っているカード (順序付き)。選択済み状態で開く。 */
+  /** 既にこの対象に入っているカード (順序付き)。範囲モードは選択済み状態で開く。 */
   initialSelected: ReadonlyArray<Card>;
-  /** 他グループで使用中のカード文字列集合 (例: "Ah")。選択不可。 */
+  /** 他で使用中のカード文字列集合 (例: "Ah")。選択不可。 */
   usedByOthers: ReadonlySet<string>;
-  /** 確定時に順序付き選択カードを返す (パネルを閉じる)。 */
+  /** 確定 (必要枚数に到達) 時に順序付き選択カードを返す。 */
   onCommit: (cards: Card[]) => void;
+  /** 背景タップで閉じる (変更を破棄)。 */
+  onCancel: () => void;
 }
 
 const SUIT_LABEL: Record<Suit, string> = { s: 'スペード', h: 'ハート', d: 'ダイヤ', c: 'クラブ' };
 
-export function CardSelector({ max, selectionColors, initialSelected, usedByOthers, onCommit }: CardSelectorProps) {
+export function CardSelector({ max, selectionColors, initialSelected, usedByOthers, onCommit, onCancel }: CardSelectorProps) {
+  const single = max === 1;
   const [selected, setSelected] = useState<Card[]>(() => [...initialSelected]);
-
-  const close = () => onCommit(selected);
 
   const colorFor = (index: number): string =>
     selectionColors[Math.min(index, selectionColors.length - 1)] ?? THEME.accent;
 
-  const toggle = (card: Card) => {
+  const handleTap = (card: Card) => {
+    if (single) {
+      // 個別モード: 1 枚タップで即確定。
+      onCommit([card]);
+      return;
+    }
     const key = cardToString(card);
     const idx = selected.findIndex((c) => cardToString(c) === key);
     if (idx >= 0) {
@@ -52,11 +57,10 @@ export function CardSelector({ max, selectionColors, initialSelected, usedByOthe
   };
 
   return (
-    <div style={overlayStyle} onClick={close} role="dialog" aria-label="カード選択">
+    <div style={overlayStyle} onClick={onCancel} role="dialog" aria-label="カード選択">
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <span style={headerTitleStyle}>カードを選択</span>
-          <button type="button" onClick={close} style={closeBtnStyle} aria-label="閉じる">✕</button>
         </div>
         <div style={gridStyle}>
           {SUITS.map((suit) => (
@@ -65,7 +69,7 @@ export function CardSelector({ max, selectionColors, initialSelected, usedByOthe
                 const card: Card = { rank, suit };
                 const key = cardToString(card);
                 const usedElsewhere = usedByOthers.has(key);
-                const selIdx = selected.findIndex((c) => cardToString(c) === key);
+                const selIdx = single ? -1 : selected.findIndex((c) => cardToString(c) === key);
                 const isSelected = selIdx >= 0;
                 return (
                   <button
@@ -73,7 +77,7 @@ export function CardSelector({ max, selectionColors, initialSelected, usedByOthe
                     type="button"
                     disabled={usedElsewhere}
                     aria-pressed={isSelected}
-                    onClick={usedElsewhere ? undefined : () => toggle(card)}
+                    onClick={usedElsewhere ? undefined : () => handleTap(card)}
                     aria-label={defaultPlayingCardAriaLabel(rank, suit)}
                     style={{
                       ...cellStyle,
@@ -122,18 +126,9 @@ const panelStyle: CSSProperties = {
 const headerStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
   marginBottom: '0.6rem',
 };
 const headerTitleStyle: CSSProperties = { fontSize: '1rem', fontWeight: 700, color: THEME.textPrimary };
-const closeBtnStyle: CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  fontSize: '1.2rem',
-  color: THEME.textSecondary,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
 
 const gridStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.3rem' };
 const rowStyle: CSSProperties = {

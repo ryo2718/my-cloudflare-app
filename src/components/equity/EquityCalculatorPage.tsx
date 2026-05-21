@@ -1,8 +1,10 @@
 // /equity: エクイティ計算 (フェーズ2)。
 //   - ボードカード5スロット (フロップ3 | ターン1 | リバー1)。置いた枚数で
 //     ストリートが自動で決まる (ストリートタブは廃止)。
-//   - カード選択は「範囲ボタン」方式: [ボード]/[フロップ]/[ターンリバー]/各[ハンド] を
-//     押すと、その範囲の枚数分を上部パネルで連続選択する。
+//   - カード選択は2系統を併存:
+//       * 個別スロットタップ → 1枚だけ選んで即確定
+//       * 範囲ボタン [ボード]/[フロップ]/[ターンリバー]/各[ハンド] → 必要枚数を連続選択し
+//         必要枚数で自動クローズ
 //   - ボード各スロットの下にゴミ箱 (そのスロットのカードを削除)。
 //   - プレイヤー4枚が揃い、ボードが 0/3/4/5 枚のとき自動で全列挙エクイティを計算
 //     (ボード 1/2 枚は中途半端なので計算しない)。
@@ -19,12 +21,15 @@ import { CardSlot } from './CardSlot';
 import { CardSelector } from './CardSelector';
 
 type PlayerId = 'A' | 'B';
+type SlotIdx = 0 | 1;
 
 type SelectingTarget =
   | { kind: 'board' }
   | { kind: 'flop' }
   | { kind: 'turnriver' }
-  | { kind: 'player'; player: PlayerId };
+  | { kind: 'player'; player: PlayerId }
+  | { kind: 'boardSlot'; index: number }
+  | { kind: 'playerSlot'; player: PlayerId; slot: SlotIdx };
 
 // 計算対象になるボード枚数 (0=プリフロップ, 3=フロップ, 4=ターン, 5=リバー)。
 const VALID_BOARD_COUNTS = new Set([0, 3, 4, 5]);
@@ -36,25 +41,29 @@ const SEL_RED = '#dc2626';
 const COLORS_BOARD = [SEL_BLUE, SEL_BLUE, SEL_BLUE, SEL_GREEN, SEL_RED];
 const COLORS_FLOP = [SEL_BLUE, SEL_GREEN, SEL_RED];
 const COLORS_TWO = [SEL_BLUE, SEL_GREEN];
+const COLORS_NONE: string[] = [];
 
-// 範囲が指すボードスロット番号。
+// 範囲が指すボードスロット番号 (個別 boardSlot も単一スロットとして扱う)。
 function boardSlotsOf(target: SelectingTarget): number[] {
   if (target.kind === 'board') return [0, 1, 2, 3, 4];
   if (target.kind === 'flop') return [0, 1, 2];
   if (target.kind === 'turnriver') return [3, 4];
+  if (target.kind === 'boardSlot') return [target.index];
   return [];
 }
 
 function rangeMax(target: SelectingTarget): number {
   if (target.kind === 'board') return 5;
   if (target.kind === 'flop') return 3;
-  return 2; // turnriver / player
+  if (target.kind === 'turnriver' || target.kind === 'player') return 2;
+  return 1; // boardSlot / playerSlot
 }
 
 function rangeColors(target: SelectingTarget): ReadonlyArray<string> {
   if (target.kind === 'board') return COLORS_BOARD;
   if (target.kind === 'flop') return COLORS_FLOP;
-  return COLORS_TWO; // turnriver / player
+  if (target.kind === 'turnriver' || target.kind === 'player') return COLORS_TWO;
+  return COLORS_NONE; // 個別 (max 1) は枠色なし
 }
 
 export function EquityCalculatorPage() {
@@ -117,12 +126,21 @@ export function EquityCalculatorPage() {
     setSelecting(target);
   };
 
-  // 連続選択の結果を、範囲が指すスロット順に格納してパネルを閉じる。
+  const cancelSelection = () => setSelecting(null);
+
+  // 選択結果を、対象が指すスロット順に格納してパネルを閉じる。
   const commitSelection = (cards: Card[]) => {
     if (!selecting) return;
     if (selecting.kind === 'player') {
       const player = selecting.player;
       setHands((prev) => ({ ...prev, [player]: [cards[0] ?? null, cards[1] ?? null] }));
+    } else if (selecting.kind === 'playerSlot') {
+      const { player, slot } = selecting;
+      setHands((prev) => {
+        const next = { ...prev, [player]: [...prev[player]] as [Card | null, Card | null] };
+        next[player][slot] = cards[0] ?? null;
+        return next;
+      });
     } else {
       const slots = boardSlotsOf(selecting);
       setBoard((prev) => {
@@ -148,10 +166,14 @@ export function EquityCalculatorPage() {
     });
   };
 
-  // パネルに渡す初期選択 (この範囲の既存カード) と他で使用中のカード。
+  // パネルに渡す初期選択 (この対象の既存カード) と他で使用中のカード。
   const initialSelected = useMemo<Card[]>(() => {
     if (!selecting) return [];
     if (selecting.kind === 'player') return hands[selecting.player].filter((c): c is Card => c !== null);
+    if (selecting.kind === 'playerSlot') {
+      const c = hands[selecting.player][selecting.slot];
+      return c ? [c] : [];
+    }
     return boardSlotsOf(selecting)
       .map((s) => board[s])
       .filter((c): c is Card => c !== null);
@@ -162,6 +184,9 @@ export function EquityCalculatorPage() {
     if (selecting) {
       if (selecting.kind === 'player') {
         for (const c of hands[selecting.player]) if (c) own.add(cardToString(c));
+      } else if (selecting.kind === 'playerSlot') {
+        const c = hands[selecting.player][selecting.slot];
+        if (c) own.add(cardToString(c));
       } else {
         for (const s of boardSlotsOf(selecting)) {
           const c = board[s];
@@ -182,7 +207,11 @@ export function EquityCalculatorPage() {
 
   const renderBoardCell = (i: number) => (
     <div style={boardCellStyle}>
-      <CardSlot card={board[i]} />
+      <CardSlot
+        card={board[i]}
+        active={selecting?.kind === 'boardSlot' && selecting.index === i}
+        onClick={() => openSelector({ kind: 'boardSlot', index: i })}
+      />
       <button
         type="button"
         onClick={() => deleteBoardCard(i)}
@@ -241,8 +270,16 @@ export function EquityCalculatorPage() {
             <div style={playerRowStyle}>
               <span style={rowLabelStyle}>Player {p}</span>
               <div style={slotsStyle}>
-                <CardSlot card={hands[p][0]} />
-                <CardSlot card={hands[p][1]} />
+                <CardSlot
+                  card={hands[p][0]}
+                  active={selecting?.kind === 'playerSlot' && selecting.player === p && selecting.slot === 0}
+                  onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 0 })}
+                />
+                <CardSlot
+                  card={hands[p][1]}
+                  active={selecting?.kind === 'playerSlot' && selecting.player === p && selecting.slot === 1}
+                  onClick={() => openSelector({ kind: 'playerSlot', player: p, slot: 1 })}
+                />
               </div>
               <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
                 レンジ
@@ -273,6 +310,7 @@ export function EquityCalculatorPage() {
             initialSelected={initialSelected}
             usedByOthers={usedByOthers}
             onCommit={commitSelection}
+            onCancel={cancelSelection}
           />
         )}
       </main>
