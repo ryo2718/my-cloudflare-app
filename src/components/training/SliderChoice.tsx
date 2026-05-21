@@ -27,17 +27,37 @@ export function SliderChoice({ actionLabel, onSubmit, onSkip, disabled = false }
         <span style={valueStyle}>{value}%</span>
       </div>
 
-      <input
-        type="range"
-        min={SLIDER_MIN}
-        max={SLIDER_MAX}
-        step={SLIDER_STEP}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => setValue(Number(e.target.value))}
-        style={rangeStyle}
-        aria-label={`${actionLabel}の頻度`}
-      />
+      <div style={sliderRowStyle}>
+        <button
+          type="button"
+          onClick={() => !disabled && setValue(SLIDER_MIN)}
+          disabled={disabled}
+          style={endBtnStyle}
+          aria-label="0%にする"
+        >
+          0%
+        </button>
+        <input
+          type="range"
+          min={SLIDER_MIN}
+          max={SLIDER_MAX}
+          step={SLIDER_STEP}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => setValue(Number(e.target.value))}
+          style={rangeStyle}
+          aria-label={`${actionLabel}の頻度`}
+        />
+        <button
+          type="button"
+          onClick={() => !disabled && setValue(SLIDER_MAX)}
+          disabled={disabled}
+          style={endBtnStyle}
+          aria-label="100%にする"
+        >
+          100%
+        </button>
+      </div>
       <div style={scaleRowStyle} aria-hidden>
         <span>0%</span>
         <span>50%</span>
@@ -93,10 +113,31 @@ const valueStyle: CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
 
+const sliderRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+};
+
 const rangeStyle: CSSProperties = {
-  width: '100%',
+  flex: 1,
+  minWidth: 0,
   accentColor: THEME.accent,
   cursor: 'pointer',
+};
+
+const endBtnStyle: CSSProperties = {
+  flexShrink: 0,
+  padding: '0.4rem 0.6rem',
+  background: '#fff',
+  color: THEME.textSecondary,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.4rem',
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const scaleRowStyle: CSSProperties = {

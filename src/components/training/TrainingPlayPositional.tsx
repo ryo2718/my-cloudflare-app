@@ -225,7 +225,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
         {q.format === 'slider' ? (
           <SliderChoice
             key={`slider-${state.current}`}
-            actionLabel={q.actionLabels.raise}
+            actionLabel={q.actionLabels[q.sliderAction]}
             onSubmit={(pct) => advance({ kind: 'slider', pct }, state)}
             onSkip={() => advance({ kind: 'skip' }, state)}
           />

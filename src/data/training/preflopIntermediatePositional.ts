@@ -71,9 +71,10 @@ export interface PositionalQuestion {
   cards: PreflopQuestion['cards'];
   strategy: PositionalStrategy;
   // --- slider ---
-  /** スライダーで頻度を問うアクション (常に raise)。 */
-  sliderAction: 'raise';
-  /** スライダーの正解頻度 (= strategy.raise)。 */
+  /** スライダーで頻度を問うアクション。raise 軸 (open/3bet, レイズ/チェック2択) か
+   *  call 軸 (コール/フォールド2択 = vs5bet)。 */
+  sliderAction: 'raise' | 'call';
+  /** スライダーの正解頻度 (= strategy[sliderAction])。 */
   sliderCorrectPct: number;
   // --- select ---
   /** ノードで実際に使われるアクション (UI 出し分け用)。 */
@@ -511,6 +512,32 @@ export function positionalSelectActionsByScenario(scenarioKey: string): Position
   return isVs5betScenario(scenarioKey) ? [...CALL_FOLD_ACTIONS] : [...EP_LP_SELECT_ACTIONS];
 }
 
+/**
+ * 出題形式の解決。2 択ノードはスライダー形式に統一する (GLOSSARY 選択肢ルール)。
+ *   - baseFormat が 'slider' (open / vs open CO 等) → そのまま raise 軸スライダー
+ *   - 選択肢が 2 つ → スライダー (能動側を 100% 軸に: raise があれば raise、無ければ call)
+ *       コール/フォールド → call 軸、レイズ/チェック → raise 軸
+ *   - それ以外 (3択以上) → 複数選択のまま
+ */
+export function resolveSliderConversion(
+  baseFormat: QuestionFormat,
+  choices: ReadonlyArray<PositionalAction>,
+  strategy: PositionalStrategy,
+): { format: QuestionFormat; sliderAction: 'raise' | 'call'; sliderCorrectPct: number } {
+  if (baseFormat === 'slider') {
+    return { format: 'slider', sliderAction: 'raise', sliderCorrectPct: strategy.raise };
+  }
+  if (choices.length === 2) {
+    const sliderAction: 'raise' | 'call' = choices.includes('raise') ? 'raise' : 'call';
+    return {
+      format: 'slider',
+      sliderAction,
+      sliderCorrectPct: sliderAction === 'raise' ? strategy.raise : strategy.call,
+    };
+  }
+  return { format: 'select', sliderAction: 'raise', sliderCorrectPct: strategy.raise };
+}
+
 interface TableInfo {
   label: string;
   opener: Position | null;
@@ -620,11 +647,16 @@ function buildQuestion(
 ): PositionalQuestion {
   const strategy = hands[hand];
   const info = tableInfo(spec, c);
+  // limp 系ノード (SB open=リンプ / BB vs limp=チェック) のみノード別出し分け。
+  // それ以外 (EP/LP + 非limp Blind) は: 相手オールイン→call/fold 2択 / その他→4択固定。
+  const choices = spec.limp !== null ? availableActionsOf(hands) : positionalSelectActions(hands);
+  // 2 択ノードはスライダー化 (GLOSSARY 選択肢ルール)。
+  const conv = resolveSliderConversion(spec.format, choices, strategy);
   return {
     mode,
     scenarioKey: spec.key,
     label: info.label,
-    format: spec.format,
+    format: conv.format,
     myPosition: c.hero,
     opener: info.opener,
     threeBettor: c.threeBettor,
@@ -633,11 +665,9 @@ function buildQuestion(
     hand,
     cards: handToCards(hand),
     strategy,
-    sliderAction: 'raise',
-    sliderCorrectPct: strategy.raise,
-    // limp 系ノード (SB open=リンプ / BB vs limp=チェック) のみノード別出し分け。
-    // それ以外 (EP/LP + 非limp Blind) は: 相手オールイン→call/fold 2択 / その他→4択固定。
-    availableActions: spec.limp !== null ? availableActionsOf(hands) : positionalSelectActions(hands),
+    sliderAction: conv.sliderAction,
+    sliderCorrectPct: conv.sliderCorrectPct,
+    availableActions: choices,
     actionLabels: labelsFor(spec),
     limpAction: spec.limp,
   };

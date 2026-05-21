@@ -292,7 +292,7 @@ describe('generatePositionalQuestions (実データ)', () => {
         expect(q.strategy).toBeTruthy();
         expect(q.hand.length).toBeGreaterThanOrEqual(2);
         if (q.format === 'slider') {
-          expect(q.sliderCorrectPct).toBe(q.strategy.raise);
+          expect(q.sliderCorrectPct).toBe(q.sliderAction === 'raise' ? q.strategy.raise : q.strategy.call);
         } else if (mode === 'blind') {
           expect(q.availableActions.length).toBeGreaterThan(0);
         } else {
@@ -307,7 +307,7 @@ describe('generatePositionalQuestions (実データ)', () => {
     });
   }
 
-  it('ep: vs3bet は 4 択固定 (レイズ欠落しない)、vs4bet (相手オールイン) は call/fold 2択', async () => {
+  it('ep: vs3bet は 4 択固定、vs4bet (vs5bet=相手オールイン) は call 軸スライダー', async () => {
     __testing__.resetCache();
     const qs = await generatePositionalQuestions('ep');
     const vs3 = qs.filter((q) => q.scenarioKey === 'ep_vs_3bet');
@@ -315,23 +315,28 @@ describe('generatePositionalQuestions (実データ)', () => {
     expect(vs3.length).toBeGreaterThan(0);
     expect(vs4.length).toBeGreaterThan(0);
     for (const q of vs3) {
+      expect(q.format).toBe('select');
       expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
       expect(q.actionLabels.call).toBe('コール'); // EP/LP は call=コール (リンプではない)
     }
     for (const q of vs4) {
-      expect([...q.availableActions]).toEqual(['call', 'fold']);
+      expect(q.format).toBe('slider'); // 2択 → スライダー
+      expect(q.sliderAction).toBe('call');
+      expect(q.sliderCorrectPct).toBe(q.strategy.call);
     }
   });
 
-  it('lp: vs open / vs3bet は 4 択、vs4bet (相手オールイン) は call/fold 2択', async () => {
+  it('lp: vs4bet (vs5bet) は call 軸スライダー、その他 select は 4 択', async () => {
     __testing__.resetCache();
     const qs = await generatePositionalQuestions('lp');
+    const vs4 = qs.filter((q) => q.scenarioKey === 'lp_vs_4bet');
+    expect(vs4.length).toBeGreaterThan(0);
+    for (const q of vs4) {
+      expect(q.format).toBe('slider');
+      expect(q.sliderAction).toBe('call');
+    }
     for (const q of qs.filter((x) => x.format === 'select')) {
-      if (q.scenarioKey === 'lp_vs_4bet') {
-        expect([...q.availableActions]).toEqual(['call', 'fold']);
-      } else {
-        expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
-      }
+      expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
     }
   });
 
@@ -375,12 +380,15 @@ describe('generatePositionalQuestions (実データ)', () => {
     }
   });
 
-  it('blind: BB vs limp は check ベース (fold 非提示・limpAction=check)', async () => {
+  it('blind: BB vs limp は raise 軸スライダー (レイズ/チェック2択, fold非提示, limpAction=check)', async () => {
     __testing__.resetCache();
     const qs = await generatePositionalQuestions('blind');
     const bbLimp = qs.filter((q) => q.scenarioKey === 'bb_vs_limp');
     expect(bbLimp.length).toBeGreaterThan(0);
     for (const q of bbLimp) {
+      expect(q.format).toBe('slider'); // 2択 → スライダー
+      expect(q.sliderAction).toBe('raise');
+      expect(q.sliderCorrectPct).toBe(q.strategy.raise);
       expect(q.availableActions).toContain('check');
       expect(q.availableActions).not.toContain('fold');
       expect(q.limpAction).toBe('check');

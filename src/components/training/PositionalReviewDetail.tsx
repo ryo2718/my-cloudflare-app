@@ -116,7 +116,7 @@ function SliderAnswer({
   return (
     <div style={answerBoxStyle}>
       <div style={answerRowStyle}>
-        <span style={answerLabelStyle}>正解 ({question.actionLabels.raise} 頻度)</span>
+        <span style={answerLabelStyle}>正解 ({question.actionLabels[question.sliderAction]} 頻度)</span>
         <span style={answerCorrectStyle}>{correct}%</span>
       </div>
       <div style={answerRowStyle}>

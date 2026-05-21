@@ -16,6 +16,7 @@ import {
   isPositionalScenario,
   positionalSelectActions,
   positionalSelectActionsByScenario,
+  resolveSliderConversion,
   type PositionalQuestion,
   type PositionalStrategy,
   type PositionalAction,
@@ -119,12 +120,14 @@ export function recordToPositionalQuestion(
   } else {
     available = nodeHands ? positionalSelectActions(nodeHands) : positionalSelectActionsByScenario(scenarioKey);
   }
+  // 出題時と同じ 2択→スライダー変換でレビューを再構成し整合させる。
+  const conv = resolveSliderConversion(scenarioFormat(scenarioKey), available, strategy);
 
   return {
     mode,
     scenarioKey,
     label: info.label,
-    format: scenarioFormat(scenarioKey),
+    format: conv.format,
     myPosition: hero,
     opener: info.opener,
     threeBettor,
@@ -133,8 +136,8 @@ export function recordToPositionalQuestion(
     hand,
     cards: handToCards(hand),
     strategy,
-    sliderAction: 'raise',
-    sliderCorrectPct: strategy.raise,
+    sliderAction: conv.sliderAction,
+    sliderCorrectPct: conv.sliderCorrectPct,
     availableActions: available,
     actionLabels: labelsForScenario(scenarioKey),
     limpAction: scenarioLimp(scenarioKey),

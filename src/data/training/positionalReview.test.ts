@@ -60,7 +60,9 @@ describe('recordToPositionalQuestion', () => {
         user_selections: JSON.stringify(['raise']),
       }),
     );
-    expect(q!.format).toBe('select');
+    expect(q!.format).toBe('slider'); // レイズ/チェック 2択 → スライダー
+    expect(q!.sliderAction).toBe('raise');
+    expect(q!.sliderCorrectPct).toBe(20);
     expect(q!.limpAction).toBe('check');
     expect(q!.availableActions).toContain('check');
     expect(q!.actionLabels.check).toBe('チェック');
@@ -82,7 +84,7 @@ describe('recordToPositionalQuestion', () => {
     expect([...q!.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
   });
 
-  it('EP vs4bet (相手オールイン/vs 5bet) は復元時 call/fold 2択', () => {
+  it('EP vs4bet (相手オールイン/vs 5bet) は復元時 call 軸スライダー', () => {
     const q = recordToPositionalQuestion(
       row({
         training_type: 'preflop_intermediate_ep',
@@ -94,6 +96,9 @@ describe('recordToPositionalQuestion', () => {
         user_selections: JSON.stringify(['call']),
       }),
     );
+    expect(q!.format).toBe('slider'); // コール/フォールド 2択 → スライダー
+    expect(q!.sliderAction).toBe('call');
+    expect(q!.sliderCorrectPct).toBe(100);
     expect([...q!.availableActions]).toEqual(['call', 'fold']);
   });
 

@@ -310,7 +310,7 @@ function PositionalStage({ q, onAnswer }: { q: PositionalQuestion; onAnswer: (re
       </section>
       {q.format === 'slider' ? (
         <SliderChoice
-          actionLabel={q.actionLabels.raise}
+          actionLabel={q.actionLabels[q.sliderAction]}
           onSubmit={(pct) => onAnswer({ kind: 'slider', pct })}
           onSkip={() => onAnswer({ kind: 'skip' })}
         />
