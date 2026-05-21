@@ -19,9 +19,12 @@ export interface ActionItem {
   amount?: number;
 }
 
+/** ポップアップの種別。アクション + ブラインド (強制ベット、白ラベル)。 */
+export type PopupKind = ActionKind | 'blind';
+
 export interface SeatPopup {
   position: Position;
-  kind: ActionKind;
+  kind: PopupKind;
   label: string;
 }
 
@@ -113,17 +116,34 @@ export interface ActionColor {
 }
 
 /**
- * アクション種別 → 色。淡いパステル背景 + 濃い文字 + 控えめな枠線
+ * ポップアップ種別 → 色。淡いパステル背景 + 濃い文字 + 控えめな枠線
  * (テーブルの緑から浮きすぎず、文字は読みやすく)。
- *   raise=淡赤 / allin=淡紫 / call・limp=淡緑 / fold=淡青
+ *   raise=淡赤 / allin=淡紫 / call・limp=淡緑 / fold=淡青 / blind=白
  */
-export const ACTION_COLORS: Record<ActionKind, ActionColor> = {
+export const ACTION_COLORS: Record<PopupKind, ActionColor> = {
   raise: { fg: '#993C1D', bg: '#FAECE7', border: '#EBC9BE' },
   allin: { fg: '#2E2A6B', bg: '#ECEAF7', border: '#D3CEEE' },
   call: { fg: '#27500A', bg: '#E8F0DA', border: '#CFE0B4' },
   limp: { fg: '#27500A', bg: '#E8F0DA', border: '#CFE0B4' },
   fold: { fg: '#0C447C', bg: '#E6F1FB', border: '#C3DDF4' },
+  blind: { fg: '#2C2C2A', bg: '#FFFFFF', border: '#D3D1C7' },
 };
+
+/** ブラインドのラベル (強制ベット)。 */
+export const BLIND_LABEL: Partial<Record<Position, string>> = { SB: '0.5bb', BB: '1bb' };
+
+/**
+ * アクションポップアップにブラインド (SB 0.5bb / BB 1bb) を重ねる。
+ * すでにアクション済 (= actionPopups に含まれる) のブラインドは差し替え済なので出さない。
+ */
+export function withBlinds(actionPopups: ReadonlyArray<SeatPopup>): SeatPopup[] {
+  const acted = new Set(actionPopups.map((p) => p.position));
+  const blinds: SeatPopup[] = [];
+  for (const pos of ['SB', 'BB'] as Position[]) {
+    if (!acted.has(pos)) blinds.push({ position: pos, kind: 'blind', label: BLIND_LABEL[pos]! });
+  }
+  return [...blinds, ...actionPopups];
+}
 
 // アニメーションの待ち時間 (アクションを表示する前に待つ ms)。
 // fold は速め、それ以外 (raise/call/limp/allin) はややタメる。

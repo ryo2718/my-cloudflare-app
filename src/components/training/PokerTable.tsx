@@ -221,12 +221,12 @@ const POPUP_OFFSETS: Record<Slot, CSSProperties> = {
   bottom_right: { bottom: '40%', right: '30%', transform: 'translate(50%, -50%)' },
 };
 
-// Dealer button は BTN 座席の「外側」(テーブル縁寄り) に配置し、座席円と重ねない。
+// Dealer button は BTN 座席の「内側」(中央寄り、BTN 円とアクションラベルの間) に配置。
 const DEALER_OFFSETS: Record<Slot, CSSProperties> = {
-  bottom_center: { bottom: '1%', left: '63%' },
-  bottom_left: { bottom: '24%', left: '0%' },
-  top_left: { top: '12%', left: '0%' },
-  top_center: { top: '1%', left: '63%' },
-  top_right: { top: '12%', right: '0%' },
-  bottom_right: { bottom: '24%', right: '0%' },
+  bottom_center: { bottom: '14%', left: '58%' },
+  bottom_left: { bottom: '36%', left: '20%' },
+  top_left: { top: '30%', left: '20%' },
+  top_center: { top: '14%', left: '58%' },
+  top_right: { top: '30%', right: '20%' },
+  bottom_right: { bottom: '36%', right: '20%' },
 };

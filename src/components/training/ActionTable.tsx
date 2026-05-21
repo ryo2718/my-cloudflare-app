@@ -10,6 +10,7 @@ import type { Position } from '../../types/strategy';
 import {
   loadActionHistory,
   toSeatPopups,
+  withBlinds,
   getActionDelay,
   type ActionItem,
 } from '../../data/training/actionHistory';
@@ -98,6 +99,7 @@ export function ActionTable({
   }, [items, animate, resetKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const popups = items ? toSeatPopups(items.slice(0, revealed)) : [];
+  // ブラインド (SB 0.5bb / BB 1bb) は最初から表示。アクションした SB/BB はそのラベルに差し替え。
+  const popups = withBlinds(items ? toSeatPopups(items.slice(0, revealed)) : []);
   return <PokerTable mePosition={mePosition} popups={popups} />;
 }

@@ -4,6 +4,7 @@ import {
   toSeatPopups,
   actionLabel,
   getActionDelay,
+  withBlinds,
   FOLD_DELAY_MS,
   OTHER_DELAY_MS,
 } from './actionHistory';
@@ -47,6 +48,22 @@ describe('actionLabel', () => {
     expect(actionLabel({ position: 'SB', kind: 'limp' })).toBe('limp');
     expect(actionLabel({ position: 'BB', kind: 'call' })).toBe('call');
     expect(actionLabel({ position: 'BTN', kind: 'allin', amount: 100 })).toBe('allin');
+  });
+});
+
+describe('withBlinds', () => {
+  it('誰もアクションしてなければ SB 0.5bb / BB 1bb を白ラベルで表示', () => {
+    const popups = withBlinds([]);
+    expect(popups).toContainEqual({ position: 'SB', kind: 'blind', label: '0.5bb' });
+    expect(popups).toContainEqual({ position: 'BB', kind: 'blind', label: '1bb' });
+  });
+
+  it('アクション済の SB はブラインドを出さず、そのアクションラベルに差し替え', () => {
+    const popups = withBlinds([{ position: 'SB', kind: 'raise', label: 'raise 3' }]);
+    expect(popups.find((p) => p.position === 'SB')).toEqual({ position: 'SB', kind: 'raise', label: 'raise 3' });
+    expect(popups.find((p) => p.position === 'BB')).toEqual({ position: 'BB', kind: 'blind', label: '1bb' });
+    // SB のブラインドポップアップは無い
+    expect(popups.filter((p) => p.position === 'SB')).toHaveLength(1);
   });
 });
 
