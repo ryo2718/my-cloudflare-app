@@ -90,7 +90,7 @@ export function HandFilter({ board, range, onApply }: HandFilterProps) {
     <div style={wrapStyle}>
       <div style={boardRowStyle}>
         {board.map((c, i) => (
-          <PlayingCard key={i} rank={c.rank} suit={c.suit} size="md" />
+          <PlayingCard key={i} rank={c.rank} suit={c.suit} size="board" />
         ))}
       </div>
 

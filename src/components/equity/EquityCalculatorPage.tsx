@@ -22,6 +22,7 @@ import { cardToInt } from '../../utils/handEvaluator';
 import { computeRangeEquity } from '../../utils/rangeEquity';
 import { TOTAL_COMBOS, weightedCombos, type WeightedCombo } from '../../utils/combos';
 import { presetLabel, type AppliedPreset } from '../../utils/presetRange';
+import { equityOutcome } from '../../utils/equityColor';
 import { CardSlot } from './CardSlot';
 import { CardSelector } from './CardSelector';
 import { RangeMatrix } from './RangeMatrix';
@@ -48,6 +49,10 @@ const COLORS_BOARD = [SEL_BLUE, SEL_BLUE, SEL_BLUE, SEL_GREEN, SEL_RED];
 const COLORS_FLOP = [SEL_BLUE, SEL_GREEN, SEL_RED];
 const COLORS_TWO = [SEL_BLUE, SEL_GREEN];
 const COLORS_NONE: string[] = [];
+
+// 勝率の勝敗色 (緑=コール系 / 赤=レイズ系)。引分は中立 (THEME.accent)。
+const WIN_COLOR = '#3B8A1E';
+const LOSE_COLOR = '#D8443C';
 
 // 範囲が指すボードスロット番号 (個別 boardSlot も単一スロットとして扱う)。
 function boardSlotsOf(target: SelectingTarget): number[] {
@@ -275,10 +280,18 @@ export function EquityCalculatorPage() {
     return '';
   };
 
+  // 勝敗で色分け: 勝ち=緑 / 負け=赤 / 引分(丸め後同値)=中立(既存茶系)。
+  const equityColorFor = (p: PlayerId): string => {
+    if (computing || !result) return THEME.accent;
+    const o = equityOutcome(result.a, result.b, p === 'A' ? 'a' : 'b');
+    return o === 'win' ? WIN_COLOR : o === 'lose' ? LOSE_COLOR : THEME.accent;
+  };
+
   const renderBoardCell = (i: number) => (
     <div style={boardCellStyle}>
       <CardSlot
         card={board[i]}
+        size="board"
         active={selecting?.kind === 'boardSlot' && selecting.index === i}
         onClick={() => openSelector({ kind: 'boardSlot', index: i })}
       />
@@ -319,6 +332,7 @@ export function EquityCalculatorPage() {
                   {renderBoardCell(2)}
                 </div>
               </div>
+              <div style={groupDividerStyle} />
               <div style={boardGroupStyle}>
                 <button type="button" style={rangeBtnFullStyle} onClick={() => openSelector({ kind: 'turnriver' })}>
                   ターンリバー
@@ -361,6 +375,21 @@ export function EquityCalculatorPage() {
                 <button type="button" style={handBtnStyle} onClick={() => openSelector({ kind: 'player', player: p })}>
                   ハンド
                 </button>
+              </div>
+              <span style={{ ...equityStyle, color: equityColorFor(p) }}>{equityText(p)}</span>
+              <div style={rangeColStyle}>
+                <div style={rangeBtnsRowStyle}>
+                  <button
+                    type="button"
+                    style={rangeSize > 0 ? rangeBtnActiveStyle : rangeBtnStyle}
+                    onClick={() => openRange(p)}
+                  >
+                    レンジ
+                  </button>
+                  <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
+                    リセット
+                  </button>
+                </div>
                 {rangeSize > 0 && (
                   <span style={rangeBadgeStyle}>
                     レンジ {rangeSize}コンボ ({((rangeSize / TOTAL_COMBOS) * 100).toFixed(1)}%)
@@ -368,17 +397,6 @@ export function EquityCalculatorPage() {
                 )}
                 {presetText && <span style={presetBubbleStyle}>{presetText}</span>}
               </div>
-              <span style={equityStyle}>{equityText(p)}</span>
-              <button
-                type="button"
-                style={rangeSize > 0 ? rangeBtnActiveStyle : rangeBtnStyle}
-                onClick={() => openRange(p)}
-              >
-                レンジ
-              </button>
-              <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
-                リセット
-              </button>
             </div>
           );
         })}
@@ -473,29 +491,31 @@ const rowsContainerStyle: CSSProperties = {
 };
 
 const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0' };
+// ボードは縦長カードでコンパクトに左寄せ (行の右側に余白を作る)。
 const boardColumnStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'stretch',
   gap: '0.4rem',
-  width: '100%',
+  width: 'fit-content',
+  alignSelf: 'flex-start',
 };
-// フロップ群を左端・ターンリバー群を右端に寄せ、ボード右端を行の右端に揃える。
-const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch', justifyContent: 'space-between' };
+const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch' };
 const boardGroupStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.35rem' };
 const slotsRowStyle: CSSProperties = { display: 'flex', gap: '0.35rem', alignItems: 'flex-start' };
 const boardCellStyle: CSSProperties = {
-  width: 44,
+  width: 38,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   gap: '0.3rem',
 };
+const groupDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.4rem' };
 const slotDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.1rem' };
 
 const trashBtnStyle: CSSProperties = {
-  width: 44,
-  height: 28,
+  width: 38,
+  height: 24,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -523,7 +543,15 @@ const rangeBtnStyle: CSSProperties = {
   fontFamily: 'inherit',
   cursor: 'pointer',
 };
-const rangeBtnFullStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
+// ボード範囲ボタン: 縦長カードの群幅に収まるよう小さめ・改行なし。
+const rangeBtnFullStyle: CSSProperties = {
+  ...rangeBtnStyle,
+  width: '100%',
+  textAlign: 'center',
+  fontSize: '0.74rem',
+  padding: '0.3rem 0.25rem',
+  whiteSpace: 'nowrap',
+};
 const rangeBtnActiveStyle: CSSProperties = {
   ...rangeBtnStyle,
   background: THEME.accent,
@@ -532,7 +560,10 @@ const rangeBtnActiveStyle: CSSProperties = {
   fontWeight: 700,
 };
 const handBtnStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
-const rangeBadgeStyle: CSSProperties = { fontSize: '0.72rem', color: THEME.textSecondary, textAlign: 'center' };
+// レンジ/リセット + バッジ + 役吹き出しを縦に積む列 (右寄せ)。
+const rangeColStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' };
+const rangeBtnsRowStyle: CSSProperties = { display: 'flex', gap: '0.55rem' };
+const rangeBadgeStyle: CSSProperties = { fontSize: '0.72rem', color: THEME.textSecondary, textAlign: 'right' };
 const presetBubbleStyle: CSSProperties = {
   fontSize: '0.72rem',
   fontWeight: 700,
