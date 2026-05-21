@@ -231,6 +231,7 @@ export function EquityCalculatorPage() {
         <Link to="/" style={crumbStyle}>← ホーム</Link>
         <h1 style={titleStyle}>エクイティ計算</h1>
 
+        <div style={rowsContainerStyle}>
         <div style={boardSectionStyle}>
           <span style={rowLabelStyle}>ボード</span>
           <div style={boardColumnStyle}>
@@ -284,17 +285,18 @@ export function EquityCalculatorPage() {
                 ハンド
               </button>
             </div>
+            <span style={equityStyle}>{equityText(p)}</span>
             <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
               レンジ
             </button>
             <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
               リセット
             </button>
-            <span style={equityStyle}>{equityText(p)}</span>
           </div>
         ))}
 
         <div style={dividerStyle} />
+        </div>
 
         {!allSet && <p style={hintStyle}>各プレイヤーのカードを2枚ずつ選ぶと自動で勝率を計算します。</p>}
         {allSet && !VALID_BOARD_COUNTS.has(boardCount) && (
@@ -359,6 +361,17 @@ const crumbStyle: CSSProperties = { fontSize: '0.82rem', color: THEME.textSecond
 const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 700, color: THEME.textPrimary };
 const dividerStyle: CSSProperties = { height: 1, background: THEME.border };
 
+// ボード行・プレイヤー行を同じ幅にまとめる。幅はプレイヤー行 (最右=リセット) の自然幅に
+// 一致し、ボードはその幅に展開される → 全行の右端がリセット右端に揃う。
+const rowsContainerStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'stretch',
+  width: 'fit-content',
+  maxWidth: '100%',
+  gap: '0.9rem',
+};
+
 const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0' };
 const boardColumnStyle: CSSProperties = {
   display: 'flex',
@@ -413,7 +426,6 @@ const rangeBtnStyle: CSSProperties = {
 const rangeBtnFullStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
 const handBtnStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
 const equityStyle: CSSProperties = {
-  marginLeft: 'auto',
   fontSize: '1.1rem',
   fontWeight: 800,
   color: THEME.accent,
