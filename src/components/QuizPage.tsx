@@ -9,7 +9,6 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { MissedProblemsSection } from './training/MissedProblemsSection';
 import {
   TRAINING_CATALOG,
-  formatScorePct,
   isPlayable,
   maxScoreFor,
   trainingPath,
@@ -150,7 +149,6 @@ function LevelRow({
   }
 
   const max = maxScoreFor(level);
-  const pctText = record ? formatScorePct(record.best_score, max) : null;
   const pt = record ? record.best_score * (level.points ?? 0) : 0;
 
   return (
@@ -159,11 +157,7 @@ function LevelRow({
         <span style={cardLevelStyle}>{displayLabel}</span>
         <span style={scoreLineStyle}>
           {record ? (
-            <>
-              <span style={pctStyle}>{pctText}</span>
-              {'  '}
-              <span style={ptStyle}>{pt}pt</span>
-            </>
+            <span style={bestPtStyle}>最高 {pt}pt / {max}pt</span>
           ) : (
             '未挑戦'
           )}
@@ -265,8 +259,7 @@ const scoreLineStyle: CSSProperties = {
   color: THEME.textMuted,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
 };
-const pctStyle: CSSProperties = { color: '#639922', fontWeight: 700 };
-const ptStyle: CSSProperties = { color: '#639922', fontWeight: 700, fontSize: '1rem' };
+const bestPtStyle: CSSProperties = { color: THEME.textPrimary, fontWeight: 700, fontSize: '0.95rem' };
 const actionRowStyle: CSSProperties = { display: 'flex', gap: '0.6rem' };
 const rulesBtnStyle: CSSProperties = {
   flex: 1,
