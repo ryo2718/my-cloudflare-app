@@ -497,16 +497,17 @@ export function facesAllinNode(hands: Record<string, PositionalStrategy>): boole
 }
 
 /**
- * EP/LP の複数選択の選択肢 (hands 由来)。
+ * 複数選択の選択肢 (hands 由来)。limp 系ノード以外 (EP/LP + 非limp Blind) に適用。
  *   - 相手オールイン (raise/allin 不可) → コール/フォールド 2 択
  *   - それ以外 → オールイン/レイズ/コール/フォールド 4 択固定
+ * 「オールイン/コール/フォールド」等の中途半端な 3 択は決して出さない。
  */
-export function epLpSelectActions(hands: Record<string, PositionalStrategy>): PositionalAction[] {
+export function positionalSelectActions(hands: Record<string, PositionalStrategy>): PositionalAction[] {
   return facesAllinNode(hands) ? [...CALL_FOLD_ACTIONS] : [...EP_LP_SELECT_ACTIONS];
 }
 
-/** EP/LP の複数選択の選択肢 (ノード未取得時のシナリオ判定版)。vs 5bet → 2 択。 */
-export function epLpSelectActionsByScenario(scenarioKey: string): PositionalAction[] {
+/** 複数選択の選択肢 (ノード未取得時のシナリオ判定版)。vs 5bet → 2 択、それ以外 → 4 択固定。 */
+export function positionalSelectActionsByScenario(scenarioKey: string): PositionalAction[] {
   return isVs5betScenario(scenarioKey) ? [...CALL_FOLD_ACTIONS] : [...EP_LP_SELECT_ACTIONS];
 }
 
@@ -634,8 +635,9 @@ function buildQuestion(
     strategy,
     sliderAction: 'raise',
     sliderCorrectPct: strategy.raise,
-    // Blind はノード別出し分け。EP/LP は基本4択固定、相手オールイン (vs 5bet) のみ call/fold 2択。
-    availableActions: mode === 'blind' ? availableActionsOf(hands) : epLpSelectActions(hands),
+    // limp 系ノード (SB open=リンプ / BB vs limp=チェック) のみノード別出し分け。
+    // それ以外 (EP/LP + 非limp Blind) は: 相手オールイン→call/fold 2択 / その他→4択固定。
+    availableActions: spec.limp !== null ? availableActionsOf(hands) : positionalSelectActions(hands),
     actionLabels: labelsFor(spec),
     limpAction: spec.limp,
   };

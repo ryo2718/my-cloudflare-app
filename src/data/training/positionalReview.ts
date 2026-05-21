@@ -14,8 +14,8 @@ import {
   positionalTableInfo,
   positionalTrainingType,
   isPositionalScenario,
-  epLpSelectActions,
-  epLpSelectActionsByScenario,
+  positionalSelectActions,
+  positionalSelectActionsByScenario,
   type PositionalQuestion,
   type PositionalStrategy,
   type PositionalAction,
@@ -110,13 +110,14 @@ export function recordToPositionalQuestion(
   const hand = row.hand as Hand;
   const strategy = parseStrategy(row.gto_strategy);
   const info = positionalTableInfo(scenarioKey, { hero, opener, threeBettor });
-  // Blind はノード別 (未取得時 strategy 由来)。
-  // EP/LP は基本4択固定、相手オールイン (vs 5bet) のみ call/fold 2択。
+  // limp 系ノード (SB open / BB vs limp) のみノード別 (未取得時 strategy 由来)。
+  // それ以外: 相手オールイン→call/fold 2択 / その他→4択固定。
+  const isLimpNode = scenarioLimp(scenarioKey) !== null;
   let available: PositionalAction[];
-  if (mode === 'blind') {
+  if (isLimpNode) {
     available = nodeHands ? availableActionsOf(nodeHands) : actionsFromStrategy(strategy);
   } else {
-    available = nodeHands ? epLpSelectActions(nodeHands) : epLpSelectActionsByScenario(scenarioKey);
+    available = nodeHands ? positionalSelectActions(nodeHands) : positionalSelectActionsByScenario(scenarioKey);
   }
 
   return {

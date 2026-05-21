@@ -9,12 +9,14 @@ import { THEME } from '../../styles/theme';
 
 const ACTION_ORDER: ReadonlyArray<PositionalAction> = ['allin', 'raise', 'call', 'check', 'fold'];
 
+// 未選択でも枠線がしっかり見えるよう offBorder は実色 (フル彩度) に。
+// 選択中は onBg で背景が色づき、メリハリをつける。
 const ACTION_COLOR: Record<PositionalAction, { base: string; offBorder: string; onBg: string }> = {
-  allin: { base: '#993C9D', offBorder: 'rgba(153, 60, 157, 0.5)', onBg: 'rgba(153, 60, 157, 0.12)' }, // 紫
-  raise: { base: '#E24B4A', offBorder: 'rgba(226, 75, 74, 0.5)',  onBg: 'rgba(226, 75, 74, 0.12)'  }, // 赤
-  call:  { base: '#639922', offBorder: 'rgba(99, 153, 34, 0.5)',  onBg: 'rgba(99, 153, 34, 0.14)'  }, // 緑
-  check: { base: '#2F8F83', offBorder: 'rgba(47, 143, 131, 0.5)', onBg: 'rgba(47, 143, 131, 0.13)' }, // 青緑
-  fold:  { base: '#378ADD', offBorder: 'rgba(55, 138, 221, 0.5)', onBg: 'rgba(55, 138, 221, 0.12)' }, // 青
+  allin: { base: '#993C9D', offBorder: '#993C9D', onBg: 'rgba(153, 60, 157, 0.18)' }, // 紫
+  raise: { base: '#E24B4A', offBorder: '#E24B4A', onBg: 'rgba(226, 75, 74, 0.18)'  }, // 赤
+  call:  { base: '#639922', offBorder: '#639922', onBg: 'rgba(99, 153, 34, 0.20)'  }, // 緑
+  check: { base: '#2F8F83', offBorder: '#2F8F83', onBg: 'rgba(47, 143, 131, 0.18)' }, // 青緑
+  fold:  { base: '#378ADD', offBorder: '#378ADD', onBg: 'rgba(55, 138, 221, 0.18)' }, // 青
 };
 
 export interface PositionalChoicesProps {

@@ -242,6 +242,18 @@ describe('availableActionsOf / labels (buildQuestion)', () => {
     expect([...q.availableActions]).toEqual(['call', 'fold']);
   });
 
+  it('Blind: 相手4bet (allin/call/fold のみ・raise頻度0) でも 4択 (3択にしない)', () => {
+    const hands = { AA: st({ allin: 30, call: 40, fold: 30 }), KK: st({ allin: 10, call: 20, fold: 70 }) };
+    const q = __testing__.buildQuestion(
+      'blind',
+      __testing__.SPECS.bb_vs_4bet,
+      { file: 'x', hero: 'BB', opener: 'SB', threeBettor: 'BB' },
+      'AA',
+      hands,
+    );
+    expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+  });
+
   it('vs open は call ラベルが「コール」', () => {
     const hands = { AA: st({ raise: 80, call: 20 }), KK: st({ call: 50, fold: 50 }) };
     const q = __testing__.buildQuestion('blind', __testing__.SPECS.sb_vs_open, { file: 'utgr_sb.json', hero: 'SB', opener: 'UTG' }, 'AA', hands);
@@ -320,6 +332,35 @@ describe('generatePositionalQuestions (実データ)', () => {
       } else {
         expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
       }
+    }
+  });
+
+  it('全モード: 中途半端な3択 (allin/call/fold 等) が発生しない', async () => {
+    const VALID = new Set([
+      'allin,call,fold,raise', // 4択固定
+      'call,fold',             // 相手オールイン 2択
+      'call,fold,raise',       // SB open (limp系: リンプ/レイズ/フォールド)
+      'check,raise',           // BB vs limp (チェック/レイズ)
+    ]);
+    for (const mode of ['ep', 'lp', 'blind'] as PositionalMode[]) {
+      __testing__.resetCache();
+      const qs = await generatePositionalQuestions(mode);
+      for (const q of qs.filter((x) => x.format === 'select')) {
+        const a = [...q.availableActions];
+        // allin があるなら必ず raise もある (allin/call/fold の3択を禁止)
+        if (a.includes('allin')) expect(a).toContain('raise');
+        expect(VALID.has([...a].sort().join(','))).toBe(true);
+      }
+    }
+  });
+
+  it('blind: bb_vs_4bet / sb_vs_4bet は 4択 (相手は4betでありジャムではない)', async () => {
+    __testing__.resetCache();
+    const qs = await generatePositionalQuestions('blind');
+    const v4 = qs.filter((q) => q.scenarioKey === 'bb_vs_4bet' || q.scenarioKey === 'sb_vs_4bet');
+    expect(v4.length).toBeGreaterThan(0);
+    for (const q of v4) {
+      expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
     }
   });
 
