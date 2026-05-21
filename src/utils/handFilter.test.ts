@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { analyzeBoard, applyFilter, type RoleGroup } from './handFilter';
 import { rangeFromNode } from './presetRange';
-import { comboKeyOf } from './combos';
+import { comboKeyOf, handAt, handKeys } from './combos';
 import { stringToCard } from '../types/card';
 import { cardToInt } from './handEvaluator';
 
@@ -129,6 +129,24 @@ describe('handFilter: ストレート内訳 (全ての成立ストレート)', (
     const range = new Map<string, number>([[k('5c', '9c'), 1]]);
     const st = analyzeBoard(range, wheelBoard).find((g) => g.key === 'straight')!;
     expect(st.items.map((it) => it.label)).toContain('5 ハイ');
+  });
+});
+
+describe('handFilter: 内訳の3階層構造 (役 → 中間見出し → 具体コンボ)', () => {
+  it('ツーペアは複数の中間見出しを返し、各見出し配下にスート単位コンボを持つ', () => {
+    // ボード Kd Jd 2d Jh 4s (JJ ペア)。AA/QQ/TT は each XX + JJ のツーペア。
+    const range = new Map<string, number>();
+    for (const h of [handAt(0, 0), handAt(2, 2), handAt(4, 4)]) {
+      for (const key of handKeys(h)) range.set(key, 1);
+    }
+    const tp = analyzeBoard(range, BOARD).find((g) => g.key === 'twopair')!;
+    const labels = tp.items.map((it) => it.label);
+    // 高い方のペアを先頭に表記 (TT はボードの JJ より低いので "JJ + TT")。
+    expect(labels).toEqual(expect.arrayContaining(['AA + JJ', 'QQ + JJ', 'JJ + TT']));
+    for (const it of tp.items) {
+      expect(it.combos.length).toBeGreaterThan(0);
+      for (const c of it.combos) expect(c.length).toBe(4); // スート単位
+    }
   });
 });
 

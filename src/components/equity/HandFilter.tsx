@@ -39,8 +39,10 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
 
   // オンにした役 (オン順)。最後尾が「直近にオンにした役」。
   const [onRoles, setOnRoles] = useState<RoleKey[]>([]);
-  // オフにした内訳の leaf key 集合 (デフォルトは全オン)。
+  // オフにした内訳の leaf key 集合 (デフォルトは全オン)。チェック状態。
   const [offItems, setOffItems] = useState<Set<string>>(new Set());
+  // 折りたたみ中の中間見出し leaf key 集合 (デフォルトは全展開)。チェックとは独立。
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const removePrefix = (set: Set<string>, prefix: string) => {
     const next = new Set(set);
@@ -50,6 +52,7 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
 
   const toggleRole = (rk: RoleKey) => {
     setOffItems((prev) => removePrefix(prev, `${rk}|`)); // 再オンは全オンで開く
+    setCollapsed((prev) => removePrefix(prev, `${rk}|`)); // 再オンは全展開で開く
     setOnRoles((prev) => (prev.includes(rk) ? prev.filter((r) => r !== rk) : [...prev, rk]));
   };
 
@@ -58,6 +61,16 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
       const next = new Set(prev);
       if (next.has(leafKey)) next.delete(leafKey);
       else next.add(leafKey);
+      return next;
+    });
+  };
+
+  // 折りたたみの開閉 (チェック状態・適用対象は変えない)。
+  const toggleCollapse = (itemLeaf: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemLeaf)) next.delete(itemLeaf);
+      else next.add(itemLeaf);
       return next;
     });
   };
@@ -122,13 +135,25 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
             {panelGroup.items.map((item) => {
               const itemLeaf = `${panelGroup.key}|${item.key}`;
               const itemOn = !offItems.has(itemLeaf);
+              const open = !collapsed.has(itemLeaf);
               return (
                 <div key={item.key} style={itemBlockStyle}>
-                  <label style={itemRowStyle}>
-                    <input type="checkbox" checked={itemOn} onChange={() => toggleLeaf(itemLeaf)} />
-                    {item.label}
-                  </label>
-                  {itemOn && (
+                  <div style={itemRowStyle}>
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(itemLeaf)}
+                      aria-expanded={open}
+                      aria-label="内訳の開閉"
+                      style={chevronStyle}
+                    >
+                      {open ? '▾' : '▸'}
+                    </button>
+                    <label style={itemCheckStyle}>
+                      <input type="checkbox" checked={itemOn} onChange={() => toggleLeaf(itemLeaf)} />
+                      {item.label}
+                    </label>
+                  </div>
+                  {itemOn && open && (
                     <div style={combosWrapStyle}>
                       {comboKeysOf(item).map((ck) => {
                         const comboLeaf = `${panelGroup.key}|${item.key}|${ck}`;
@@ -213,11 +238,27 @@ const panelBodyStyle: CSSProperties = {
   overflowY: 'auto',
 };
 const itemBlockStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.15rem' };
-const itemRowStyle: CSSProperties = {
+const itemRowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.3rem' };
+const chevronStyle: CSSProperties = {
+  width: 20,
+  height: 20,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: 'none',
+  color: THEME.textSecondary,
+  fontSize: '0.7rem',
+  cursor: 'pointer',
+  padding: 0,
+  fontFamily: 'inherit',
+};
+const itemCheckStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '0.4rem',
   fontSize: '0.82rem',
+  fontWeight: 700,
   color: THEME.textPrimary,
   cursor: 'pointer',
 };
