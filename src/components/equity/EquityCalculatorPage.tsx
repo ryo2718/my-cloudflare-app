@@ -1,11 +1,11 @@
 // /equity: エクイティ計算 (フェーズ2)。
-//   - ボードカード5スロット (フロップ3 + ターン1 + リバー1)。置いた枚数で
+//   - ボードカード5スロット (フロップ3 | ターン1 | リバー1)。置いた枚数で
 //     ストリートが自動で決まる (ストリートタブは廃止)。
-//   - Player A / B の 2 人固定。各 2 枚のカードスロット + レンジ(未実装) + リセット
-//   - スロットをタップ → 画面上部のパネルで必要枚数を連続選択 (ボード最大5 / ハンド2)
-//   - ボード各スロットの下にゴミ箱 (そのスロットのカードを削除)
+//   - カード選択は「範囲ボタン」方式: [ボード]/[フロップ]/[ターンリバー]/各[ハンド] を
+//     押すと、その範囲の枚数分を上部パネルで連続選択する。
+//   - ボード各スロットの下にゴミ箱 (そのスロットのカードを削除)。
 //   - プレイヤー4枚が揃い、ボードが 0/3/4/5 枚のとき自動で全列挙エクイティを計算
-//     (ボード 1/2 枚は中途半端なので計算しない)
+//     (ボード 1/2 枚は中途半端なので計算しない)。
 //
 // 未実装: レンジ指定・3人以上。
 
@@ -20,10 +20,42 @@ import { CardSelector } from './CardSelector';
 
 type PlayerId = 'A' | 'B';
 
-type SelectingTarget = { kind: 'player'; player: PlayerId } | { kind: 'board' };
+type SelectingTarget =
+  | { kind: 'board' }
+  | { kind: 'flop' }
+  | { kind: 'turnriver' }
+  | { kind: 'player'; player: PlayerId };
 
 // 計算対象になるボード枚数 (0=プリフロップ, 3=フロップ, 4=ターン, 5=リバー)。
 const VALID_BOARD_COUNTS = new Set([0, 3, 4, 5]);
+
+// 何枚目かを示す枠色。
+const SEL_BLUE = '#2563eb';
+const SEL_GREEN = '#16a34a';
+const SEL_RED = '#dc2626';
+const COLORS_BOARD = [SEL_BLUE, SEL_BLUE, SEL_BLUE, SEL_GREEN, SEL_RED];
+const COLORS_FLOP = [SEL_BLUE, SEL_GREEN, SEL_RED];
+const COLORS_TWO = [SEL_BLUE, SEL_GREEN];
+
+// 範囲が指すボードスロット番号。
+function boardSlotsOf(target: SelectingTarget): number[] {
+  if (target.kind === 'board') return [0, 1, 2, 3, 4];
+  if (target.kind === 'flop') return [0, 1, 2];
+  if (target.kind === 'turnriver') return [3, 4];
+  return [];
+}
+
+function rangeMax(target: SelectingTarget): number {
+  if (target.kind === 'board') return 5;
+  if (target.kind === 'flop') return 3;
+  return 2; // turnriver / player
+}
+
+function rangeColors(target: SelectingTarget): ReadonlyArray<string> {
+  if (target.kind === 'board') return COLORS_BOARD;
+  if (target.kind === 'flop') return COLORS_FLOP;
+  return COLORS_TWO; // turnriver / player
+}
 
 export function EquityCalculatorPage() {
   const [hands, setHands] = useState<Record<PlayerId, [Card | null, Card | null]>>({
@@ -85,28 +117,27 @@ export function EquityCalculatorPage() {
     setSelecting(target);
   };
 
-  // 連続選択の結果をスロット順に格納してパネルを閉じる。
+  // 連続選択の結果を、範囲が指すスロット順に格納してパネルを閉じる。
   const commitSelection = (cards: Card[]) => {
     if (!selecting) return;
-    if (selecting.kind === 'board') {
-      const next: (Card | null)[] = [null, null, null, null, null];
-      cards.slice(0, 5).forEach((c, i) => {
-        next[i] = c;
-      });
-      setBoard(next);
-    } else {
+    if (selecting.kind === 'player') {
       const player = selecting.player;
       setHands((prev) => ({ ...prev, [player]: [cards[0] ?? null, cards[1] ?? null] }));
+    } else {
+      const slots = boardSlotsOf(selecting);
+      setBoard((prev) => {
+        const next = [...prev];
+        slots.forEach((slot, i) => {
+          next[slot] = cards[i] ?? null;
+        });
+        return next;
+      });
     }
     setSelecting(null);
   };
 
   const resetPlayer = (player: PlayerId) => {
     setHands((prev) => ({ ...prev, [player]: [null, null] }));
-  };
-
-  const resetBoard = () => {
-    setBoard([null, null, null, null, null]);
   };
 
   const deleteBoardCard = (index: number) => {
@@ -117,20 +148,25 @@ export function EquityCalculatorPage() {
     });
   };
 
-  // パネルに渡す初期選択 (このグループの既存カード) と他グループの使用中カード。
+  // パネルに渡す初期選択 (この範囲の既存カード) と他で使用中のカード。
   const initialSelected = useMemo<Card[]>(() => {
     if (!selecting) return [];
-    if (selecting.kind === 'board') return board.filter((c): c is Card => c !== null);
-    return hands[selecting.player].filter((c): c is Card => c !== null);
+    if (selecting.kind === 'player') return hands[selecting.player].filter((c): c is Card => c !== null);
+    return boardSlotsOf(selecting)
+      .map((s) => board[s])
+      .filter((c): c is Card => c !== null);
   }, [selecting, board, hands]);
 
   const usedByOthers = useMemo<Set<string>>(() => {
     const own = new Set<string>();
     if (selecting) {
-      if (selecting.kind === 'board') {
-        for (const c of board) if (c) own.add(cardToString(c));
-      } else {
+      if (selecting.kind === 'player') {
         for (const c of hands[selecting.player]) if (c) own.add(cardToString(c));
+      } else {
+        for (const s of boardSlotsOf(selecting)) {
+          const c = board[s];
+          if (c) own.add(cardToString(c));
+        }
       }
     }
     const s = new Set<string>();
@@ -144,7 +180,20 @@ export function EquityCalculatorPage() {
     return '';
   };
 
-  const boardActive = selecting?.kind === 'board';
+  const renderBoardCell = (i: number) => (
+    <div style={boardCellStyle}>
+      <CardSlot card={board[i]} />
+      <button
+        type="button"
+        onClick={() => deleteBoardCard(i)}
+        disabled={!board[i]}
+        aria-label={`ボード${i + 1}枚目を削除`}
+        style={board[i] ? trashBtnStyle : trashHiddenStyle}
+      >
+        <TrashIcon />
+      </button>
+    </div>
+  );
 
   return (
     <div style={pageStyle}>
@@ -154,51 +203,60 @@ export function EquityCalculatorPage() {
         <h1 style={titleStyle}>エクイティ計算</h1>
 
         <div style={boardSectionStyle}>
-          <div style={boardHeaderStyle}>
-            <span style={rowLabelStyle}>ボード</span>
-            <button type="button" style={resetBtnStyle} onClick={resetBoard}>
-              リセット
+          <span style={rowLabelStyle}>ボード</span>
+          <div style={boardColumnStyle}>
+            <button type="button" style={rangeBtnFullStyle} onClick={() => openSelector({ kind: 'board' })}>
+              ボード
             </button>
-          </div>
-          <div style={boardGridStyle}>
-            {board.map((c, i) => (
-              <div key={i} style={boardCellStyle}>
-                <CardSlot card={c} active={boardActive} onClick={() => openSelector({ kind: 'board' })} />
-                <button
-                  type="button"
-                  onClick={() => deleteBoardCard(i)}
-                  disabled={!c}
-                  aria-label={`ボード${i + 1}枚目を削除`}
-                  style={c ? trashBtnStyle : trashHiddenStyle}
-                >
-                  <TrashIcon />
+            <div style={boardRangesRowStyle}>
+              <div style={boardGroupStyle}>
+                <button type="button" style={rangeBtnFullStyle} onClick={() => openSelector({ kind: 'flop' })}>
+                  フロップ
                 </button>
+                <div style={slotsRowStyle}>
+                  {renderBoardCell(0)}
+                  {renderBoardCell(1)}
+                  {renderBoardCell(2)}
+                </div>
               </div>
-            ))}
+              <div style={groupDividerStyle} />
+              <div style={boardGroupStyle}>
+                <button type="button" style={rangeBtnFullStyle} onClick={() => openSelector({ kind: 'turnriver' })}>
+                  ターンリバー
+                </button>
+                <div style={slotsRowStyle}>
+                  {renderBoardCell(3)}
+                  <div style={slotDividerStyle} />
+                  {renderBoardCell(4)}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div style={dividerStyle} />
 
-        {(['A', 'B'] as PlayerId[]).map((p) => {
-          const playerActive = selecting?.kind === 'player' && selecting.player === p;
-          return (
-            <div key={p} style={playerRowStyle}>
+        {(['A', 'B'] as PlayerId[]).map((p) => (
+          <div key={p} style={playerBlockStyle}>
+            <div style={playerRowStyle}>
               <span style={rowLabelStyle}>Player {p}</span>
               <div style={slotsStyle}>
-                <CardSlot card={hands[p][0]} active={playerActive} onClick={() => openSelector({ kind: 'player', player: p })} />
-                <CardSlot card={hands[p][1]} active={playerActive} onClick={() => openSelector({ kind: 'player', player: p })} />
+                <CardSlot card={hands[p][0]} />
+                <CardSlot card={hands[p][1]} />
               </div>
               <button type="button" style={rangeBtnStyle} onClick={() => setInfo('レンジ指定は準備中です')}>
                 レンジ
               </button>
-              <button type="button" style={resetBtnStyle} onClick={() => resetPlayer(p)}>
+              <button type="button" style={rangeBtnStyle} onClick={() => resetPlayer(p)}>
                 リセット
               </button>
               <span style={equityStyle}>{equityText(p)}</span>
             </div>
-          );
-        })}
+            <button type="button" style={handBtnStyle} onClick={() => openSelector({ kind: 'player', player: p })}>
+              ハンド
+            </button>
+          </div>
+        ))}
 
         <div style={dividerStyle} />
 
@@ -210,7 +268,8 @@ export function EquityCalculatorPage() {
 
         {selecting && (
           <CardSelector
-            mode={selecting.kind === 'board' ? 'board' : 'hand'}
+            max={rangeMax(selecting)}
+            selectionColors={rangeColors(selecting)}
             initialSelected={initialSelected}
             usedByOthers={usedByOthers}
             onCommit={commitSelection}
@@ -264,9 +323,26 @@ const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 
 const dividerStyle: CSSProperties = { height: 1, background: THEME.border };
 
 const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0' };
-const boardHeaderStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.55rem' };
-const boardGridStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
-const boardCellStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' };
+const boardColumnStyle: CSSProperties = {
+  display: 'inline-flex',
+  flexDirection: 'column',
+  alignItems: 'stretch',
+  gap: '0.4rem',
+  width: 'fit-content',
+};
+const boardRangesRowStyle: CSSProperties = { display: 'flex', alignItems: 'stretch' };
+const boardGroupStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.35rem' };
+const slotsRowStyle: CSSProperties = { display: 'flex', gap: '0.35rem', alignItems: 'flex-start' };
+const boardCellStyle: CSSProperties = {
+  width: 44,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.3rem',
+};
+const groupDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.4rem' };
+const slotDividerStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: THEME.border, margin: '0 0.1rem' };
+
 const trashBtnStyle: CSSProperties = {
   width: 44,
   height: 28,
@@ -282,13 +358,8 @@ const trashBtnStyle: CSSProperties = {
 };
 const trashHiddenStyle: CSSProperties = { ...trashBtnStyle, visibility: 'hidden', cursor: 'default' };
 
-const playerRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.55rem',
-  flexWrap: 'wrap',
-  padding: '0.5rem 0',
-};
+const playerBlockStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0' };
+const playerRowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' };
 const rowLabelStyle: CSSProperties = { fontSize: '0.92rem', fontWeight: 700, color: THEME.textPrimary, minWidth: 64 };
 const slotsStyle: CSSProperties = { display: 'flex', gap: '0.35rem' };
 const rangeBtnStyle: CSSProperties = {
@@ -301,7 +372,8 @@ const rangeBtnStyle: CSSProperties = {
   fontFamily: 'inherit',
   cursor: 'pointer',
 };
-const resetBtnStyle: CSSProperties = { ...rangeBtnStyle };
+const rangeBtnFullStyle: CSSProperties = { ...rangeBtnStyle, width: '100%', textAlign: 'center' };
+const handBtnStyle: CSSProperties = { ...rangeBtnStyle, alignSelf: 'flex-start' };
 const equityStyle: CSSProperties = {
   marginLeft: 'auto',
   fontSize: '1.1rem',

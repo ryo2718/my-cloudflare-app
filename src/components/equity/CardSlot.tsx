@@ -1,5 +1,7 @@
 // エクイティ計算のカードスロット (1 枚分)。
-// カードがあれば PlayingCard を表示、無ければ空スロット (タップでカード選択)。
+// カードがあれば PlayingCard を表示、無ければ空スロット ([+])。
+// onClick 省略時は表示専用 (タップ不可)。カード選択は範囲ボタン側で行うため
+// スロット自体は表示専用で使う。
 
 import type { CSSProperties } from 'react';
 import { PlayingCard } from '../PlayingCard';
@@ -10,7 +12,8 @@ export interface CardSlotProps {
   card: Card | null;
   /** 選択中 (カード選択パネルを開いている) スロットか。 */
   active?: boolean;
-  onClick: () => void;
+  /** 省略時は表示専用 (タップ不可)。 */
+  onClick?: () => void;
 }
 
 export function CardSlot({ card, active = false, onClick }: CardSlotProps) {
@@ -21,15 +24,22 @@ export function CardSlot({ card, active = false, onClick }: CardSlotProps) {
       </span>
     );
   }
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={active ? { ...emptyStyle, ...emptyActiveStyle } : emptyStyle}
+        aria-label="カードを選択"
+      >
+        +
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={active ? { ...emptyStyle, ...emptyActiveStyle } : emptyStyle}
-      aria-label="カードを選択"
-    >
+    <div style={emptyDisplayStyle} aria-hidden="true">
       +
-    </button>
+    </div>
   );
 }
 
@@ -48,6 +58,8 @@ const emptyStyle: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
 };
+
+const emptyDisplayStyle: CSSProperties = { ...emptyStyle, cursor: 'default' };
 
 const emptyActiveStyle: CSSProperties = {
   borderColor: THEME.accent,

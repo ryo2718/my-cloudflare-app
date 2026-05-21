@@ -1,12 +1,9 @@
 // カード選択パネル: 4 スート × 13 ランクのグリッドを画面上部にポップアップ。
-// 連続選択モード:
-//   - ボード用 (最大5枚) / ハンド用 (2枚) を mode で切替
-//   - タップで選択 (順番に格納)。再タップで選択解除 (トグル)
-//   - 選択済みカードは「何枚目か」が分かる枠色が付く
-//       ボード: 1〜3枚目=青(フロップ) / 4枚目=緑(ターン) / 5枚目=赤(リバー)
-//       ハンド: 1枚目=青 / 2枚目=緑
-//   - 必要枚数に達したら自動で確定して閉じる (ハンド2枚 / ボード5枚)
-//   - ボードは「閉じる」(✕) で 3〜4枚でも途中確定できる
+// 範囲ごとの連続選択モード:
+//   - max 枚を連続選択 (順番に格納)。再タップで選択解除 (トグル)
+//   - 選択済みカードは selectionColors[index] の枠色が付く (何枚目かの目印)
+//   - max 枚に達したら自動で確定して閉じる
+//   - max 未満でも「閉じる」(✕) で途中確定できる (ボード系の途中確定用)
 //   - 他グループで使用中のカードはグレーアウト (選択不可)
 
 import { useState, type CSSProperties } from 'react';
@@ -14,10 +11,11 @@ import { RANKS, SUITS, cardToString, type Card, type Suit } from '../../types/ca
 import { SUIT_BG_COLORS, defaultPlayingCardAriaLabel } from '../PlayingCard.helpers';
 import { THEME } from '../../styles/theme';
 
-export type SelectorMode = 'board' | 'hand';
-
 export interface CardSelectorProps {
-  mode: SelectorMode;
+  /** 選択できる最大枚数。 */
+  max: number;
+  /** index → 枠色 (length は max を想定。超過時は末尾色を流用)。 */
+  selectionColors: ReadonlyArray<string>;
   /** 既にこのグループに入っているカード (順序付き)。選択済み状態で開く。 */
   initialSelected: ReadonlyArray<Card>;
   /** 他グループで使用中のカード文字列集合 (例: "Ah")。選択不可。 */
@@ -28,24 +26,13 @@ export interface CardSelectorProps {
 
 const SUIT_LABEL: Record<Suit, string> = { s: 'スペード', h: 'ハート', d: 'ダイヤ', c: 'クラブ' };
 
-// 何枚目かを示す枠色。
-const SEL_BLUE = '#2563eb';
-const SEL_GREEN = '#16a34a';
-const SEL_RED = '#dc2626';
-
-function selectionColor(mode: SelectorMode, index: number): string {
-  if (mode === 'hand') return index === 0 ? SEL_BLUE : SEL_GREEN;
-  // board
-  if (index <= 2) return SEL_BLUE;
-  if (index === 3) return SEL_GREEN;
-  return SEL_RED;
-}
-
-export function CardSelector({ mode, initialSelected, usedByOthers, onCommit }: CardSelectorProps) {
-  const max = mode === 'board' ? 5 : 2;
+export function CardSelector({ max, selectionColors, initialSelected, usedByOthers, onCommit }: CardSelectorProps) {
   const [selected, setSelected] = useState<Card[]>(() => [...initialSelected]);
 
   const close = () => onCommit(selected);
+
+  const colorFor = (index: number): string =>
+    selectionColors[Math.min(index, selectionColors.length - 1)] ?? THEME.accent;
 
   const toggle = (card: Card) => {
     const key = cardToString(card);
@@ -92,9 +79,7 @@ export function CardSelector({ mode, initialSelected, usedByOthers, onCommit }: 
                       ...cellStyle,
                       background: SUIT_BG_COLORS[suit],
                       ...(usedElsewhere ? cellDisabledStyle : null),
-                      ...(isSelected
-                        ? { boxShadow: `inset 0 0 0 3px ${selectionColor(mode, selIdx)}` }
-                        : null),
+                      ...(isSelected ? { boxShadow: `inset 0 0 0 3px ${colorFor(selIdx)}` } : null),
                     }}
                   >
                     {rank}
