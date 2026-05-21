@@ -484,6 +484,32 @@ function availableActionsOf(hands: Record<string, PositionalStrategy>): Position
   return POS_ACTIONS.filter((a) => used.has(a));
 }
 
+/** 相手オールインを受けるノードの選択肢。 */
+export const CALL_FOLD_ACTIONS: ReadonlyArray<PositionalAction> = ['call', 'fold'];
+
+/**
+ * ノードのアクションに raise/allin が一切無い = 相手がオールイン済で「降りるか払う」しかない。
+ * (vs 5bet 等。実データ上 ..ai_ ノードは call/fold のみ)
+ */
+export function facesAllinNode(hands: Record<string, PositionalStrategy>): boolean {
+  const a = availableActionsOf(hands);
+  return a.length > 0 && !a.includes('raise') && !a.includes('allin');
+}
+
+/**
+ * EP/LP の複数選択の選択肢 (hands 由来)。
+ *   - 相手オールイン (raise/allin 不可) → コール/フォールド 2 択
+ *   - それ以外 → オールイン/レイズ/コール/フォールド 4 択固定
+ */
+export function epLpSelectActions(hands: Record<string, PositionalStrategy>): PositionalAction[] {
+  return facesAllinNode(hands) ? [...CALL_FOLD_ACTIONS] : [...EP_LP_SELECT_ACTIONS];
+}
+
+/** EP/LP の複数選択の選択肢 (ノード未取得時のシナリオ判定版)。vs 5bet → 2 択。 */
+export function epLpSelectActionsByScenario(scenarioKey: string): PositionalAction[] {
+  return isVs5betScenario(scenarioKey) ? [...CALL_FOLD_ACTIONS] : [...EP_LP_SELECT_ACTIONS];
+}
+
 interface TableInfo {
   label: string;
   opener: Position | null;
@@ -608,8 +634,8 @@ function buildQuestion(
     strategy,
     sliderAction: 'raise',
     sliderCorrectPct: strategy.raise,
-    // EP/LP は 4 択固定。Blind のみノード別出し分け (limp/check 等)。
-    availableActions: mode === 'blind' ? availableActionsOf(hands) : [...EP_LP_SELECT_ACTIONS],
+    // Blind はノード別出し分け。EP/LP は基本4択固定、相手オールイン (vs 5bet) のみ call/fold 2択。
+    availableActions: mode === 'blind' ? availableActionsOf(hands) : epLpSelectActions(hands),
     actionLabels: labelsFor(spec),
     limpAction: spec.limp,
   };

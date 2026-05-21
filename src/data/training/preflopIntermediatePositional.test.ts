@@ -45,6 +45,24 @@ describe('scoreSelectBase parity with scoreAnswer (4 アクション)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 相手オールインノード (vs 5bet): 2択表示でも採点が壊れない
+// ---------------------------------------------------------------------------
+
+describe('相手オールインノードの採点', () => {
+  it('GTO=call100% で call 選択 → 満点 2pt', () => {
+    expect(scoreSelectBase(st({ call: 100 }), ['call']).finalScore).toBe(2);
+  });
+  it('GTO=call100% で fold 選択 → -1pt', () => {
+    expect(scoreSelectBase(st({ call: 100 }), ['fold']).finalScore).toBe(-1);
+  });
+  it('raise/allin が 0% (選択肢に無い) でも未選択で減点されない', () => {
+    // GTO=call60/fold40。call+fold を選べば満点。raise/allin (0%) を選ばなくても
+    // 「70%以上の取りこぼし」に該当せず減点されない。
+    expect(scoreSelectBase(st({ call: 60, fold: 40 }), ['call', 'fold']).finalScore).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // limp 配点緩和 (Blind)
 // ---------------------------------------------------------------------------
 
@@ -200,7 +218,19 @@ describe('availableActionsOf / labels (buildQuestion)', () => {
     expect(q.limpAction).toBe('call');
   });
 
-  it('EP は call/fold のみのノードでも 4 択固定 (buildQuestion)', () => {
+  it('EP: raise/allin があるノード (vs3bet 等) は 4 択固定 (buildQuestion)', () => {
+    const hands = { AA: st({ allin: 20, raise: 30, call: 20, fold: 30 }), KK: st({ raise: 60, fold: 40 }) };
+    const q = __testing__.buildQuestion(
+      'ep',
+      __testing__.SPECS.ep_vs_3bet,
+      { file: 'x', hero: 'HJ', opener: 'HJ', threeBettor: 'BTN' },
+      'AA',
+      hands,
+    );
+    expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+  });
+
+  it('EP: 相手オールイン (call/fold のみ) のノードは 2 択 (buildQuestion)', () => {
     const hands = { AA: st({ call: 50, fold: 50 }), KK: st({ call: 30, fold: 70 }) };
     const q = __testing__.buildQuestion(
       'ep',
@@ -209,7 +239,7 @@ describe('availableActionsOf / labels (buildQuestion)', () => {
       'AA',
       hands,
     );
-    expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+    expect([...q.availableActions]).toEqual(['call', 'fold']);
   });
 
   it('vs open は call ラベルが「コール」', () => {
@@ -254,29 +284,42 @@ describe('generatePositionalQuestions (実データ)', () => {
         } else if (mode === 'blind') {
           expect(q.availableActions.length).toBeGreaterThan(0);
         } else {
-          // EP/LP の複数選択は常に 4 択固定 (allin/raise/call/fold)。
-          expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+          // EP/LP: 通常は 4 択固定。相手オールイン (vs 5bet) のみ call/fold 2択。
+          const a = [...q.availableActions];
+          const ok =
+            JSON.stringify(a) === JSON.stringify(['allin', 'raise', 'call', 'fold']) ||
+            JSON.stringify(a) === JSON.stringify(['call', 'fold']);
+          expect(ok).toBe(true);
         }
       }
     });
   }
 
-  it('ep: vs3bet / vs4bet の複数選択は常に 4 択固定 (レイズ欠落しない)', async () => {
+  it('ep: vs3bet は 4 択固定 (レイズ欠落しない)、vs4bet (相手オールイン) は call/fold 2択', async () => {
     __testing__.resetCache();
     const qs = await generatePositionalQuestions('ep');
-    const selects = qs.filter((q) => q.format === 'select');
-    expect(selects.length).toBeGreaterThan(0);
-    for (const q of selects) {
+    const vs3 = qs.filter((q) => q.scenarioKey === 'ep_vs_3bet');
+    const vs4 = qs.filter((q) => q.scenarioKey === 'ep_vs_4bet');
+    expect(vs3.length).toBeGreaterThan(0);
+    expect(vs4.length).toBeGreaterThan(0);
+    for (const q of vs3) {
       expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
       expect(q.actionLabels.call).toBe('コール'); // EP/LP は call=コール (リンプではない)
     }
+    for (const q of vs4) {
+      expect([...q.availableActions]).toEqual(['call', 'fold']);
+    }
   });
 
-  it('lp: 複数選択は常に 4 択固定', async () => {
+  it('lp: vs open / vs3bet は 4 択、vs4bet (相手オールイン) は call/fold 2択', async () => {
     __testing__.resetCache();
     const qs = await generatePositionalQuestions('lp');
     for (const q of qs.filter((x) => x.format === 'select')) {
-      expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+      if (q.scenarioKey === 'lp_vs_4bet') {
+        expect([...q.availableActions]).toEqual(['call', 'fold']);
+      } else {
+        expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+      }
     }
   });
 

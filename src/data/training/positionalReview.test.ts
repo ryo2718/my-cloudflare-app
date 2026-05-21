@@ -66,11 +66,11 @@ describe('recordToPositionalQuestion', () => {
     expect(q!.actionLabels.check).toBe('チェック');
   });
 
-  it('EP の複数選択は復元時も 4 択固定 (call/fold のみの戦略でも raise を含む)', () => {
+  it('EP vs3bet は復元時も 4 択固定', () => {
     const q = recordToPositionalQuestion(
       row({
         training_type: 'preflop_intermediate_ep',
-        scenario_type: 'ep_vs_4bet',
+        scenario_type: 'ep_vs_3bet',
         hero_position: 'HJ',
         opener_position: 'HJ',
         three_bettor_position: 'BTN',
@@ -80,6 +80,21 @@ describe('recordToPositionalQuestion', () => {
     );
     expect(q!.format).toBe('select');
     expect([...q!.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+  });
+
+  it('EP vs4bet (相手オールイン/vs 5bet) は復元時 call/fold 2択', () => {
+    const q = recordToPositionalQuestion(
+      row({
+        training_type: 'preflop_intermediate_ep',
+        scenario_type: 'ep_vs_4bet',
+        hero_position: 'HJ',
+        opener_position: 'HJ',
+        three_bettor_position: 'BTN',
+        gto_strategy: JSON.stringify({ allin: 0, raise: 0, call: 100, check: 0, fold: 0 }),
+        user_selections: JSON.stringify(['call']),
+      }),
+    );
+    expect([...q!.availableActions]).toEqual(['call', 'fold']);
   });
 
   it('非ポジション (中級総合) は null', () => {
