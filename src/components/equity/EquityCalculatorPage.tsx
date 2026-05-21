@@ -398,9 +398,6 @@ export function EquityCalculatorPage() {
         <div style={dividerStyle} />
         </div>
 
-        {!bothReady && (
-          <p style={hintStyle}>各プレイヤーの具体ハンド(2枚)かレンジを設定すると自動で勝率を計算します。</p>
-        )}
         {bothReady && !VALID_BOARD_COUNTS.has(boardCount) && (
           <p style={hintStyle}>ボードを3枚以上にすると計算します。</p>
         )}
