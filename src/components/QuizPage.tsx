@@ -8,6 +8,7 @@
 // ソリューション条件 (スタック/レーキ/open額) は各レベルのルール説明ページ側。
 
 import { useState, useEffect, type CSSProperties } from 'react';
+import { useInstantFeedback } from '../hooks/useInstantFeedback';
 import { MissedProblemsSection } from './training/MissedProblemsSection';
 import {
   TRAINING_CATALOG,
@@ -55,6 +56,7 @@ function tierOf(key: string): TierId {
 
 export function QuizPage() {
   const auth = useAuth();
+  const [instant, setInstant] = useInstantFeedback();
   const [records, setRecords] = useState<TrainingResult[]>([]);
   // 既定で「プリフロップ 中級」を開いておく。
   const [openTiers, setOpenTiers] = useState<Set<string>>(() => new Set(['preflop:中級']));
@@ -104,7 +106,13 @@ export function QuizPage() {
     <div style={pageStyle}>
       <AppHeader showBack />
       <main style={mainStyle}>
-        <h1 style={titleStyle}>トレーニング</h1>
+        <div style={titleRowStyle}>
+          <h1 style={titleStyle}>トレーニング</h1>
+          <label style={toggleLabelStyle}>
+            <input type="checkbox" checked={instant} onChange={(e) => setInstant(e.target.checked)} />
+            即時フィードバック
+          </label>
+        </div>
 
         {TRAINING_CATALOG.map((cat) => {
           // 難易度ごとにグループ化 (出現順を維持)。
@@ -248,6 +256,22 @@ const mainStyle: CSSProperties = {
   gap: '1.2rem',
 };
 const titleStyle: CSSProperties = { margin: 0, fontSize: '1.25rem', fontWeight: 700, color: THEME.textPrimary };
+const titleRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '0.6rem',
+  flexWrap: 'wrap',
+};
+const toggleLabelStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.35rem',
+  fontSize: '0.85rem',
+  fontWeight: 600,
+  color: THEME.textSecondary,
+  cursor: 'pointer',
+};
 const categorySectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.55rem' };
 const categoryHeaderStyle: CSSProperties = {
   fontSize: '0.92rem',

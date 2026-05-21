@@ -38,6 +38,9 @@ import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
 import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { QuitButton } from './QuitButton';
+import { InstantFeedback } from './InstantFeedback';
+import { NodeRangeSection } from './NodeRangeSection';
+import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
 
 export interface TrainingPlayProps {
@@ -59,6 +62,8 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
+  const [instant] = useState<boolean>(loadInstantFeedback);
+  const [feedback, setFeedback] = useState<{ chosen: CorrectAnswer; points: number } | null>(null);
   // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
   const [animReady, setAnimReady] = useState(false);
   const currentIdx = state.kind === 'ready' ? state.current : -1;
@@ -190,6 +195,25 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
     });
   };
 
+  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (記録は「次のハンドへ」で確定)。
+  const handleAnswer = (chosen: CorrectAnswer) => {
+    if (state.kind !== 'ready') return;
+    if (instant) {
+      if (feedback) return;
+      const q = state.questions[state.current];
+      setFeedback({ chosen, points: q.correct === chosen ? 1 : -1 });
+      return;
+    }
+    advance(chosen, state);
+  };
+
+  const proceed = () => {
+    if (!feedback) return;
+    const chosen = feedback.chosen;
+    setFeedback(null);
+    advance(chosen, state);
+  };
+
   if (state.kind === 'loading') {
     return (
       <div style={pageStyle}>
@@ -232,11 +256,11 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
         </div>
       </header>
 
-      {animReady && typeof level.timeLimitSec === 'number' && (
+      {animReady && !feedback && typeof level.timeLimitSec === 'number' && (
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={level.timeLimitSec}
-          onTimeUp={() => advance('fold', state)}
+          onTimeUp={() => handleAnswer('fold')}
         />
       )}
 
@@ -258,22 +282,20 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
           />
         </section>
 
-        <section style={actionRowStyle}>
-          <button
-            type="button"
-            onClick={() => advance('participate', state)}
-            style={joinBtnStyle}
-          >
-            参加
-          </button>
-          <button
-            type="button"
-            onClick={() => advance('fold', state)}
-            style={foldBtnStyle}
-          >
-            参加しない
-          </button>
-        </section>
+        {feedback ? (
+          <InstantFeedback points={feedback.points} onNext={proceed}>
+            <NodeRangeSection file={beginnerNodeFile(q)} highlightHand={q.hand} />
+          </InstantFeedback>
+        ) : (
+          <section style={actionRowStyle}>
+            <button type="button" onClick={() => handleAnswer('participate')} style={joinBtnStyle}>
+              参加
+            </button>
+            <button type="button" onClick={() => handleAnswer('fold')} style={foldBtnStyle}>
+              参加しない
+            </button>
+          </section>
+        )}
       </main>
     </div>
   );

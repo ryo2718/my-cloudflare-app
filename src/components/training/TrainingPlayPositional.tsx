@@ -35,6 +35,9 @@ import { THEME } from '../../styles/theme';
 import { SliderChoice } from './SliderChoice';
 import { PositionalChoices } from './PositionalChoices';
 import { QuitButton } from './QuitButton';
+import { InstantFeedback } from './InstantFeedback';
+import { NodeRangeSection } from './NodeRangeSection';
+import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
 
 const TIMER_SECONDS = 20;
@@ -60,6 +63,9 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
+  // 即時フィードバック (セッション開始時の設定で固定)。ON のとき回答直後に答えを表示。
+  const [instant] = useState<boolean>(loadInstantFeedback);
+  const [feedback, setFeedback] = useState<{ response: PositionalResponse; points: number } | null>(null);
   const mode = modeFromLevelKey(level.key);
   // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
   const [animReady, setAnimReady] = useState(false);
@@ -141,6 +147,26 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
     });
   };
 
+  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (採点・記録は「次のハンドへ」で確定)。
+  const handleResponse = (res: PositionalResponse) => {
+    if (state.kind !== 'ready') return;
+    if (instant) {
+      if (feedback) return; // 表示中の重複回答を無視
+      const pts = scorePositionalPoints(state.questions[state.current], res);
+      setFeedback({ response: res, points: pts });
+      return;
+    }
+    advance(res, state);
+  };
+
+  // 「次のハンドへ」: 保留中の回答で採点・記録して次へ進む。
+  const proceed = () => {
+    if (!feedback) return;
+    const res = feedback.response;
+    setFeedback(null);
+    advance(res, state);
+  };
+
   if (!mode) {
     return (
       <div style={pageStyle}>
@@ -195,11 +221,11 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
         </div>
       </header>
 
-      {animReady && (
+      {animReady && !feedback && (
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={TIMER_SECONDS}
-          onTimeUp={() => advance({ kind: 'timeout' }, state)}
+          onTimeUp={() => handleResponse({ kind: 'timeout' })}
         />
       )}
 
@@ -222,19 +248,31 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
           />
         </section>
 
-        {q.format === 'slider' ? (
+        {feedback ? (
+          <InstantFeedback points={feedback.points} onNext={proceed}>
+            {feedback.response.kind === 'slider' && (
+              <div style={sliderPctStyle}>
+                正解 {q.sliderCorrectPct}% / あなた {feedback.response.pct}%
+              </div>
+            )}
+            <NodeRangeSection
+              file={positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor })}
+              highlightHand={q.hand}
+            />
+          </InstantFeedback>
+        ) : q.format === 'slider' ? (
           <SliderChoice
             key={`slider-${state.current}`}
             actionLabel={q.actionLabels[q.sliderAction]}
-            onSubmit={(pct) => advance({ kind: 'slider', pct }, state)}
-            onSkip={() => advance({ kind: 'skip' }, state)}
+            onSubmit={(pct) => handleResponse({ kind: 'slider', pct })}
+            onSkip={() => handleResponse({ kind: 'skip' })}
           />
         ) : (
           <PositionalChoices
             key={`select-${state.current}`}
             availableActions={q.availableActions}
             actionLabels={q.actionLabels}
-            onSubmit={(selections) => advance({ kind: 'select', selections }, state)}
+            onSubmit={(selections) => handleResponse({ kind: 'select', selections })}
           />
         )}
       </main>
@@ -306,6 +344,13 @@ const mainStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
+};
+const sliderPctStyle: CSSProperties = {
+  textAlign: 'center',
+  fontSize: '0.9rem',
+  fontWeight: 700,
+  color: THEME.textPrimary,
+  fontVariantNumeric: 'tabular-nums',
 };
 const handSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' };
 const handLabelStyle: CSSProperties = {

@@ -35,6 +35,9 @@ import { ActionTable } from './ActionTable';
 import { IntermediateChoices } from './IntermediateChoices';
 import { intermediateScenarioLabel, rangeFileFor } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
+import { InstantFeedback } from './InstantFeedback';
+import { NodeRangeSection } from './NodeRangeSection';
+import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
 
 const TIMER_SECONDS = 20;
@@ -58,6 +61,8 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
+  const [instant] = useState<boolean>(loadInstantFeedback);
+  const [feedback, setFeedback] = useState<{ selections: ReadonlyArray<Action>; timedOut: boolean; points: number } | null>(null);
   // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
   const [animReady, setAnimReady] = useState(false);
   const currentIdx = state.kind === 'ready' ? state.current : -1;
@@ -189,6 +194,26 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
     });
   };
 
+  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (採点・記録は「次のハンドへ」で確定)。
+  const handleResponse = (selections: ReadonlyArray<Action>, timedOut: boolean) => {
+    if (state.kind !== 'ready') return;
+    if (instant) {
+      if (feedback) return;
+      const q = state.questions[state.current];
+      const breakdown = timedOut ? scoreTimeout(q.strategy) : scoreAnswer(q.strategy, selections);
+      setFeedback({ selections, timedOut, points: breakdown.finalScore });
+      return;
+    }
+    advance(selections, timedOut, state);
+  };
+
+  const proceed = () => {
+    if (!feedback) return;
+    const { selections, timedOut } = feedback;
+    setFeedback(null);
+    advance(selections, timedOut, state);
+  };
+
   if (state.kind === 'loading') {
     return (
       <div style={pageStyle}>
@@ -231,11 +256,11 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         </div>
       </header>
 
-      {animReady && (
+      {animReady && !feedback && (
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={TIMER_SECONDS}
-          onTimeUp={() => advance([], true, state)}
+          onTimeUp={() => handleResponse([], true)}
         />
       )}
 
@@ -258,11 +283,17 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
           />
         </section>
 
-        <IntermediateChoices
-          // key で問題切り替え時に内部 state リセット
-          key={`choices-${state.current}`}
-          onSubmit={(selections) => advance(selections, false, state)}
-        />
+        {feedback ? (
+          <InstantFeedback points={feedback.points} onNext={proceed}>
+            <NodeRangeSection file={rangeFileFor(q)} highlightHand={q.hand} />
+          </InstantFeedback>
+        ) : (
+          <IntermediateChoices
+            // key で問題切り替え時に内部 state リセット
+            key={`choices-${state.current}`}
+            onSubmit={(selections) => handleResponse(selections, false)}
+          />
+        )}
       </main>
     </div>
   );
