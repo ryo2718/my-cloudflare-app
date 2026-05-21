@@ -66,6 +66,22 @@ describe('recordToPositionalQuestion', () => {
     expect(q!.actionLabels.check).toBe('チェック');
   });
 
+  it('EP の複数選択は復元時も 4 択固定 (call/fold のみの戦略でも raise を含む)', () => {
+    const q = recordToPositionalQuestion(
+      row({
+        training_type: 'preflop_intermediate_ep',
+        scenario_type: 'ep_vs_4bet',
+        hero_position: 'HJ',
+        opener_position: 'HJ',
+        three_bettor_position: 'BTN',
+        gto_strategy: JSON.stringify({ allin: 0, raise: 0, call: 40, check: 0, fold: 60 }),
+        user_selections: JSON.stringify(['call']),
+      }),
+    );
+    expect(q!.format).toBe('select');
+    expect([...q!.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+  });
+
   it('非ポジション (中級総合) は null', () => {
     expect(recordToPositionalQuestion(row({ training_type: 'preflop_intermediate' }))).toBeNull();
   });

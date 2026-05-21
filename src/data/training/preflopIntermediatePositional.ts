@@ -95,6 +95,12 @@ export interface ScoreBreakdown {
 
 const POS_ACTIONS: ReadonlyArray<PositionalAction> = ['allin', 'raise', 'call', 'check', 'fold'];
 
+/**
+ * EP/LP の複数選択は常に 4 択固定 (中級総合と同じ)。GTO 上 0% のアクションもボタンは表示する。
+ * ノード別の出し分け (limp/check 等) は Blind 専用。
+ */
+export const EP_LP_SELECT_ACTIONS: ReadonlyArray<PositionalAction> = ['allin', 'raise', 'call', 'fold'];
+
 // しきい値は preflopIntermediate.ts の複数選択採点と同一 (parity test で担保)。
 const BAND_ZERO = 10;
 const BAND_HALF = 20;
@@ -602,7 +608,8 @@ function buildQuestion(
     strategy,
     sliderAction: 'raise',
     sliderCorrectPct: strategy.raise,
-    availableActions: availableActionsOf(hands),
+    // EP/LP は 4 択固定。Blind のみノード別出し分け (limp/check 等)。
+    availableActions: mode === 'blind' ? availableActionsOf(hands) : [...EP_LP_SELECT_ACTIONS],
     actionLabels: labelsFor(spec),
     limpAction: spec.limp,
   };

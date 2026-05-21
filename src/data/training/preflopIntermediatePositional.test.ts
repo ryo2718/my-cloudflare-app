@@ -200,6 +200,18 @@ describe('availableActionsOf / labels (buildQuestion)', () => {
     expect(q.limpAction).toBe('call');
   });
 
+  it('EP は call/fold のみのノードでも 4 択固定 (buildQuestion)', () => {
+    const hands = { AA: st({ call: 50, fold: 50 }), KK: st({ call: 30, fold: 70 }) };
+    const q = __testing__.buildQuestion(
+      'ep',
+      __testing__.SPECS.ep_vs_4bet,
+      { file: 'x', hero: 'HJ', opener: 'HJ', threeBettor: 'BTN' },
+      'AA',
+      hands,
+    );
+    expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+  });
+
   it('vs open は call ラベルが「コール」', () => {
     const hands = { AA: st({ raise: 80, call: 20 }), KK: st({ call: 50, fold: 50 }) };
     const q = __testing__.buildQuestion('blind', __testing__.SPECS.sb_vs_open, { file: 'utgr_sb.json', hero: 'SB', opener: 'UTG' }, 'AA', hands);
@@ -239,12 +251,34 @@ describe('generatePositionalQuestions (実データ)', () => {
         expect(q.hand.length).toBeGreaterThanOrEqual(2);
         if (q.format === 'slider') {
           expect(q.sliderCorrectPct).toBe(q.strategy.raise);
-        } else {
+        } else if (mode === 'blind') {
           expect(q.availableActions.length).toBeGreaterThan(0);
+        } else {
+          // EP/LP の複数選択は常に 4 択固定 (allin/raise/call/fold)。
+          expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
         }
       }
     });
   }
+
+  it('ep: vs3bet / vs4bet の複数選択は常に 4 択固定 (レイズ欠落しない)', async () => {
+    __testing__.resetCache();
+    const qs = await generatePositionalQuestions('ep');
+    const selects = qs.filter((q) => q.format === 'select');
+    expect(selects.length).toBeGreaterThan(0);
+    for (const q of selects) {
+      expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+      expect(q.actionLabels.call).toBe('コール'); // EP/LP は call=コール (リンプではない)
+    }
+  });
+
+  it('lp: 複数選択は常に 4 択固定', async () => {
+    __testing__.resetCache();
+    const qs = await generatePositionalQuestions('lp');
+    for (const q of qs.filter((x) => x.format === 'select')) {
+      expect([...q.availableActions]).toEqual(['allin', 'raise', 'call', 'fold']);
+    }
+  });
 
   it('blind: SB open は call=リンプ・limpAction=call の問題を含む', async () => {
     __testing__.resetCache();
