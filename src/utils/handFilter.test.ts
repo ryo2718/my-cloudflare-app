@@ -115,6 +115,8 @@ describe('handFilter: ストレート内訳 (全ての成立ストレート)', (
     // T8s は T ハイのみ。
     expect(byLabel('T ハイ')!.combos).toContain(k('Tc', '8c'));
     expect(byLabel('9 ハイ')!.combos).not.toContain(k('Tc', '8c'));
+    // 内訳は「ハイ → スート単位コンボ(4文字キー)」の構造。
+    for (const it of st.items) for (const c of it.combos) expect(c.length).toBe(4);
   });
 
   it('ストレートが成立しないボード (K J 2 J 4) はストレート役なし', () => {

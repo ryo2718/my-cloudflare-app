@@ -10,7 +10,8 @@ import { PlayingCard } from '../PlayingCard';
 import { THEME } from '../../styles/theme';
 import { cardToInt } from '../../utils/handEvaluator';
 import { cardToString, type Card } from '../../types/card';
-import { ROLE_LABEL, analyzeBoard, applyFilter, type RoleKey } from '../../utils/handFilter';
+import { ROLE_LABEL, analyzeBoard, applyFilter, type BreakdownItem, type RoleKey } from '../../utils/handFilter';
+import { ComboCards } from './ComboCards';
 
 const CHIP_ON_BG = '#EAF3DE';
 const CHIP_ON_BORDER = '#639922';
@@ -64,6 +65,10 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
   const lastOn = onRoles.length > 0 ? onRoles[onRoles.length - 1] : null;
   const panelGroup = lastOn ? groups.find((g) => g.key === lastOn) ?? null : null;
 
+  // item 配下の具体コンボ key (フラッシュ等は children、それ以外は combos)。
+  const comboKeysOf = (item: BreakdownItem): string[] =>
+    item.children ? item.children.map((c) => c.key) : item.combos;
+
   const collectKeys = (): Set<string> => {
     const keys = new Set<string>();
     for (const rk of onRoles) {
@@ -71,13 +76,9 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
       if (!g) continue;
       for (const item of g.items) {
         if (offItems.has(`${rk}|${item.key}`)) continue;
-        if (item.children) {
-          for (const ch of item.children) {
-            if (offItems.has(`${rk}|${item.key}|${ch.key}`)) continue;
-            for (const c of ch.combos) keys.add(c);
-          }
-        } else {
-          for (const c of item.combos) keys.add(c);
+        for (const ck of comboKeysOf(item)) {
+          if (offItems.has(`${rk}|${item.key}|${ck}`)) continue;
+          keys.add(ck);
         }
       }
     }
@@ -127,18 +128,18 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
                     <input type="checkbox" checked={itemOn} onChange={() => toggleLeaf(itemLeaf)} />
                     {item.label}
                   </label>
-                  {item.children && itemOn && (
-                    <div style={childrenStyle}>
-                      {item.children.map((ch) => {
-                        const childLeaf = `${panelGroup.key}|${item.key}|${ch.key}`;
+                  {itemOn && (
+                    <div style={combosWrapStyle}>
+                      {comboKeysOf(item).map((ck) => {
+                        const comboLeaf = `${panelGroup.key}|${item.key}|${ck}`;
                         return (
-                          <label key={ch.key} style={childRowStyle}>
+                          <label key={ck} style={comboChipStyle}>
                             <input
                               type="checkbox"
-                              checked={!offItems.has(childLeaf)}
-                              onChange={() => toggleLeaf(childLeaf)}
+                              checked={!offItems.has(comboLeaf)}
+                              onChange={() => toggleLeaf(comboLeaf)}
                             />
-                            {ch.label}
+                            <ComboCards comboKey={ck} />
                           </label>
                         );
                       })}
@@ -220,18 +221,18 @@ const itemRowStyle: CSSProperties = {
   color: THEME.textPrimary,
   cursor: 'pointer',
 };
-const childrenStyle: CSSProperties = {
+// 中間見出し配下の具体コンボ (カードビジュアル) を flex-wrap で折り返し。
+const combosWrapStyle: CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: '0.1rem 0.8rem',
+  gap: '0.2rem 0.6rem',
   paddingLeft: '1.2rem',
 };
-const childRowStyle: CSSProperties = {
-  display: 'flex',
+const comboChipStyle: CSSProperties = {
+  display: 'inline-flex',
   alignItems: 'center',
-  gap: '0.3rem',
-  fontSize: '0.78rem',
-  color: THEME.textSecondary,
+  gap: '0.25rem',
+  fontSize: '0.82rem',
   cursor: 'pointer',
 };
 const applyStyle: CSSProperties = {

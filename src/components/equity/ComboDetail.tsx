@@ -5,9 +5,10 @@
 //   - 選択中は黄色
 
 import type { CSSProperties } from 'react';
-import { SUITS, SUIT_SYMBOL, SUIT_COLOR, type Card } from '../../types/card';
+import { SUITS } from '../../types/card';
 import { THEME } from '../../styles/theme';
 import { comboAtSuits, comboKeyOf, type MatrixHand } from '../../utils/combos';
+import { ComboCards } from './ComboCards';
 
 const CELL_FULL = '#fcd34d';
 const CELL_PARTIAL = '#86efac';
@@ -46,23 +47,13 @@ export function ComboDetail({ hand, selected, excludedCards, onToggle }: ComboDe
                 aria-pressed={w > 0}
                 style={{ ...cellStyle, background: bg, ...(excluded ? cellDisabledStyle : null) }}
               >
-                <CardLabel card={combo[0]} />
-                <CardLabel card={combo[1]} />
+                <ComboCards comboKey={key} />
               </button>
             );
           }),
         )}
       </div>
     </div>
-  );
-}
-
-function CardLabel({ card }: { card: Card }) {
-  return (
-    <span style={{ color: SUIT_COLOR[card.suit] }}>
-      {card.rank}
-      {SUIT_SYMBOL[card.suit]}
-    </span>
   );
 }
 
