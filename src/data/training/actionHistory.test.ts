@@ -97,6 +97,39 @@ describe('actionsBeforeHero (ヒーロー以降を除外)', () => {
     expect(r).toHaveLength(6); // HJ(3bet, 後ろの席) も含む
     expect(r.some((x) => x.position === 'HJ' && x.kind === 'raise')).toBe(true);
   });
+
+  it('vs3bet: 後段の 3bet を時系列 (席順) に並べ替える (HJ 3bet は fold より前)', () => {
+    // データは UTG open → CO/BTN/SB/BB fold → HJ 3bet の順 (非時系列)。
+    const vs3bet = parseActionHistory([
+      { position: 'UTG', action: 'Raise 2.5' },
+      { position: 'CO', action: 'Fold' },
+      { position: 'BTN', action: 'Fold' },
+      { position: 'SB', action: 'Fold' },
+      { position: 'BB', action: 'Fold' },
+      { position: 'HJ', action: 'Raise 7.5' },
+    ]);
+    const r = actionsBeforeHero(vs3bet, 'UTG');
+    // 時系列 (席順): UTG, HJ(3bet), CO, BTN, SB, BB
+    expect(r.map((x) => x.position)).toEqual(['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']);
+    expect(r[1]).toEqual({ position: 'HJ', kind: 'raise', amount: 7.5 });
+  });
+
+  it('vs4bet: 多ラウンドを時系列に (UTG open, HJ 3bet, folds, UTG 4bet)', () => {
+    const vs4bet = parseActionHistory([
+      { position: 'UTG', action: 'Raise 2.5' },
+      { position: 'CO', action: 'Fold' },
+      { position: 'BTN', action: 'Fold' },
+      { position: 'SB', action: 'Fold' },
+      { position: 'BB', action: 'Fold' },
+      { position: 'HJ', action: 'Raise 7.5' },
+      { position: 'UTG', action: 'Raise 20' },
+    ]);
+    const r = actionsBeforeHero(vs4bet, 'HJ');
+    expect(r.map((x) => `${x.position}:${x.kind}`)).toEqual([
+      'UTG:raise', 'HJ:raise', 'CO:fold', 'BTN:fold', 'SB:fold', 'BB:fold', 'UTG:raise',
+    ]);
+    expect(r[6]).toEqual({ position: 'UTG', kind: 'raise', amount: 20 }); // 4bet は最後 (round2)
+  });
 });
 
 describe('withBlinds', () => {

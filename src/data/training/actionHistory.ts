@@ -72,10 +72,41 @@ const SEAT_ORDER: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB
  *   - ヒーローが履歴に登場する (= vs3bet/4bet 等の多ラウンド) → 全アクション (全て現決断より前)
  */
 export function actionsBeforeHero(items: ReadonlyArray<ActionItem>, hero: Position): ActionItem[] {
-  if (items.some((it) => it.position === hero)) return [...items];
+  if (items.some((it) => it.position === hero)) return chronologicalOrder(items);
   const heroIdx = SEAT_ORDER.indexOf(hero);
-  if (heroIdx < 0) return [...items];
-  return items.filter((it) => SEAT_ORDER.indexOf(it.position) < heroIdx);
+  if (heroIdx < 0) return chronologicalOrder(items);
+  return chronologicalOrder(items.filter((it) => SEAT_ORDER.indexOf(it.position) < heroIdx));
+}
+
+/**
+ * アクション列を時系列 (ベッティングラウンド × 席順) に並べ直す。
+ *
+ * GTO ノードの action_history は後段のレイズ (3bet/4bet/5bet) を末尾にまとめて並べるため
+ * (例: 「UTG open → CO/BTN/SB/BB fold → HJ 3bet」)、そのまま再生すると
+ * 「全員フォールド後に HJ が 3bet」のように非時系列なアニメになる。
+ * 各ポジションの N 回目アクションを席順に拾うことで、各ラウンドを席順に再構成する
+ * (round0 = 各席の1回目を席順 = UTG open, HJ 3bet, …fold、round1 = 2回目 = UTG 4bet …)。
+ */
+function chronologicalOrder(items: ReadonlyArray<ActionItem>): ActionItem[] {
+  const byPos = new Map<Position, ActionItem[]>();
+  for (const it of items) {
+    const arr = byPos.get(it.position);
+    if (arr) arr.push(it);
+    else byPos.set(it.position, [it]);
+  }
+  const out: ActionItem[] = [];
+  for (let round = 0; ; round++) {
+    let added = false;
+    for (const pos of SEAT_ORDER) {
+      const arr = byPos.get(pos);
+      if (arr && arr.length > round) {
+        out.push(arr[round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
 }
 
 const cache: Record<string, ActionItem[]> = {};
