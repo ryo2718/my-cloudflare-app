@@ -1,6 +1,6 @@
 import type { Action, Strategy } from '../types/strategy';
 import { THEME } from '../styles/theme';
-import { RANKS, getHandName } from '../utils/hands';
+import { HandGrid } from './HandGrid';
 import { HandCell } from './HandCell';
 
 interface Props {
@@ -22,47 +22,28 @@ export function HandMatrix({ strategy, actions, hoveredHand, onHover }: Props) {
         width: '100%',
       }}
     >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(13, 1fr)',
-          gap: 0,
-          // 各セルが border:1px solid #000、gap:0 — 隣接セル境界は 2pxに見えるが、
-          // 黒明確で目的(セル区切り曖昧の解消)を満たす。container 自身も 2px 黒で seal。
+      {/* 各セルが border:1px solid #000、gap:0 — 隣接セル境界は 2px に見えるが目的を満たす。 */}
+      <HandGrid
+        gridStyle={{ gap: 0 }}
+        renderCell={(hand) => {
+          const freqs = (strategy as Record<string, number[]>)[hand];
+          // 親ノードに含まれないハンド (= sparse strategy で key 未定義) は空セル。
+          // key が存在するハンドは GTO レンジ内なので、 fold 100% でも色塗り (青) する。
+          const isUnreachable = !freqs || freqs.length === 0;
+          if (isUnreachable) {
+            return <div style={{ background: THEME.cellEmpty, border: '1px solid #000000', aspectRatio: '1' }} />;
+          }
+          return (
+            <HandCell
+              hand={hand}
+              frequencies={freqs}
+              actions={actions}
+              hovered={hoveredHand === hand}
+              onHover={onHover}
+            />
+          );
         }}
-      >
-        {RANKS.map((_, row) =>
-          RANKS.map((_, col) => {
-            const hand = getHandName(row, col);
-            const freqs = (strategy as Record<string, number[]>)[hand];
-            // 親ノードに含まれないハンド (= sparse strategy で key 未定義) は空セル。
-            // key が存在するハンドは GTO レンジ内なので、 fold 100% でも色塗り (青) する。
-            const isUnreachable = !freqs || freqs.length === 0;
-            if (isUnreachable) {
-              return (
-                <div
-                  key={`${row}-${col}`}
-                  style={{
-                    background: THEME.cellEmpty,
-                    border: '1px solid #000000',
-                    aspectRatio: '1',
-                  }}
-                />
-              );
-            }
-            return (
-              <HandCell
-                key={`${row}-${col}`}
-                hand={hand}
-                frequencies={freqs}
-                actions={actions}
-                hovered={hoveredHand === hand}
-                onHover={onHover}
-              />
-            );
-          }),
-        )}
-      </div>
+      />
     </div>
   );
 }

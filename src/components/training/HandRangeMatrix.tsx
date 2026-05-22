@@ -13,7 +13,8 @@
 
 import type { CSSProperties } from 'react';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
-import { ACTION_BG, MATRIX_RANKS, cellHand, paintCell, hasCheckAction } from './HandRangeMatrix.helpers';
+import { ACTION_BG, paintCell, hasCheckAction } from './HandRangeMatrix.helpers';
+import { HandGrid } from '../HandGrid';
 
 export interface HandRangeMatrixProps {
   /** 戦略マップ: hand 表記 ("AA", "AKs", "72o" 等) → HandStrategy。 */
@@ -32,25 +33,22 @@ export function HandRangeMatrix({ hands, highlightHand, caption, onSelect, selec
   return (
     <figure style={figureStyle} aria-label={caption ?? 'ハンドレンジマトリクス'}>
       {caption && <figcaption style={captionStyle}>{caption}</figcaption>}
-      <div style={gridStyle} role="grid">
-        {MATRIX_RANKS.map((_, row) =>
-          MATRIX_RANKS.map((__, col) => {
-            const hand = cellHand(row, col);
-            const strategy = hands[hand];
-            const { segments } = paintCell(strategy);
-            return (
-              <Cell
-                key={`${row}-${col}`}
-                hand={hand}
-                segments={segments}
-                highlight={hand === highlightHand}
-                selected={hand === selectedHand}
-                onClick={onSelect ? () => onSelect(hand) : undefined}
-              />
-            );
-          }),
-        )}
-      </div>
+      <HandGrid
+        role="grid"
+        gridStyle={gridStyle}
+        renderCell={(hand) => {
+          const { segments } = paintCell(hands[hand]);
+          return (
+            <Cell
+              hand={hand}
+              segments={segments}
+              highlight={hand === highlightHand}
+              selected={hand === selectedHand}
+              onClick={onSelect ? () => onSelect(hand) : undefined}
+            />
+          );
+        }}
+      />
       <Legend hasCheck={hasCheckAction(hands)} />
     </figure>
   );

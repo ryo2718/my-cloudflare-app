@@ -34,7 +34,7 @@ import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { SliderChoice } from './SliderChoice';
-import { PositionalChoices } from './PositionalChoices';
+import { ChoiceButtons } from './ChoiceButtons';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
@@ -199,7 +199,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
             onSkip={() => onAnswer({ kind: 'skip' })}
           />
         ) : (
-          <PositionalChoices
+          <ChoiceButtons
             key={`select-${state.current}`}
             availableActions={q.availableActions}
             actionLabels={q.actionLabels}

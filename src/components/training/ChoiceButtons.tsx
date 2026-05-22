@@ -1,35 +1,34 @@
-// 中級ポジション別 (Blind 等) の複数選択 UI。用語定義は src/data/training/GLOSSARY.md を参照。
-//
-// 既存 IntermediateChoices と異なり、ノードで実際に使われるアクションだけを表示し、
-// ラベルもノードに応じて出し分ける (例: SB open の call=「リンプ」、BB vs limp の check=「チェック」)。
-// 配色は actionButtonStyle.ts で全レベル共通 (薄い地色 + 濃い 2px 枠)。
+// 複数選択形式問題の選択肢ボタン (全モード共通)。
+// 旧 IntermediateChoices (4択固定) と PositionalChoices (availableActions/ラベル可変) を統合。
+// 薄い地色 + 濃い 2px 枠 + 濃い文字。チェックボックスは濃色 (選択=塗り+白チェック)。
+//   - availableActions: 表示するアクション (ACTION_ORDER で表示/選択順を正規化)。
+//   - actionLabels: アクション別ラベル (例 SB open の call=「リンプ」)。
 
 import { useState, type CSSProperties } from 'react';
-import type { PositionalAction } from '../../data/training/preflopIntermediatePositional';
-import { ACTION_BUTTON_COLORS } from './actionButtonStyle';
+import { ACTION_BUTTON_COLORS, type ButtonActionKey } from './actionButtonStyle';
 import { THEME } from '../../styles/theme';
 
-const ACTION_ORDER: ReadonlyArray<PositionalAction> = ['allin', 'raise', 'call', 'check', 'fold'];
+const ACTION_ORDER: ReadonlyArray<string> = ['allin', 'raise', 'call', 'check', 'fold'];
 
-export interface PositionalChoicesProps {
-  /** 表示するアクション (ノード由来の順序は ACTION_ORDER で正規化)。 */
-  availableActions: ReadonlyArray<PositionalAction>;
+export interface ChoiceButtonsProps<A extends string> {
+  /** 表示するアクション (順序は ACTION_ORDER で正規化)。 */
+  availableActions: ReadonlyArray<A>;
   /** アクション別ラベル。 */
-  actionLabels: Record<PositionalAction, string>;
-  onSubmit: (selections: ReadonlyArray<PositionalAction>) => void;
+  actionLabels: Record<A, string>;
+  onSubmit: (selections: ReadonlyArray<A>) => void;
   disabled?: boolean;
 }
 
-export function PositionalChoices({
+export function ChoiceButtons<A extends string>({
   availableActions,
   actionLabels,
   onSubmit,
   disabled = false,
-}: PositionalChoicesProps) {
-  const [selected, setSelected] = useState<ReadonlyArray<PositionalAction>>([]);
-  const actions = ACTION_ORDER.filter((a) => availableActions.includes(a));
+}: ChoiceButtonsProps<A>) {
+  const [selected, setSelected] = useState<ReadonlyArray<A>>([]);
+  const actions = ACTION_ORDER.filter((a) => (availableActions as ReadonlyArray<string>).includes(a)) as A[];
 
-  const toggle = (a: PositionalAction) => {
+  const toggle = (a: A) => {
     if (disabled) return;
     setSelected((prev) => {
       if (prev.includes(a)) return prev.filter((x) => x !== a);
@@ -45,7 +44,7 @@ export function PositionalChoices({
       <ul style={listStyle}>
         {actions.map((a) => {
           const isOn = selected.includes(a);
-          const color = ACTION_BUTTON_COLORS[a];
+          const color = ACTION_BUTTON_COLORS[a as ButtonActionKey];
           const row: CSSProperties = {
             ...rowBase,
             background: color.bg,
@@ -98,7 +97,7 @@ function checkboxStyle(on: boolean, color: string): CSSProperties {
 }
 
 // ---------------------------------------------------------------------------
-// Styles (IntermediateChoices と統一)
+// Styles
 // ---------------------------------------------------------------------------
 
 const containerStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.6rem' };

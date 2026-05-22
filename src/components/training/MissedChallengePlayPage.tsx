@@ -30,9 +30,9 @@ import type { Position } from '../../types/strategy';
 import { CardSet } from '../CardSet';
 import { ActionTable } from './ActionTable';
 import { beginnerNodeFile } from '../../data/training/preflopBeginner';
-import { IntermediateChoices } from './IntermediateChoices';
+import { ChoiceButtons } from './ChoiceButtons';
+import { ACTION_LABEL } from './actionButtonStyle';
 import { SliderChoice } from './SliderChoice';
-import { PositionalChoices } from './PositionalChoices';
 import { positionalPillStyle } from './positionalPill';
 import { intermediateScenarioLabel, rangeFileFor } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
@@ -354,7 +354,6 @@ function BeginnerStage({ q, onAnswer, feedback }: { q: PreflopQuestion; onAnswer
 }
 
 function IntermediateStage({ q, onAnswer, feedback }: { q: IntermediateQuestion; onAnswer: (sel: ReadonlyArray<Action>) => void; feedback?: ReactNode }) {
-  void ACTIONS;
   const scenarioPill = useMemo(() => intermediateScenarioLabel(q), [q]);
   return (
     <>
@@ -364,7 +363,7 @@ function IntermediateStage({ q, onAnswer, feedback }: { q: IntermediateQuestion;
         <span style={handLabelStyle}>ハンド</span>
         <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
       </section>
-      {feedback ?? <IntermediateChoices onSubmit={onAnswer} />}
+      {feedback ?? <ChoiceButtons availableActions={ACTIONS} actionLabels={ACTION_LABEL} onSubmit={onAnswer} />}
     </>
   );
 }
@@ -390,7 +389,7 @@ function PositionalStage({ q, onAnswer, feedback }: { q: PositionalQuestion; onA
             onSkip={() => onAnswer({ kind: 'skip' })}
           />
         ) : (
-          <PositionalChoices
+          <ChoiceButtons
             availableActions={q.availableActions}
             actionLabels={q.actionLabels}
             onSubmit={(selections) => onAnswer({ kind: 'select', selections })}

@@ -18,7 +18,7 @@ import {
   type TrainingLevel,
 } from '../../data/trainingCatalog';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
-import { ACTION_LABEL } from './IntermediateChoices';
+import { ACTION_LABEL } from './actionButtonStyle';
 
 /** 4 アクションの統一カラー (チェックボックス・名前・%)。 */
 const STRATEGY_COLORS: Record<Action, { check: string; text: string }> = {

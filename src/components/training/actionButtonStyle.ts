@@ -16,6 +16,14 @@ export interface ActionButtonColor {
 
 export type ButtonActionKey = 'allin' | 'raise' | 'call' | 'check' | 'fold';
 
+/** 中級総合 (4択固定) のアクションラベル。選択肢ボタン / 復習画面で参照。 */
+export const ACTION_LABEL: Record<'allin' | 'raise' | 'call' | 'fold', string> = {
+  allin: 'オールイン',
+  raise: 'レイズ',
+  call: 'コール',
+  fold: 'フォールド',
+};
+
 // 濃枠 (border) はアクション色の単一定義 (ACTION_COLOR) を参照。
 // 薄地 (bg) / 文字色 (text) / チェックボックス塗り (check) は装飾シェードで据え置き。
 export const ACTION_BUTTON_COLORS: Record<ButtonActionKey, ActionButtonColor> = {

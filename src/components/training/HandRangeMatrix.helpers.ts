@@ -2,10 +2,10 @@
 
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { ACTION_COLOR } from '../../styles/actionColors';
+import { RANKS, getHandName } from '../../utils/hands';
 
-export const MATRIX_RANKS: ReadonlyArray<string> = [
-  'A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2',
-];
+// 座標 (ランク並び / row,col→ハンド) は utils/hands に一本化。後方互換で再エクスポート。
+export const MATRIX_RANKS: ReadonlyArray<string> = RANKS;
 
 /**
  * アクションごとのセル色。アクション色の単一定義 (ACTION_COLOR) を参照する。
@@ -75,11 +75,7 @@ export function paintCell(strategy: HandStrategy | undefined): CellPaint {
   return { segments };
 }
 
-/** (row, col) → ハンド表記。 */
+/** (row, col) → ハンド表記。utils/hands に委譲 (単一の座標ロジック)。 */
 export function cellHand(row: number, col: number): string {
-  const r1 = MATRIX_RANKS[row];
-  const r2 = MATRIX_RANKS[col];
-  if (row === col) return r1 + r1;
-  if (row < col) return r1 + r2 + 's';
-  return r2 + r1 + 'o';
+  return getHandName(row, col);
 }

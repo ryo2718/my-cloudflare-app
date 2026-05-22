@@ -25,7 +25,7 @@ import {
 } from '../../data/training/positionalReview';
 import { PositionalReviewDetail } from './PositionalReviewDetail';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
-import { ACTION_LABEL } from './IntermediateChoices';
+import { ACTION_LABEL } from './actionButtonStyle';
 import { CardSet } from '../CardSet';
 import { NodeRangeSection } from './NodeRangeSection';
 import { ActionTable } from './ActionTable';

@@ -14,6 +14,7 @@ import {
   generateIntermediateQuestions,
   scoreAnswer,
   scoreTimeout,
+  ACTIONS,
   type Action,
   type IntermediateQuestion,
 } from '../../data/training/preflopIntermediate';
@@ -32,7 +33,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
-import { IntermediateChoices } from './IntermediateChoices';
+import { ChoiceButtons } from './ChoiceButtons';
+import { ACTION_LABEL } from './actionButtonStyle';
 import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
@@ -209,9 +211,11 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
             <NodeRangeSection file={view.nodeFile} highlightHand={view.hand} />
           </InstantFeedback>
         ) : (
-          <IntermediateChoices
+          <ChoiceButtons
             // key で問題切り替え時に内部 state リセット
             key={`choices-${state.current}`}
+            availableActions={ACTIONS}
+            actionLabels={ACTION_LABEL}
             onSubmit={(selections) => onAnswer({ selections, timedOut: false })}
           />
         )}
