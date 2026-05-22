@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useIdleLogout } from './hooks/useIdleLogout';
+import { usePendingResultsFlush } from './hooks/usePendingResultsFlush';
 import { navigate, useRoute } from './router/router-core';
 import { TRAINING_CATALOG, isPlayable, type TrainingLevel } from './data/trainingCatalog';
 import { AccountPage } from './components/AccountPage';
@@ -65,6 +66,8 @@ export default function App() {
   const path = useRoute();
   const { account } = useAuth();
   useIdleLogout();
+  // 認証時に、保存失敗で退避した成績スコアを再送 (再ログイン後の自動復旧)。
+  usePendingResultsFlush();
 
   useEffect(() => {
     if (path.startsWith('/admin') && account && !account.is_admin) {

@@ -10,6 +10,7 @@
 // 既存3画面の挙動 (出題フロー・採点・記録・タイマー・離脱警告) を変えないこと。
 
 import { useEffect, useRef, useState } from 'react';
+import { useSessionKeepAlive } from '../../hooks/useSessionKeepAlive';
 
 export type HarnessState<Q, Rec> =
   | { kind: 'loading' }
@@ -53,6 +54,8 @@ export function useTrainingHarness<Q, R, Rec>(
   config: TrainingHarnessConfig<Q, R, Rec>,
 ): TrainingHarness<Q, R, Rec> {
   const { load, onLoadStart, reloadKey, instant, scorePoints, buildRecord, finish } = config;
+  // プレイ中はサーバセッションを延命 (5分アイドル失効で成績保存が401になるのを防ぐ)。
+  useSessionKeepAlive();
   const [state, setState] = useState<HarnessState<Q, Rec>>({ kind: 'loading' });
   const [feedback, setFeedback] = useState<{ res: R; points: number } | null>(null);
   const [animReady, setAnimReady] = useState(false);

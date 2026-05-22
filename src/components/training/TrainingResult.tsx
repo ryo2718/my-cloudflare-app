@@ -19,6 +19,7 @@ import {
   type IntermediateRecord,
   type ProblemRecord,
 } from '../../data/training/recordsStore';
+import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
@@ -84,6 +85,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
   const auth = useAuth();
   const scoreInfo = parseQueryScore();
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
+  const [retryNonce, setRetryNonce] = useState(0);
   // records は遷移時に確定する (sessionStorage + in-mem) ので、初回マウント時に取得して
   // state に格納する (useMemo より useEffect+setState の方が再 render を確実に trigger できる)。
   // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
@@ -140,10 +142,13 @@ export function TrainingResult({ level }: TrainingResultProps) {
       .then((submission) => {
         if (cancelled) return;
         saveCachedSubmission(cacheKey, submission);
+        clearPendingResult(level.key); // 保存成功 → 退避を破棄
         setSave({ kind: 'ok', submission });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        // 保存失敗 → スコアを退避 (再ログイン/再試行で再送。点数は冪等で二重加算なし)。
+        savePendingResult({ training_type: level.key, score: submitScore });
         setSave({
           kind: 'error',
           message: err instanceof Error ? err.message : String(err),
@@ -153,7 +158,9 @@ export function TrainingResult({ level }: TrainingResultProps) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.sessionId, level.key, scoreInfo?.score, scoreInfo?.total]);
+  }, [auth.sessionId, level.key, scoreInfo?.score, scoreInfo?.total, retryNonce]);
+
+  const onRetry = () => setRetryNonce((n) => n + 1);
 
   if (!scoreInfo) {
     return (
@@ -197,9 +204,9 @@ export function TrainingResult({ level }: TrainingResultProps) {
         </div>
 
         {isIntermediate ? (
-          <IntermediatePtCard save={save} score={score} total={total} />
+          <IntermediatePtCard save={save} score={score} total={total} onRetry={onRetry} />
         ) : (
-          <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} />
+          <ResultPtCard save={save} score={score} pointsPerQ={pointsPerQ} onRetry={onRetry} />
         )}
 
         {isIntermediate && intermediateAll.length > 0 && (
@@ -406,14 +413,29 @@ function MissedCard({
   );
 }
 
+/** 保存失敗カード: エラー表示 + 再保存ボタン (スコアは退避済みなので失われない)。 */
+function SaveErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div style={ptCardNoUpdateStyle}>
+      <span style={subErrorStyle}>結果の保存に失敗しました ({message})</span>
+      <span style={subInfoStyle}>スコアは退避済みです。再保存するか、再ログイン後に自動で再送されます。</span>
+      <button type="button" onClick={() => onRetry?.()} style={retryBtnStyle}>
+        再保存する
+      </button>
+    </div>
+  );
+}
+
 function IntermediatePtCard({
   save,
   score,
   total,
+  onRetry,
 }: {
   save: SaveState;
   score: number;
   total: number;
+  onRetry?: () => void;
 }) {
   if (save.kind === 'saving' || save.kind === 'idle') {
     return (
@@ -423,11 +445,7 @@ function IntermediatePtCard({
     );
   }
   if (save.kind === 'error') {
-    return (
-      <div style={ptCardStyle}>
-        <span style={subErrorStyle}>結果保存失敗: {save.message}</span>
-      </div>
-    );
+    return <SaveErrorCard message={save.message} onRetry={onRetry} />;
   }
   const sub = save.submission;
   const submittedScore = Math.max(0, score);
@@ -467,10 +485,12 @@ export function ResultPtCard({
   save,
   score,
   pointsPerQ,
+  onRetry,
 }: {
   save: SaveState;
   score: number;
   pointsPerQ: number;
+  onRetry?: () => void;
 }) {
   if (save.kind === 'saving' || save.kind === 'idle') {
     return (
@@ -480,11 +500,7 @@ export function ResultPtCard({
     );
   }
   if (save.kind === 'error') {
-    return (
-      <div style={ptCardStyle}>
-        <span style={subErrorStyle}>結果保存失敗: {save.message}</span>
-      </div>
-    );
+    return <SaveErrorCard message={save.message} onRetry={onRetry} />;
   }
 
   const sub = save.submission;

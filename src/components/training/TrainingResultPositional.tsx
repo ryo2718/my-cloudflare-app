@@ -13,6 +13,7 @@ import {
   loadPositionalRecords,
   type PositionalRecord,
 } from '../../data/training/positionalRecordsStore';
+import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
 import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import { positionalPillStyle } from './positionalPill';
 import { PositionalReviewDetail } from './PositionalReviewDetail';
@@ -38,6 +39,8 @@ export function TrainingResultPositional({ level }: TrainingResultPositionalProp
   const scoreInfo = parseQuery();
   const [records, setRecords] = useState<PositionalRecord[]>(() => loadPositionalRecords(level.key) ?? []);
   const [save, setSave] = useState<TrainingResultSubmission | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
@@ -67,6 +70,7 @@ export function TrainingResultPositional({ level }: TrainingResultPositionalProp
     apiSubmitTrainingResult(sid, { training_type: level.key, score: submitScore })
       .then((sub) => {
         if (cancelled) return;
+        clearPendingResult(level.key); // 保存成功 → 退避破棄
         setSave(sub);
         try {
           sessionStorage?.setItem(cacheKey, JSON.stringify(sub));
@@ -74,14 +78,17 @@ export function TrainingResultPositional({ level }: TrainingResultPositionalProp
           /* ignore */
         }
       })
-      .catch(() => {
-        /* silent */
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // 保存失敗 → スコアを退避 (再ログイン/再試行で再送。点数は冪等で二重加算なし)。
+        savePendingResult({ training_type: level.key, score: submitScore });
+        setSaveError(err instanceof Error ? err.message : String(err));
       });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.sessionId, level.key, scoreInfo?.score, scoreInfo?.total]);
+  }, [auth.sessionId, level.key, scoreInfo?.score, scoreInfo?.total, retryNonce]);
 
   if (!scoreInfo) {
     return (
@@ -132,6 +139,16 @@ export function TrainingResultPositional({ level }: TrainingResultPositionalProp
             ) : (
               <span style={ptInfoStyle}>ベスト: {save.current_best}pt(今回 {displayScore}pt)</span>
             )}
+          </div>
+        )}
+
+        {!save && saveError && (
+          <div style={saveErrorCardStyle}>
+            <span style={saveErrorTextStyle}>結果の保存に失敗しました ({saveError})</span>
+            <span style={ptInfoStyle}>スコアは退避済みです。再保存するか、再ログイン後に自動で再送されます。</span>
+            <button type="button" onClick={() => setRetryNonce((n) => n + 1)} style={saveRetryBtnStyle}>
+              再保存する
+            </button>
           </div>
         )}
 
@@ -238,6 +255,28 @@ const ptCardStyle: CSSProperties = {
 };
 const bestStyle: CSSProperties = { fontSize: '0.95rem', fontWeight: 700, color: '#3B6D11' };
 const ptInfoStyle: CSSProperties = { fontSize: '0.9rem', color: THEME.textPrimary };
+const saveErrorCardStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.4rem',
+  background: '#fff',
+  border: `1px dashed ${THEME.border}`,
+  borderRadius: '0.45rem',
+  padding: '0.7rem 0.9rem',
+};
+const saveErrorTextStyle: CSSProperties = { fontSize: '0.85rem', color: THEME.errorText };
+const saveRetryBtnStyle: CSSProperties = {
+  alignSelf: 'flex-start',
+  padding: '0.5rem 1rem',
+  background: THEME.accent,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.4rem',
+  fontSize: '0.9rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
 const breakdownStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.5rem' };
 const sectionHeaderStyle: CSSProperties = { fontSize: '0.85rem', fontWeight: 700, color: THEME.textSecondary };
 const breakdownRowStyle: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' };

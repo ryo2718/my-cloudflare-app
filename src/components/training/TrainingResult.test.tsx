@@ -202,11 +202,12 @@ describe('<ResultPtCard /> is_best / is_first / no-update 表示', () => {
     expect(html).toContain('結果を保存中');
   });
 
-  it('error: "結果保存失敗: ..."', () => {
+  it('error: 保存失敗メッセージ + 再保存ボタン', () => {
     const html = renderToStaticMarkup(
       <ResultPtCard save={{ kind: 'error', message: 'http_500' }} score={15} pointsPerQ={1} />,
     );
-    expect(html).toContain('結果保存失敗');
+    expect(html).toContain('結果の保存に失敗しました');
     expect(html).toContain('http_500');
+    expect(html).toContain('再保存する');
   });
 });
