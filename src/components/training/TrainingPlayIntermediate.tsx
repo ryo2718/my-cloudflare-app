@@ -1,4 +1,4 @@
-// プリフロップ中級トレーニングの問題画面 (BB 応答シナリオ)。
+// プリフロップ中級総合トレーニングの問題画面。
 //
 // フロー:
 //   1. マウント時に generateIntermediateQuestions() で 20 問生成
@@ -6,9 +6,9 @@
 //   3. 20 秒タイマー、時間切れで scoreTimeout (-1pt)、ユーザー回答で scoreAnswer
 //   4. 全 20 問完了で IntermediateRecord 配列を saveIntermediateRecords し /result へ
 //
-// 結果保存は記録 store (in-memory + sessionStorage) で result/review に渡す。
+// 状態機械・回答処理・即時フィードバック・タイマー・離脱警告は共通の useTrainingHarness に集約。
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
   generateIntermediateQuestions,
@@ -33,10 +33,13 @@ import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
 import { IntermediateChoices } from './IntermediateChoices';
-import { intermediateScenarioLabel, rangeFileFor } from './intermediateScenarioLabel';
+import { intermediateScenarioLabel } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
+import { Countdown } from './Countdown';
+import { useTrainingHarness } from './useTrainingHarness';
+import { intermediateViewInfo } from './trainingViewInfo';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
 
@@ -46,173 +49,92 @@ export interface TrainingPlayIntermediateProps {
   level: TrainingLevel;
 }
 
-type LoadState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | {
-      kind: 'ready';
-      questions: IntermediateQuestion[];
-      current: number;
-      finalSum: number; // 全 final スコアの合計 (-1 を含む)
-      records: IntermediateRecord[];
-    };
+/** 回答 (選択 or 時間切れ)。 */
+type IntermediateResponse = { selections: ReadonlyArray<Action>; timedOut: boolean };
 
 export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProps) {
   const auth = useAuth();
-  const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const advancingRef = useRef(false);
   const [instant] = useState<boolean>(loadInstantFeedback);
-  const [feedback, setFeedback] = useState<{ selections: ReadonlyArray<Action>; timedOut: boolean; points: number } | null>(null);
-  // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
-  const [animReady, setAnimReady] = useState(false);
-  const currentIdx = state.kind === 'ready' ? state.current : -1;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAnimReady(false);
-  }, [currentIdx]);
 
-  // beforeunload: 途中離脱の警告
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (state.kind !== 'ready' || state.current >= state.questions.length) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [state]);
-
-  useEffect(() => {
-    let cancelled = false;
-    clearIntermediateRecords(level.key);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState({ kind: 'loading' });
-    generateIntermediateQuestions()
-      .then((questions) => {
-        if (cancelled) return;
-        setState({ kind: 'ready', questions, current: 0, finalSum: 0, records: [] });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setState({
-          kind: 'error',
-          message: err instanceof Error ? err.message : String(err),
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [level.key]);
-
-  const advance = (
-    selections: ReadonlyArray<Action>,
-    timedOut: boolean,
-    prev: LoadState,
-  ) => {
-    if (prev.kind !== 'ready') return;
-    if (advancingRef.current) return;
-    advancingRef.current = true;
-    const q = prev.questions[prev.current];
-    const breakdown = timedOut
-      ? scoreTimeout(q.strategy)
-      : scoreAnswer(q.strategy, selections);
-    const newRecord: IntermediateRecord = {
-      ...q,
-      id: prev.current + 1,
-      selections: timedOut ? [] : selections,
-      timedOut,
-      rawScore: breakdown.rawScore,
-      finalScore: breakdown.finalScore,
-      theoreticalMax: breakdown.theoreticalMax,
-      strategySnapshot: q.strategy,
-    };
-    const newRecords = [...prev.records, newRecord];
-    const newFinalSum = prev.finalSum + breakdown.finalScore;
-    const next = prev.current + 1;
-
-    if (next >= prev.questions.length) {
-      saveIntermediateRecords(level.key, newRecords);
-      // Step 1: 満点 (finalScore===2) 以外の問題を DB に記録 (復習・統計の基盤)。
-      // ベスト努力で実行、失敗は silent (結果画面遷移は止めない)。
-      if (auth.sessionId) {
-        const missedRecords: MissedProblemInput[] = newRecords
-          .filter((r) => r.finalScore < 2)
-          .map((r) => ({
-            training_type: 'preflop_intermediate' as const,
-            scenario_type: r.scenarioType,
-            hero_position: r.myPosition,
-            opener_position: r.opener,
-            three_bettor_position: r.threeBettor ?? null,
-            hand: r.hand,
-            user_selections: [...r.selections],
-            gto_strategy: {
-              allin: r.strategySnapshot.allin ?? 0,
-              raise: r.strategySnapshot.raise ?? 0,
-              call: r.strategySnapshot.call ?? 0,
-              fold: r.strategySnapshot.fold ?? 0,
-            },
-            score_obtained: r.finalScore,
-            is_timeout: r.timedOut,
-          }));
-        if (missedRecords.length > 0) {
-          void apiPostMissedProblems(auth.sessionId, missedRecords).catch(() => {
-            /* silent fallback */
-          });
-        }
-        // Step 3b: 全 20 問を problem_attempts にも記録 (統計集計用)。
-        const attemptRecords: ProblemAttemptInput[] = newRecords.map((r) => ({
+  const finish = (records: IntermediateRecord[]) => {
+    saveIntermediateRecords(level.key, records);
+    // Step 1: 満点 (finalScore===2) 以外の問題を DB に記録 (復習・統計の基盤)。
+    // ベスト努力で実行、失敗は silent (結果画面遷移は止めない)。
+    if (auth.sessionId) {
+      const missedRecords: MissedProblemInput[] = records
+        .filter((r) => r.finalScore < 2)
+        .map((r) => ({
           training_type: 'preflop_intermediate' as const,
           scenario_type: r.scenarioType,
           hero_position: r.myPosition,
           opener_position: r.opener,
           three_bettor_position: r.threeBettor ?? null,
           hand: r.hand,
+          user_selections: [...r.selections],
+          gto_strategy: {
+            allin: r.strategySnapshot.allin ?? 0,
+            raise: r.strategySnapshot.raise ?? 0,
+            call: r.strategySnapshot.call ?? 0,
+            fold: r.strategySnapshot.fold ?? 0,
+          },
           score_obtained: r.finalScore,
           is_timeout: r.timedOut,
         }));
-        void apiPostProblemAttempts(auth.sessionId, attemptRecords).catch(() => {
+      if (missedRecords.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missedRecords).catch(() => {
           /* silent fallback */
         });
       }
-      const params = new URLSearchParams({
-        score: String(newFinalSum),
-        total: String(prev.questions.length * 2), // 満点 40 (20 問 × 2pt)
-        mode: 'intermediate',
+      // Step 3b: 全 20 問を problem_attempts にも記録 (統計集計用)。
+      const attemptRecords: ProblemAttemptInput[] = records.map((r) => ({
+        training_type: 'preflop_intermediate' as const,
+        scenario_type: r.scenarioType,
+        hero_position: r.myPosition,
+        opener_position: r.opener,
+        three_bettor_position: r.threeBettor ?? null,
+        hand: r.hand,
+        score_obtained: r.finalScore,
+        is_timeout: r.timedOut,
+      }));
+      void apiPostProblemAttempts(auth.sessionId, attemptRecords).catch(() => {
+        /* silent fallback */
       });
-      navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
-      return;
     }
-    setState({
-      kind: 'ready',
-      questions: prev.questions,
-      current: next,
-      finalSum: newFinalSum,
-      records: newRecords,
+    const finalSum = records.reduce((sum, r) => sum + r.finalScore, 0);
+    const params = new URLSearchParams({
+      score: String(finalSum),
+      total: String(records.length * 2), // 満点 40 (20 問 × 2pt)
+      mode: 'intermediate',
     });
-    Promise.resolve().then(() => {
-      advancingRef.current = false;
-    });
+    navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (採点・記録は「次のハンドへ」で確定)。
-  const handleResponse = (selections: ReadonlyArray<Action>, timedOut: boolean) => {
-    if (state.kind !== 'ready') return;
-    if (instant) {
-      if (feedback) return;
-      const q = state.questions[state.current];
-      const breakdown = timedOut ? scoreTimeout(q.strategy) : scoreAnswer(q.strategy, selections);
-      setFeedback({ selections, timedOut, points: breakdown.finalScore });
-      return;
-    }
-    advance(selections, timedOut, state);
-  };
-
-  const proceed = () => {
-    if (!feedback) return;
-    const { selections, timedOut } = feedback;
-    setFeedback(null);
-    advance(selections, timedOut, state);
-  };
+  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+    IntermediateQuestion,
+    IntermediateResponse,
+    IntermediateRecord
+  >({
+    load: () => generateIntermediateQuestions(),
+    onLoadStart: () => clearIntermediateRecords(level.key),
+    reloadKey: level.key,
+    instant,
+    scorePoints: (q, res) =>
+      (res.timedOut ? scoreTimeout(q.strategy) : scoreAnswer(q.strategy, res.selections)).finalScore,
+    buildRecord: (q, res, i) => {
+      const breakdown = res.timedOut ? scoreTimeout(q.strategy) : scoreAnswer(q.strategy, res.selections);
+      return {
+        ...q,
+        id: i + 1,
+        selections: res.timedOut ? [] : res.selections,
+        timedOut: res.timedOut,
+        rawScore: breakdown.rawScore,
+        finalScore: breakdown.finalScore,
+        theoreticalMax: breakdown.theoreticalMax,
+        strategySnapshot: q.strategy,
+      };
+    },
+    finish,
+  });
 
   if (state.kind === 'loading') {
     return (
@@ -237,15 +159,14 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
   }
 
   const q = state.questions[state.current];
+  const view = intermediateViewInfo(q);
   const progress = ((state.current + 1) / state.questions.length) * 100;
 
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
         <div style={progressTopStyle}>
-          <span style={progressLabelStyle}>
-            {level.label}
-          </span>
+          <span style={progressLabelStyle}>{level.label}</span>
           <span style={progressCountStyle}>
             {state.current + 1} / {state.questions.length}
           </span>
@@ -260,14 +181,14 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={TIMER_SECONDS}
-          onTimeUp={() => handleResponse([], true)}
+          onTimeUp={() => onAnswer({ selections: [], timedOut: true })}
         />
       )}
 
       <main style={mainStyle}>
         <div style={scenarioPillStyle}>{intermediateScenarioLabel(q)}</div>
         <ActionTable
-          file={rangeFileFor(q)}
+          file={view.nodeFile}
           mePosition={q.myPosition}
           animate
           resetKey={state.current}
@@ -284,61 +205,17 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         </section>
 
         {feedback ? (
-          <InstantFeedback points={feedback.points} onNext={proceed}>
-            <NodeRangeSection file={rangeFileFor(q)} highlightHand={q.hand} />
+          <InstantFeedback points={feedback.points} onNext={onProceed}>
+            <NodeRangeSection file={view.nodeFile} highlightHand={view.hand} />
           </InstantFeedback>
         ) : (
           <IntermediateChoices
             // key で問題切り替え時に内部 state リセット
             key={`choices-${state.current}`}
-            onSubmit={(selections) => handleResponse(selections, false)}
+            onSubmit={(selections) => onAnswer({ selections, timedOut: false })}
           />
         )}
       </main>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Countdown (中級専用、UI は初級 Countdown と類似)
-// ---------------------------------------------------------------------------
-
-function Countdown({
-  seconds,
-  onTimeUp,
-}: {
-  seconds: number;
-  onTimeUp: () => void;
-}) {
-  const [remaining, setRemaining] = useState(seconds);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRemaining(seconds);
-    const startedAt = Date.now();
-    const tick = window.setInterval(() => {
-      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-      const newRemaining = Math.max(0, seconds - elapsedSec);
-      setRemaining(newRemaining);
-      if (newRemaining <= 0) {
-        window.clearInterval(tick);
-        onTimeUp();
-      }
-    }, 200);
-    return () => window.clearInterval(tick);
-  }, [seconds, onTimeUp]);
-
-  const danger = remaining <= 5;
-  return (
-    <div
-      style={{
-        ...timerStyle,
-        color: danger ? '#b91c1c' : THEME.textPrimary,
-        borderColor: danger ? '#b91c1c' : THEME.border,
-      }}
-      aria-live="polite"
-    >
-      残り {remaining}s
     </div>
   );
 }
@@ -423,17 +300,6 @@ const handLabelStyle: CSSProperties = {
   fontWeight: 600,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-};
-
-const timerStyle: CSSProperties = {
-  alignSelf: 'center',
-  margin: '0.5rem 0',
-  padding: '0.3rem 0.8rem',
-  border: '1.5px solid',
-  borderRadius: '999px',
-  fontSize: '0.95rem',
-  fontWeight: 700,
-  fontVariantNumeric: 'tabular-nums',
 };
 
 const loadingStyle: CSSProperties = {

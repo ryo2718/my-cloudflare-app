@@ -1,20 +1,15 @@
-// トレーニング問題画面 (初級・中級共有)。
+// トレーニング問題画面 (初級)。
 //
 // フロー:
 //   1. マウント時に generatePreflopQuestions() で 20 問生成
 //   2. 1 問ずつ表示: PokerTable + 2 枚のハンド (PlayingCard) + [参加] [参加しない]
-//   3. 選択 → 即次の問題へ (正誤表示なし)
+//   3. 選択 → 即次の問題へ (正誤表示なし。即時フィードバック ON 時は答えを表示)
 //   4. 中級 (timeLimitSec=20) の場合、各問題で countdown、time-out は "fold" 扱い
 //   5. 20 問完了 → result 画面へ score を query string で渡す
 //
-// 途中離脱対策:
-//   - LocalStorage には何も保存しない (リロード = 全リセット)
-//   - beforeunload で確認ダイアログ (誤タップ防止)
-//   - logout / ホーム遷移 等の SPA 内遷移は AppHeader を使わないことで防止
-//
-// 結果画面の保存は TrainingPlay が直接やらず、 TrainingResult 側で POST する。
+// 状態機械・回答処理・即時フィードバック・タイマー・離脱警告は共通の useTrainingHarness に集約。
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
   generatePreflopQuestions,
@@ -36,10 +31,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
-import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
+import { Countdown } from './Countdown';
+import { useTrainingHarness } from './useTrainingHarness';
+import { beginnerViewInfo } from './trainingViewInfo';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
 
@@ -47,172 +44,83 @@ export interface TrainingPlayProps {
   level: TrainingLevel;
 }
 
-type LoadState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | {
-      kind: 'ready';
-      questions: PreflopQuestion[];
-      current: number;
-      correctCount: number;
-      records: ProblemRecord[];
-    };
-
 export function TrainingPlay({ level }: TrainingPlayProps) {
   const auth = useAuth();
-  const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const advancingRef = useRef(false);
   const [instant] = useState<boolean>(loadInstantFeedback);
-  const [feedback, setFeedback] = useState<{ chosen: CorrectAnswer; points: number } | null>(null);
-  // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
-  const [animReady, setAnimReady] = useState(false);
-  const currentIdx = state.kind === 'ready' ? state.current : -1;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAnimReady(false);
-  }, [currentIdx]);
 
-  // beforeunload: 途中離脱の警告
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (state.kind !== 'ready' || state.current >= state.questions.length) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [state]);
-
-  useEffect(() => {
-    let cancelled = false;
-    // 旧セッションの記録があれば破棄してから生成 (中断後再開で混在を防ぐ)
-    clearRecords(level.key);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState({ kind: 'loading' });
-    generatePreflopQuestions(level.questionCount ?? 20)
-      .then((questions) => {
-        if (cancelled) return;
-        setState({ kind: 'ready', questions, current: 0, correctCount: 0, records: [] });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setState({
-          kind: 'error',
-          message: err instanceof Error ? err.message : String(err),
+  const finish = (records: ProblemRecord[]) => {
+    saveRecords(level.key, records);
+    // Step 3a: 初級でも満点未達 (isCorrect=false) の問題を DB に記録。
+    // 戦略データがある record のみ送信 (古いキャッシュ等で strategy なしの場合 skip)。
+    if (auth.sessionId) {
+      const missed: MissedProblemInput[] = records
+        .filter((r) => !r.isCorrect && r.strategy)
+        .map((r) => {
+          const scenarioType = r.scenario === 'open' ? 'beginner_open' : 'beginner_vs_open';
+          // 初級 UI の 2 択を DB 形式 (4 アクション系) に変換
+          const selections =
+            r.userAnswer === 'participate'
+              ? (r.strategy!.call > r.strategy!.raise ? ['call'] : ['raise'])
+              : ['fold'];
+          return {
+            training_type: 'preflop_beginner' as const,
+            scenario_type: scenarioType,
+            hero_position: r.myPosition,
+            opener_position: r.opener,
+            three_bettor_position: null,
+            hand: r.hand,
+            user_selections: selections,
+            gto_strategy: {
+              allin: r.strategy!.allin ?? 0,
+              raise: r.strategy!.raise ?? 0,
+              call: r.strategy!.call ?? 0,
+              fold: r.strategy!.fold ?? 0,
+            },
+            score_obtained: r.isCorrect ? 1 : -1,
+            is_timeout: false,
+          };
         });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [level.key, level.questionCount]);
-
-  const advance = (chosen: CorrectAnswer, prev: LoadState) => {
-    if (prev.kind !== 'ready') return;
-    if (advancingRef.current) return;
-    advancingRef.current = true;
-    const q = prev.questions[prev.current];
-    const isCorrect = q.correct === chosen;
-    const next = prev.current + 1;
-    const newCorrectCount = prev.correctCount + (isCorrect ? 1 : 0);
-    const newRecord: ProblemRecord = {
-      ...q,
-      id: prev.current + 1,
-      userAnswer: chosen,
-      isCorrect,
-    };
-    const newRecords = [...prev.records, newRecord];
-
-    if (next >= prev.questions.length) {
-      // 全問終了: 記録を保存してから result 画面へ navigate
-      saveRecords(level.key, newRecords);
-      // Step 3a: 初級でも満点未達 (isCorrect=false) の問題を DB に記録。
-      // 戦略データがある record のみ送信 (古いキャッシュ等で strategy なしの場合 skip)。
-      if (auth.sessionId) {
-        const missed: MissedProblemInput[] = newRecords
-          .filter((r) => !r.isCorrect && r.strategy)
-          .map((r) => {
-            const scenarioType = r.scenario === 'open' ? 'beginner_open' : 'beginner_vs_open';
-            // 初級 UI の 2 択を DB 形式 (4 アクション系) に変換
-            const selections =
-              r.userAnswer === 'participate'
-                ? (r.strategy!.call > r.strategy!.raise ? ['call'] : ['raise'])
-                : ['fold'];
-            return {
-              training_type: 'preflop_beginner' as const,
-              scenario_type: scenarioType,
-              hero_position: r.myPosition,
-              opener_position: r.opener,
-              three_bettor_position: null,
-              hand: r.hand,
-              user_selections: selections,
-              gto_strategy: {
-                allin: r.strategy!.allin ?? 0,
-                raise: r.strategy!.raise ?? 0,
-                call: r.strategy!.call ?? 0,
-                fold: r.strategy!.fold ?? 0,
-              },
-              score_obtained: r.isCorrect ? 1 : -1,
-              is_timeout: false,
-            };
-          });
-        if (missed.length > 0) {
-          void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
-            /* silent fallback */
-          });
-        }
-        // Step 3b: 全 20 問を problem_attempts に記録 (統計集計用)。
-        const attempts: ProblemAttemptInput[] = newRecords.map((r) => ({
-          training_type: 'preflop_beginner' as const,
-          scenario_type: r.scenario === 'open' ? 'beginner_open' : 'beginner_vs_open',
-          hero_position: r.myPosition,
-          opener_position: r.opener,
-          three_bettor_position: null,
-          hand: r.hand,
-          score_obtained: r.isCorrect ? 1 : -1,
-          is_timeout: false,
-        }));
-        void apiPostProblemAttempts(auth.sessionId, attempts).catch(() => {
+      if (missed.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
           /* silent fallback */
         });
       }
-      const params = new URLSearchParams({
-        score: String(newCorrectCount),
-        total: String(prev.questions.length),
+      // Step 3b: 全 20 問を problem_attempts に記録 (統計集計用)。
+      const attempts: ProblemAttemptInput[] = records.map((r) => ({
+        training_type: 'preflop_beginner' as const,
+        scenario_type: r.scenario === 'open' ? 'beginner_open' : 'beginner_vs_open',
+        hero_position: r.myPosition,
+        opener_position: r.opener,
+        three_bettor_position: null,
+        hand: r.hand,
+        score_obtained: r.isCorrect ? 1 : -1,
+        is_timeout: false,
+      }));
+      void apiPostProblemAttempts(auth.sessionId, attempts).catch(() => {
+        /* silent fallback */
       });
-      navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
-      return;
     }
-    setState({
-      kind: 'ready',
-      questions: prev.questions,
-      current: next,
-      correctCount: newCorrectCount,
-      records: newRecords,
+    const correctCount = records.filter((r) => r.isCorrect).length;
+    const params = new URLSearchParams({
+      score: String(correctCount),
+      total: String(records.length),
     });
-    // 次の問題でも advance できるよう、microtask 後にロック解除
-    Promise.resolve().then(() => {
-      advancingRef.current = false;
-    });
+    navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (記録は「次のハンドへ」で確定)。
-  const handleAnswer = (chosen: CorrectAnswer) => {
-    if (state.kind !== 'ready') return;
-    if (instant) {
-      if (feedback) return;
-      const q = state.questions[state.current];
-      setFeedback({ chosen, points: q.correct === chosen ? 1 : -1 });
-      return;
-    }
-    advance(chosen, state);
-  };
-
-  const proceed = () => {
-    if (!feedback) return;
-    const chosen = feedback.chosen;
-    setFeedback(null);
-    advance(chosen, state);
-  };
+  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+    PreflopQuestion,
+    CorrectAnswer,
+    ProblemRecord
+  >({
+    load: () => generatePreflopQuestions(level.questionCount ?? 20),
+    onLoadStart: () => clearRecords(level.key),
+    reloadKey: `${level.key}:${level.questionCount ?? 20}`,
+    instant,
+    scorePoints: (q, chosen) => (q.correct === chosen ? 1 : -1),
+    buildRecord: (q, chosen, i) => ({ ...q, id: i + 1, userAnswer: chosen, isCorrect: q.correct === chosen }),
+    finish,
+  });
 
   if (state.kind === 'loading') {
     return (
@@ -237,15 +145,14 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
   }
 
   const q = state.questions[state.current];
+  const view = beginnerViewInfo(q);
   const progress = ((state.current + 1) / state.questions.length) * 100;
 
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
         <div style={progressTopStyle}>
-          <span style={progressLabelStyle}>
-            {level.label}
-          </span>
+          <span style={progressLabelStyle}>{level.label}</span>
           <span style={progressCountStyle}>
             {state.current + 1} / {state.questions.length}
           </span>
@@ -260,13 +167,13 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={level.timeLimitSec}
-          onTimeUp={() => handleAnswer('fold')}
+          onTimeUp={() => onAnswer('fold')}
         />
       )}
 
       <main style={mainStyle}>
         <ActionTable
-          file={beginnerNodeFile(q)}
+          file={view.nodeFile}
           mePosition={q.myPosition}
           animate
           resetKey={state.current}
@@ -283,64 +190,20 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
         </section>
 
         {feedback ? (
-          <InstantFeedback points={feedback.points} onNext={proceed}>
-            <NodeRangeSection file={beginnerNodeFile(q)} highlightHand={q.hand} />
+          <InstantFeedback points={feedback.points} onNext={onProceed}>
+            <NodeRangeSection file={view.nodeFile} highlightHand={view.hand} />
           </InstantFeedback>
         ) : (
           <section style={actionRowStyle}>
-            <button type="button" onClick={() => handleAnswer('participate')} style={joinBtnStyle}>
+            <button type="button" onClick={() => onAnswer('participate')} style={joinBtnStyle}>
               参加
             </button>
-            <button type="button" onClick={() => handleAnswer('fold')} style={foldBtnStyle}>
+            <button type="button" onClick={() => onAnswer('fold')} style={foldBtnStyle}>
               参加しない
             </button>
           </section>
         )}
       </main>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Countdown
-// ---------------------------------------------------------------------------
-
-function Countdown({
-  seconds,
-  onTimeUp,
-}: {
-  seconds: number;
-  onTimeUp: () => void;
-}) {
-  const [remaining, setRemaining] = useState(seconds);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRemaining(seconds);
-    const startedAt = Date.now();
-    const tick = window.setInterval(() => {
-      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-      const newRemaining = Math.max(0, seconds - elapsedSec);
-      setRemaining(newRemaining);
-      if (newRemaining <= 0) {
-        window.clearInterval(tick);
-        onTimeUp();
-      }
-    }, 200);
-    return () => window.clearInterval(tick);
-  }, [seconds, onTimeUp]);
-
-  const danger = remaining <= 5;
-  return (
-    <div
-      style={{
-        ...timerStyle,
-        color: danger ? '#b91c1c' : THEME.textPrimary,
-        borderColor: danger ? '#b91c1c' : THEME.border,
-      }}
-      aria-live="polite"
-    >
-      残り {remaining}s
     </div>
   );
 }
@@ -445,17 +308,6 @@ const foldBtnStyle: CSSProperties = {
   fontWeight: 700,
   cursor: 'pointer',
   fontFamily: 'inherit',
-};
-
-const timerStyle: CSSProperties = {
-  alignSelf: 'center',
-  margin: '0.5rem 0',
-  padding: '0.3rem 0.8rem',
-  border: '1.5px solid',
-  borderRadius: '999px',
-  fontSize: '0.95rem',
-  fontWeight: 700,
-  fontVariantNumeric: 'tabular-nums',
 };
 
 const loadingStyle: CSSProperties = {

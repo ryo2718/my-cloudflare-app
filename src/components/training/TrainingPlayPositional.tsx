@@ -6,15 +6,16 @@
 //   2. 各問: PokerTable + ハンド + (スライダー or 複数選択)
 //   3. 20 秒タイマー、時間切れ/飛ばし/回答で素点 (-1/0/1/2) を加算
 //   4. 全問完了で合計を ÷2 (floor, 下限0) → /result へ (mode=intermediate で集計表示)
+//
+// 状態機械・回答処理・即時フィードバック・タイマー・離脱警告は共通の useTrainingHarness に集約。
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
   generatePositionalQuestions,
   scorePositionalPoints,
   totalPositionalScore,
   maxScoreForMode,
-  positionalNodeFile,
   type PositionalMode,
   type PositionalQuestion,
   type PositionalResponse,
@@ -37,6 +38,9 @@ import { PositionalChoices } from './PositionalChoices';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
+import { Countdown } from './Countdown';
+import { useTrainingHarness } from './useTrainingHarness';
+import { positionalViewInfo } from './trainingViewInfo';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
 
@@ -54,118 +58,47 @@ export interface TrainingPlayPositionalProps {
   level: TrainingLevel;
 }
 
-type LoadState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; questions: PositionalQuestion[]; current: number; records: PositionalRecord[] };
-
 export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
   const auth = useAuth();
-  const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const advancingRef = useRef(false);
-  // 即時フィードバック (セッション開始時の設定で固定)。ON のとき回答直後に答えを表示。
-  const [instant] = useState<boolean>(loadInstantFeedback);
-  const [feedback, setFeedback] = useState<{ response: PositionalResponse; points: number } | null>(null);
   const mode = modeFromLevelKey(level.key);
-  // アクションアニメ完了 (= ヒーローの番) で制限時間を開始する。
-  const [animReady, setAnimReady] = useState(false);
-  const currentIdx = state.kind === 'ready' ? state.current : -1;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAnimReady(false);
-  }, [currentIdx]);
+  const [instant] = useState<boolean>(loadInstantFeedback);
 
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (state.kind !== 'ready' || state.current >= state.questions.length) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [state]);
-
-  useEffect(() => {
+  const finish = (records: PositionalRecord[]) => {
     if (!mode) return;
-    let cancelled = false;
-    clearPositionalRecords(level.key);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState({ kind: 'loading' });
-    generatePositionalQuestions(mode)
-      .then((questions) => {
-        if (cancelled) return;
-        if (questions.length === 0) {
-          setState({ kind: 'error', message: '出題データの読み込みに失敗しました' });
-          return;
-        }
-        setState({ kind: 'ready', questions, current: 0, records: [] });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [level.key, mode]);
-
-  const advance = (res: PositionalResponse, prev: LoadState) => {
-    if (prev.kind !== 'ready') return;
-    if (advancingRef.current) return;
-    advancingRef.current = true;
-    const q = prev.questions[prev.current];
-    const pts = scorePositionalPoints(q, res);
-    const newRecord: PositionalRecord = { id: prev.current + 1, question: q, response: res, points: pts };
-    const newRecords = [...prev.records, newRecord];
-    const next = prev.current + 1;
-
-    if (next >= prev.questions.length && mode) {
-      savePositionalRecords(level.key, newRecords);
-      // 満点未達 (素点 < 2) を間違えた問題集 (DB) に記録。ベスト努力で実行、失敗は silent。
-      if (auth.sessionId) {
-        const missed = newRecords
-          .filter((r) => r.points < 2)
-          .map((r) => encodeMissedInput(r.question, r.response, r.points));
-        if (missed.length > 0) {
-          void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
-            /* silent */
-          });
-        }
+    savePositionalRecords(level.key, records);
+    // 満点未達 (素点 < 2) を間違えた問題集 (DB) に記録。ベスト努力で実行、失敗は silent。
+    if (auth.sessionId) {
+      const missed = records
+        .filter((r) => r.points < 2)
+        .map((r) => encodeMissedInput(r.question, r.response, r.points));
+      if (missed.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
+          /* silent */
+        });
       }
-      const score = totalPositionalScore(newRecords.map((r) => r.points));
-      const params = new URLSearchParams({
-        score: String(score),
-        total: String(maxScoreForMode(mode)),
-        mode: 'positional',
-      });
-      navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
-      return;
     }
-    setState({ kind: 'ready', questions: prev.questions, current: next, records: newRecords });
-    Promise.resolve().then(() => {
-      advancingRef.current = false;
+    const score = totalPositionalScore(records.map((r) => r.points));
+    const params = new URLSearchParams({
+      score: String(score),
+      total: String(maxScoreForMode(mode)),
+      mode: 'positional',
     });
+    navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (採点・記録は「次のハンドへ」で確定)。
-  const handleResponse = (res: PositionalResponse) => {
-    if (state.kind !== 'ready') return;
-    if (instant) {
-      if (feedback) return; // 表示中の重複回答を無視
-      const pts = scorePositionalPoints(state.questions[state.current], res);
-      setFeedback({ response: res, points: pts });
-      return;
-    }
-    advance(res, state);
-  };
-
-  // 「次のハンドへ」: 保留中の回答で採点・記録して次へ進む。
-  const proceed = () => {
-    if (!feedback) return;
-    const res = feedback.response;
-    setFeedback(null);
-    advance(res, state);
-  };
+  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+    PositionalQuestion,
+    PositionalResponse,
+    PositionalRecord
+  >({
+    load: () => (mode ? generatePositionalQuestions(mode) : Promise.resolve([])),
+    onLoadStart: () => clearPositionalRecords(level.key),
+    reloadKey: level.key,
+    instant,
+    scorePoints: scorePositionalPoints,
+    buildRecord: (q, res, i) => ({ id: i + 1, question: q, response: res, points: scorePositionalPoints(q, res) }),
+    finish,
+  });
 
   if (!mode) {
     return (
@@ -204,6 +137,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
   }
 
   const q = state.questions[state.current];
+  const view = positionalViewInfo(q);
   const progress = ((state.current + 1) / state.questions.length) * 100;
 
   return (
@@ -225,14 +159,14 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
         <Countdown
           key={`${state.current}-${q.hand}`}
           seconds={TIMER_SECONDS}
-          onTimeUp={() => handleResponse({ kind: 'timeout' })}
+          onTimeUp={() => onAnswer({ kind: 'timeout' })}
         />
       )}
 
       <main style={mainStyle}>
         <div style={positionalPillStyle(q.scenarioKey)}>{q.label}</div>
         <ActionTable
-          file={positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor })}
+          file={view.nodeFile}
           mePosition={q.myPosition}
           animate
           resetKey={state.current}
@@ -249,71 +183,30 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
         </section>
 
         {feedback ? (
-          <InstantFeedback points={feedback.points} onNext={proceed}>
-            {feedback.response.kind === 'slider' && (
+          <InstantFeedback points={feedback.points} onNext={onProceed}>
+            {feedback.res.kind === 'slider' && (
               <div style={sliderPctStyle}>
-                正解 {q.sliderCorrectPct}% / あなた {feedback.response.pct}%
+                正解 {q.sliderCorrectPct}% / あなた {feedback.res.pct}%
               </div>
             )}
-            <NodeRangeSection
-              file={positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor })}
-              highlightHand={q.hand}
-              actionLabels={q.actionLabels}
-            />
+            <NodeRangeSection file={view.nodeFile} highlightHand={view.hand} actionLabels={view.actionLabels} />
           </InstantFeedback>
         ) : q.format === 'slider' ? (
           <SliderChoice
             key={`slider-${state.current}`}
             actionLabel={q.actionLabels[q.sliderAction]}
-            onSubmit={(pct) => handleResponse({ kind: 'slider', pct })}
-            onSkip={() => handleResponse({ kind: 'skip' })}
+            onSubmit={(pct) => onAnswer({ kind: 'slider', pct })}
+            onSkip={() => onAnswer({ kind: 'skip' })}
           />
         ) : (
           <PositionalChoices
             key={`select-${state.current}`}
             availableActions={q.availableActions}
             actionLabels={q.actionLabels}
-            onSubmit={(selections) => handleResponse({ kind: 'select', selections })}
+            onSubmit={(selections) => onAnswer({ kind: 'select', selections })}
           />
         )}
       </main>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Countdown
-// ---------------------------------------------------------------------------
-
-function Countdown({ seconds, onTimeUp }: { seconds: number; onTimeUp: () => void }) {
-  const [remaining, setRemaining] = useState(seconds);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRemaining(seconds);
-    const startedAt = Date.now();
-    const tick = window.setInterval(() => {
-      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-      const newRemaining = Math.max(0, seconds - elapsedSec);
-      setRemaining(newRemaining);
-      if (newRemaining <= 0) {
-        window.clearInterval(tick);
-        onTimeUp();
-      }
-    }, 200);
-    return () => window.clearInterval(tick);
-  }, [seconds, onTimeUp]);
-
-  const danger = remaining <= 5;
-  return (
-    <div
-      style={{
-        ...timerStyle,
-        color: danger ? '#b91c1c' : THEME.textPrimary,
-        borderColor: danger ? '#b91c1c' : THEME.border,
-      }}
-      aria-live="polite"
-    >
-      残り {remaining}s
     </div>
   );
 }
@@ -360,16 +253,6 @@ const handLabelStyle: CSSProperties = {
   fontWeight: 600,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-};
-const timerStyle: CSSProperties = {
-  alignSelf: 'center',
-  margin: '0.5rem 0',
-  padding: '0.3rem 0.8rem',
-  border: '1.5px solid',
-  borderRadius: '999px',
-  fontSize: '0.95rem',
-  fontWeight: 700,
-  fontVariantNumeric: 'tabular-nums',
 };
 const loadingStyle: CSSProperties = { margin: 'auto', fontSize: '0.95rem', color: THEME.textMuted };
 const errorStyle: CSSProperties = {
