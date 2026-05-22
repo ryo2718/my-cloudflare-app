@@ -7,7 +7,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { HandRangeMatrix } from './HandRangeMatrix';
-import { handActionFrequencies, type FreqMap } from '../../data/training/actionFrequencies';
+import { handActionFrequencies, actionBarColor, barWidthPct, type FreqMap } from '../../data/training/actionFrequencies';
 import { THEME } from '../../styles/theme';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
@@ -75,7 +75,12 @@ export function NodeRangeSection({ file, highlightHand, caption, actionLabels }:
           <div style={freqTitleStyle}>{selected}</div>
           {rows.map((r) => (
             <div key={r.action} style={freqRowStyle}>
-              <span>{r.label}</span>
+              <span style={freqLabelStyle}>{r.label}</span>
+              <div style={barTrackStyle}>
+                <div
+                  style={{ ...barFillStyle, width: `${barWidthPct(r.pct)}%`, background: actionBarColor(r.action) }}
+                />
+              </div>
               <span style={freqPctStyle}>{formatPct(r.pct)}%</span>
             </div>
           ))}
@@ -92,10 +97,10 @@ function formatPct(pct: number): string {
 const wrapStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' };
 const freqWrapStyle: CSSProperties = {
   width: '100%',
-  maxWidth: 260,
+  maxWidth: 280,
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.2rem',
+  gap: '0.35rem',
 };
 const freqTitleStyle: CSSProperties = {
   fontSize: '0.82rem',
@@ -106,8 +111,24 @@ const freqTitleStyle: CSSProperties = {
 };
 const freqRowStyle: CSSProperties = {
   display: 'flex',
-  justifyContent: 'space-between',
-  fontSize: '0.88rem',
+  alignItems: 'center',
+  gap: '0.5rem',
+  fontSize: '0.85rem',
   color: THEME.textPrimary,
 };
-const freqPctStyle: CSSProperties = { fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
+const freqLabelStyle: CSSProperties = { width: '5em', flexShrink: 0 };
+const barTrackStyle: CSSProperties = {
+  flex: 1,
+  height: 10,
+  background: THEME.cellEmpty,
+  borderRadius: 5,
+  overflow: 'hidden',
+};
+const barFillStyle: CSSProperties = { height: '100%', borderRadius: 5 };
+const freqPctStyle: CSSProperties = {
+  width: '3em',
+  textAlign: 'right',
+  flexShrink: 0,
+  fontWeight: 700,
+  fontVariantNumeric: 'tabular-nums',
+};

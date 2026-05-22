@@ -1,6 +1,8 @@
 // 即時フィードバック / 答え合わせの「アクション頻度内訳」算出 (純関数)。
 // ノードのレンジ (hand → 各アクション頻度%) から、表示する行を組み立てる。
 
+import { ACTION_COLORS } from './actionHistory';
+
 const ORDER = ['fold', 'check', 'call', 'raise', 'allin'] as const;
 type FreqAction = (typeof ORDER)[number];
 
@@ -43,4 +45,19 @@ export function handActionFrequencies(
     label: labels?.[a] ?? DEFAULT_LABELS[a as FreqAction] ?? a,
     pct: s ? (s[a] ?? 0) : 0,
   }));
+}
+
+/**
+ * アクション → 横バーの色 (確定配色 ACTION_COLORS を再利用、新色は作らない)。
+ * check は call と同色 (緑)。
+ */
+export function actionBarColor(action: string): string {
+  const key = action === 'check' ? 'call' : action;
+  const c = (ACTION_COLORS as Record<string, { bg: string }>)[key];
+  return c?.bg ?? '#9CA3AF';
+}
+
+/** 頻度% → バー塗り幅 (0..100 にクランプ)。 */
+export function barWidthPct(pct: number): number {
+  return Math.max(0, Math.min(100, pct));
 }

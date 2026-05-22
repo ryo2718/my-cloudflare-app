@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { presentNodeActions, handActionFrequencies, type FreqMap } from './actionFrequencies';
+import { presentNodeActions, handActionFrequencies, actionBarColor, barWidthPct, type FreqMap } from './actionFrequencies';
 
 // CO open 風 (raise/fold のみ存在)。
 const coOpen: Record<string, FreqMap> = {
@@ -33,6 +33,22 @@ describe('actionFrequencies', () => {
     const sbOpen: Record<string, FreqMap> = { AA: { raise: 50, call: 30, fold: 20 } };
     const rows = handActionFrequencies(sbOpen, 'AA', { call: 'リンプ' });
     expect(rows.find((r) => r.action === 'call')?.label).toBe('リンプ');
+  });
+
+  it('actionBarColor: 確定配色を再利用 (check は call と同色の緑)', () => {
+    expect(actionBarColor('allin')).toBe('#534AB7');
+    expect(actionBarColor('raise')).toBe('#D8443C');
+    expect(actionBarColor('call')).toBe('#3B8A1E');
+    expect(actionBarColor('fold')).toBe('#2F7BC4');
+    expect(actionBarColor('check')).toBe('#3B8A1E');
+  });
+
+  it('barWidthPct: 頻度%に比例 (0..100 にクランプ)', () => {
+    expect(barWidthPct(0)).toBe(0);
+    expect(barWidthPct(12)).toBe(12);
+    expect(barWidthPct(100)).toBe(100);
+    expect(barWidthPct(120)).toBe(100);
+    expect(barWidthPct(-5)).toBe(0);
   });
 
   it('修正3: 初級ノード (utg.json) はレンジデータを持つ (空でない)', () => {
