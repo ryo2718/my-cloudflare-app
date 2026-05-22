@@ -111,9 +111,17 @@ export interface PreflopQuestion {
   ];
   correct: CorrectAnswer;
   /**
-   * Step 3a: 該当ハンドの実 GTO 戦略 (missed_problems への記録用)。
-   * eligible 判定済みハンドなら fold が 0% or 100% のどちらか。
-   * 戦略データが取得不能だった場合は undefined (記録しない)。
+   * 該当ハンドの実 GTO 戦略 (missed_problems への記録用)。
+   *
+   * 中級総合 (IntermediateQuestion) / ポジショナル (PositionalQuestion) は strategy 必須だが、
+   * 初級は意図的に optional のまま統一しない:
+   * ノードデータの取得に失敗したポジションでは `open[pos]?.[hand]` が undefined となり、
+   * `isEligibleForBeginner(undefined) === true` のため strategy なしで出題されうる
+   * (データ欠落フォールバック)。必須化するとこの挙動が変わるため optional を維持する。
+   *
+   * 消費側は undefined を許容すること: 完了時の記録送信 (finish) は `r.strategy` で
+   * ガードし、標準ビュー一式のレンジ/頻度表示 (NodeRangeSection) はこの field ではなく
+   * ノードファイルを直接読むため、strategy が undefined でも表示は欠落しない。
    */
   strategy?: HandStrategy;
 }
