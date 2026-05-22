@@ -19,7 +19,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',            // 純関数中心、DOM 不要
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],  // ts: 純関数、tsx: React component (renderToString)
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'functions/**/*.test.ts'],  // ts: 純関数 / functions: サーバーハンドラ、tsx: React component
     globals: false,                 // describe/it/expect は明示 import で
   },
 })
