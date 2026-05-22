@@ -29,7 +29,7 @@ import {
   SLIDER_TIMEOUT_POINTS,
   type SliderPoints,
 } from './sliderScoring';
-import { loadNodeHands, __testing__ as gtoNodeCacheTesting } from './gtoNodeCache';
+import { loadNodeHands, cachedNodeHands, __testing__ as gtoNodeCacheTesting } from './gtoNodeCache';
 
 // ---------------------------------------------------------------------------
 // 型
@@ -399,16 +399,17 @@ async function loadModeData(mode: PositionalMode): Promise<void> {
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     try {
-      await Promise.all(
-        filesForMode(mode).map(async (file) => {
-          if (cache[file]) return;
-          try {
-            cache[file] = await fetchNode(file);
-          } catch {
-            /* 一部ノードが存在しない場合は silent skip */
-          }
-        }),
-      );
+      const tasks: Promise<unknown>[] = filesForMode(mode).map(async (file) => {
+        if (cache[file]) return;
+        try {
+          cache[file] = await fetchNode(file);
+        } catch {
+          /* 一部ノードが存在しない場合は silent skip */
+        }
+      });
+      // Blind の BB ライト3bet 判定に UTG オープンレンジが要る (共通 raw キャッシュへ)。
+      if (mode === 'blind') tasks.push(loadNodeHands(UTG_OPEN_FILE).catch(() => undefined));
+      await Promise.all(tasks);
     } finally {
       loadingPromise = null;
     }
@@ -449,6 +450,40 @@ function pickHand(spec: ScenarioSpec, hands: Record<string, PositionalStrategy>)
   }
   // slider は端 (≈100%/≈0%) も出題対象に含める
   return pickRandom(band);
+}
+
+// ---------------------------------------------------------------------------
+// BB ライト3bet バイアス (中級Blind の BB vs open のみ)
+// ---------------------------------------------------------------------------
+
+/** UTG オープンレンジ (100% open 判定用)。初級/EP open と同一ファイル。 */
+const UTG_OPEN_FILE = 'utg.json';
+
+/** BB vs open シナリオごとの「ライト3bet 下限保証」題数 (合計3)。 */
+const LIGHT_3BET_QUOTA: Record<string, number> = {
+  bb_vs_open_other: 2,
+  bb_vs_open_sb: 1,
+};
+
+/**
+ * ライト3bet 候補ハンド: 境界帯 ∩ 0<raise<100 ∩ UTG が100%openでない。
+ *   - raise=100% の完全確定3betは「当たり前のレイズ」として除外。
+ *   - UTG が 100% open するハンドはライト(ブラフ)3betではないため除外。
+ *     (UTG データ未ロード時はこの除外を適用しない = グレースフルデグレード)
+ */
+function lightThreeBetCandidates(hands: Record<string, PositionalStrategy>): Hand[] {
+  const utg = cachedNodeHands(UTG_OPEN_FILE);
+  return extractBoundaryBand(hands).filter((h) => {
+    const r = hands[h]?.raise ?? 0;
+    if (!(r > 0 && r < 100)) return false;
+    if ((utg?.[h]?.raise ?? 0) >= 100) return false;
+    return isHandEligible(h, hands[h]);
+  });
+}
+
+function pickLightThreeBet(hands: Record<string, PositionalStrategy>): Hand | null {
+  const cand = lightThreeBetCandidates(hands);
+  return cand.length > 0 ? pickRandom(cand) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -679,13 +714,16 @@ function generateOne(
   mode: PositionalMode,
   spec: ScenarioSpec,
   seen: Set<string>,
+  lightOnly = false,
 ): PositionalQuestion | null {
-  const cands = spec.candidates.filter((c) => cache[c.file] && Object.keys(cache[c.file]).length > 0);
+  let cands = spec.candidates.filter((c) => cache[c.file] && Object.keys(cache[c.file]).length > 0);
+  // ライト3bet 枠は候補を持つノードに限定。
+  if (lightOnly) cands = cands.filter((c) => lightThreeBetCandidates(cache[c.file]).length > 0);
   if (cands.length === 0) return null;
   for (let i = 0; i < GENERATE_RETRIES; i++) {
     const c = pickRandom(cands);
     const hands = cache[c.file];
-    const hand = pickHand(spec, hands);
+    const hand = lightOnly ? pickLightThreeBet(hands) : pickHand(spec, hands);
     if (!hand) continue;
     // 同一シナリオ内ではハンド重複を排除 (scenario:hand)。プール枯渇時 (例 lp_vs_4bet:
     // ユニーク4 < 6) のみ末尾リトライで重複を許容し、問題数を維持する。
@@ -704,8 +742,11 @@ export async function generatePositionalQuestions(mode: PositionalMode): Promise
   const seen = new Set<string>();
   for (const { spec: specKey, count } of MODE_RECIPES[mode]) {
     const spec = SPECS[specKey];
+    const quota = LIGHT_3BET_QUOTA[specKey] ?? 0; // BB vs open のライト3bet 下限保証
     for (let i = 0; i < count; i++) {
-      const q = generateOne(mode, spec, seen);
+      const lightOnly = i < quota;
+      // ライト3bet 枠が(プール枯渇等で)作れない場合は通常出題にフォールバックし問題数を維持。
+      const q = generateOne(mode, spec, seen, lightOnly) ?? (lightOnly ? generateOne(mode, spec, seen, false) : null);
       if (q) out.push(q);
     }
   }
@@ -834,4 +875,7 @@ export const __testing__ = {
   tableInfo,
   availableActionsOf,
   filesForMode,
+  lightThreeBetCandidates,
+  LIGHT_3BET_QUOTA,
+  UTG_OPEN_FILE,
 };

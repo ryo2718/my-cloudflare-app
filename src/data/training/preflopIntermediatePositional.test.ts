@@ -11,6 +11,7 @@ import {
   totalPositionalScore,
   maxScoreForMode,
   generatePositionalQuestions,
+  positionalNodeFile,
   MODE_RECIPES,
   __testing__,
   type PositionalStrategy,
@@ -419,6 +420,62 @@ describe('generatePositionalQuestions (実データ)', () => {
         if (scenario === 'lp_vs_4bet') continue; // ユニーク4 < 6: 枯渇時のみ重複許容
         expect(new Set(hands).size).toBe(hands.length);
       }
+    }
+  });
+
+  // BB ライト3bet バイアス (方法A)
+  function fileForQ(q: PositionalQuestion): string | null {
+    return positionalNodeFile(q.scenarioKey, { hero: q.myPosition, opener: q.opener, threeBettor: q.threeBettor });
+  }
+
+  it('ライト3bet: BB vs open(9題)で最低3題がライト3bet候補から出題される', async () => {
+    for (let trial = 0; trial < 5; trial++) {
+      __testing__.resetCache();
+      const qs = await generatePositionalQuestions('blind');
+      const bbVsOpen = qs.filter((q) => q.scenarioKey === 'bb_vs_open_other' || q.scenarioKey === 'bb_vs_open_sb');
+      let lite = 0;
+      for (const q of bbVsOpen) {
+        const file = fileForQ(q);
+        if (!file) continue;
+        const cands = __testing__.lightThreeBetCandidates(__testing__.cache[file]);
+        if (cands.includes(q.hand)) lite += 1;
+      }
+      expect(lite).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('ライト3bet候補の定義: 0<raise<100 かつ UTG が100%openでない (raise100/UTG100openは除外)', async () => {
+    __testing__.resetCache();
+    await generatePositionalQuestions('blind');
+    const utg = JSON.parse(
+      await readFile(path.join(process.cwd(), 'public/data/preflop/cash_100bb_6max_nl500_2.5x/utg.json'), 'utf8'),
+    ).hands as Record<string, { raise?: number }>;
+    for (const file of ['utgr_bb.json', 'hjr_bb.json', 'cor_bb.json', 'btnr_bb.json', 'sbr_bb.json']) {
+      const node = __testing__.cache[file];
+      const cands = __testing__.lightThreeBetCandidates(node);
+      expect(cands.length).toBeGreaterThan(0);
+      for (const h of cands) {
+        const r = node[h].raise;
+        expect(r).toBeGreaterThan(0);
+        expect(r).toBeLessThan(100); // raise 100% は除外
+        expect(utg[h]?.raise ?? 0).toBeLessThan(100); // UTG 100% open は除外
+      }
+    }
+  });
+
+  it('ライト3bet下限保証は配分/問題数を変えない (Blind 30, bb_vs_open 6/3, 重複なし)', async () => {
+    expect(__testing__.LIGHT_3BET_QUOTA).toEqual({ bb_vs_open_other: 2, bb_vs_open_sb: 1 });
+    expect(MODE_RECIPES.blind.find((r) => r.spec === 'bb_vs_open_other')?.count).toBe(6);
+    expect(MODE_RECIPES.blind.find((r) => r.spec === 'bb_vs_open_sb')?.count).toBe(3);
+    __testing__.resetCache();
+    const qs = await generatePositionalQuestions('blind');
+    expect(qs).toHaveLength(30);
+    expect(qs.filter((q) => q.scenarioKey === 'bb_vs_open_other')).toHaveLength(6);
+    expect(qs.filter((q) => q.scenarioKey === 'bb_vs_open_sb')).toHaveLength(3);
+    // 各 BB vs open シナリオ内でハンド重複なし
+    for (const key of ['bb_vs_open_other', 'bb_vs_open_sb']) {
+      const hands = qs.filter((q) => q.scenarioKey === key).map((q) => q.hand);
+      expect(new Set(hands).size).toBe(hands.length);
     }
   });
 });
