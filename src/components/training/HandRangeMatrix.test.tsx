@@ -137,18 +137,18 @@ describe('<HandRangeMatrix /> 描画', () => {
     expect(html).not.toContain('チェック');
   });
 
-  it('check セルは call と同じ緑 (#639922) で描画される', () => {
+  it('check セルは call と同じ緑 (確定配色 #3B8A1E) で描画される', () => {
     const html = renderToStaticMarkup(
       <HandRangeMatrix hands={{ '72o': { allin: 0, raise: 0, call: 0, check: 100, fold: 0 } }} />,
     );
-    expect(html).toContain('#639922');
+    expect(html).toContain('#3B8A1E');
   });
 
-  it('A8s = {0, 0, 58, 42} で緑 (#639922) と 青 (#378ADD) の両方が描画される', () => {
+  it('A8s = {0, 0, 58, 42} で緑 (#3B8A1E) と 青 (fold色) の両方が描画される', () => {
     const html = renderToStaticMarkup(
       <HandRangeMatrix hands={{ A8s: s(0, 0, 58, 42) }} />,
     );
-    expect(html).toContain('#639922');
+    expect(html).toContain('#3B8A1E');
     expect(html).toContain(ACTION_BG.fold);
   });
 

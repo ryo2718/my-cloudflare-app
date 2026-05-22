@@ -7,6 +7,7 @@
 //   - 'Call' は直前までにレイズ/オールインが無ければ limp、あれば call。
 
 import type { Position } from '../../types/strategy';
+import { ACTION_COLOR } from '../../styles/actionColors';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
 
@@ -139,11 +140,11 @@ export interface ActionColor {
  *   raise=赤 / allin=紫 / call・limp=緑 / fold=青 / blind=白
  */
 export const ACTION_COLORS: Record<PopupKind, ActionColor> = {
-  raise: { fg: '#FFFFFF', bg: '#D8443C', border: '#D8443C' },
-  allin: { fg: '#FFFFFF', bg: '#534AB7', border: '#534AB7' },
-  call: { fg: '#FFFFFF', bg: '#3B8A1E', border: '#3B8A1E' },
-  limp: { fg: '#FFFFFF', bg: '#3B8A1E', border: '#3B8A1E' },
-  fold: { fg: '#FFFFFF', bg: '#2F7BC4', border: '#2F7BC4' },
+  raise: { fg: '#FFFFFF', bg: ACTION_COLOR.raise, border: ACTION_COLOR.raise },
+  allin: { fg: '#FFFFFF', bg: ACTION_COLOR.allin, border: ACTION_COLOR.allin },
+  call: { fg: '#FFFFFF', bg: ACTION_COLOR.call, border: ACTION_COLOR.call },
+  limp: { fg: '#FFFFFF', bg: ACTION_COLOR.limp, border: ACTION_COLOR.limp },
+  fold: { fg: '#FFFFFF', bg: ACTION_COLOR.fold, border: ACTION_COLOR.fold },
   blind: { fg: '#2C2C2A', bg: '#FFFFFF', border: '#C9C7BD' },
 };
 

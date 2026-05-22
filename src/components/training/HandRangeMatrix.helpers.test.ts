@@ -37,9 +37,9 @@ describe('paintCell (check 対応 / BB vs SB limp バグ修正)', () => {
     }
   });
 
-  it('check の色は call と同色 (緑 #639922)', () => {
+  it('check の色は call と同色 (緑 #3B8A1E、確定配色)', () => {
     expect(ACTION_BG.check).toBe(ACTION_BG.call);
-    expect(ACTION_BG.check).toBe('#639922');
+    expect(ACTION_BG.check).toBe('#3B8A1E');
   });
 
   it('hasCheckAction: check を持つノードのみ true', () => {

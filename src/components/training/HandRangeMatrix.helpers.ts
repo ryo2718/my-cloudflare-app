@@ -1,28 +1,25 @@
 // HandRangeMatrix 用の純粋ヘルパー (react-refresh の only-export-components 規約回避のため分離)。
 
 import type { HandStrategy } from '../../data/training/preflopBeginner';
+import { ACTION_COLOR } from '../../styles/actionColors';
 
 export const MATRIX_RANKS: ReadonlyArray<string> = [
   'A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2',
 ];
 
 /**
- * アクションごとのセル色。
- *  - allin: 紫
- *  - raise: 赤
- *  - call:  緑
- *  - check: 緑 (call と同色。受け身に進むアクションなので同種扱い)
- *  - fold:  青 (#378ADD)
+ * アクションごとのセル色。アクション色の単一定義 (ACTION_COLOR) を参照する。
+ *  - allin: 紫 / raise: 赤 / call: 緑 / check: 緑(call と同色) / fold: 青
  *
  * 「前のノードに存在しないハンド (全戦略 0%)」 は paintCell が null を返し、
  * 呼び出し側でクリーム色 (空白) を描画する。
  */
 export const ACTION_BG: Record<string, string> = {
-  allin: '#993C9D',
-  raise: '#E24B4A',
-  call:  '#639922',
-  check: '#639922', // = call (同色)
-  fold:  '#378ADD',
+  allin: ACTION_COLOR.allin,
+  raise: ACTION_COLOR.raise,
+  call: ACTION_COLOR.call,
+  check: ACTION_COLOR.check,
+  fold: ACTION_COLOR.fold,
 };
 
 /** そのノードのレンジに check を持つハンドがあるか (凡例の緑表記をコール/チェックで出し分ける)。 */
