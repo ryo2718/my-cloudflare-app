@@ -335,10 +335,13 @@ const SPECS: Record<string, ScenarioSpec> = {
 export const MODE_RECIPES: Record<PositionalMode, Array<{ spec: string; count: number }>> = {
   // ジャム受け (ep_vs_4bet = vs 5bet) は最大3問。空いた4問は open/vs3bet に比率維持で補充
   // (GLOSSARY EP 構成: 6:7 → +2/+2)。合計 20 問は不変。
+  // ep_vs_4bet は出題対象ハンドが4 (vs5betジャムは混合域が狭い) しかなく ratio が薄い。
+  // 予防的に 3→2 へ下げ ratio 2.0 とし、空いた1問を プールの広い ep_vs_3bet (45) へ振替。
+  // 合計20は不変。
   ep: [
     { spec: 'ep_open', count: 8 },
-    { spec: 'ep_vs_3bet', count: 9 },
-    { spec: 'ep_vs_4bet', count: 3 },
+    { spec: 'ep_vs_3bet', count: 10 },
+    { spec: 'ep_vs_4bet', count: 2 },
   ],
   // lp_vs_4bet は出題対象ハンドが4 (99/77/66/AQo) かつノード間で不均等
   // (CO系は99のみ、77/AQo は1ノードのみ) なため、6題だと鳩の巣原理で必ず重複し、

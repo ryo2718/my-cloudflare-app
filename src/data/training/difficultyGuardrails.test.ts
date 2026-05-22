@@ -154,9 +154,10 @@ describe('難易度ガードレール', () => {
     expect(maxScoreForMode('blind')).toBe(30);
   });
 
-  it('項目2: 形式構成 (EP slider11/select9, LP slider8/select12, Blind slider3/select27)', () => {
-    expect(constEq(stats.ep.perSessionSlider, 11)).toBe(true);
-    expect(constEq(stats.ep.perSessionSelect, 9)).toBe(true);
+  it('項目2: 形式構成 (EP slider10/select10, LP slider8/select12, Blind slider3/select27)', () => {
+    // EP: ep_vs_4bet 3→2 / ep_vs_3bet 9→10 振替で slider(ep_open8+ep_vs_4bet2)=10 / select(ep_vs_3bet10)=10。
+    expect(constEq(stats.ep.perSessionSlider, 10)).toBe(true);
+    expect(constEq(stats.ep.perSessionSelect, 10)).toBe(true);
     // LP: lp_vs_4bet 6→3 / lp_vs_3bet 6→9 振替で slider(lp_open3+lp_vs_open_co2+lp_vs_4bet3)=8 / select=12。
     expect(constEq(stats.lp.perSessionSlider, 8)).toBe(true);
     expect(constEq(stats.lp.perSessionSelect, 12)).toBe(true);
@@ -198,9 +199,9 @@ describe('難易度ガードレール', () => {
     // ポジショナル: 各シナリオ題数は固定。
     expect(constEq(stats.blind.scenario.bb_vs_open_other, 6)).toBe(true);
     expect(constEq(stats.blind.scenario.bb_vs_open_sb, 3)).toBe(true);
-    expect(constEq(stats.ep.scenario.ep_vs_4bet, 3)).toBe(true);
+    expect(constEq(stats.ep.scenario.ep_vs_4bet, 2)).toBe(true);
     expect(constEq(stats.ep.scenario.ep_open, 8)).toBe(true);
-    expect(constEq(stats.ep.scenario.ep_vs_3bet, 9)).toBe(true);
+    expect(constEq(stats.ep.scenario.ep_vs_3bet, 10)).toBe(true);
     // 中級総合: 各シナリオ題数は定義レンジ内、合計20。
     const ranges: Record<string, [number, number]> = {
       bb_response: [2, 5], vs_3bet: [4, 6], vs_4bet: [4, 6], middle_vs_open: [3, 5], risky_open: [1, 3],
