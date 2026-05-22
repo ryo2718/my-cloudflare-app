@@ -8,10 +8,8 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { HandRangeMatrix } from './HandRangeMatrix';
 import { handActionFrequencies, actionBarColor, barWidthPct, type FreqMap } from '../../data/training/actionFrequencies';
+import { loadNodeHands, cachedNodeHands } from '../../data/training/gtoNodeCache';
 import { THEME } from '../../styles/theme';
-
-const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
-const cache: Record<string, Record<string, FreqMap>> = {};
 
 export interface NodeRangeSectionProps {
   /** 例 "utg.json" / "cor_bb.json"。null なら表示しない。 */
@@ -24,7 +22,9 @@ export interface NodeRangeSectionProps {
 }
 
 export function NodeRangeSection({ file, highlightHand, caption, actionLabels }: NodeRangeSectionProps) {
-  const [hands, setHands] = useState<Record<string, FreqMap> | null>(file && cache[file] ? cache[file] : null);
+  const [hands, setHands] = useState<Record<string, FreqMap> | null>(
+    file ? ((cachedNodeHands(file) as unknown as Record<string, FreqMap> | undefined) ?? null) : null,
+  );
   const [selected, setSelected] = useState<string>(highlightHand);
 
   // 出題ハンド/ノードが変わったら選択を出題ハンドに戻す。
@@ -35,18 +35,17 @@ export function NodeRangeSection({ file, highlightHand, caption, actionLabels }:
 
   useEffect(() => {
     if (!file) return;
-    if (cache[file]) {
+    const hit = cachedNodeHands(file);
+    if (hit) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHands(cache[file]);
+      setHands(hit as unknown as Record<string, FreqMap>);
       return;
     }
     let cancelled = false;
-    fetch(`${PREFLOP_DATA_ROOT}/${file}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { hands?: Record<string, FreqMap> } | null) => {
-        if (cancelled || !data?.hands) return;
-        cache[file] = data.hands;
-        setHands(data.hands);
+    // 取得失敗時は silent (レンジ表を出さない) — 従来の NodeRangeSection 挙動を維持。
+    loadNodeHands(file)
+      .then((h) => {
+        if (!cancelled) setHands(h as unknown as Record<string, FreqMap>);
       })
       .catch(() => {
         /* silent */

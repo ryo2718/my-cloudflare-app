@@ -29,8 +29,7 @@ import {
   SLIDER_TIMEOUT_POINTS,
   type SliderPoints,
 } from './sliderScoring';
-
-const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
+import { loadNodeHands, __testing__ as gtoNodeCacheTesting } from './gtoNodeCache';
 
 // ---------------------------------------------------------------------------
 // 型
@@ -381,11 +380,10 @@ function normalizeStrategy(raw: HandStrategy): PositionalStrategy {
 }
 
 async function fetchNode(file: string): Promise<Record<string, PositionalStrategy>> {
-  const res = await fetch(`${PREFLOP_DATA_ROOT}/${file}`);
-  if (!res.ok) throw new Error(`failed to load ${file}: ${res.status}`);
-  const raw = (await res.json()) as { hands: Record<string, HandStrategy> };
+  // 取得 + raw キャッシュは共通の gtoNodeCache に委譲。ここでは PositionalStrategy に正規化。
+  const hands = await loadNodeHands(file);
   const out: Record<string, PositionalStrategy> = {};
-  for (const [h, s] of Object.entries(raw.hands)) out[h] = normalizeStrategy(s);
+  for (const [h, s] of Object.entries(hands)) out[h] = normalizeStrategy(s);
   return out;
 }
 
@@ -829,6 +827,7 @@ export const __testing__ = {
   SPECS,
   resetCache: () => {
     for (const k of Object.keys(cache)) delete cache[k];
+    gtoNodeCacheTesting.reset(); // 共通の raw キャッシュもクリア
   },
   buildQuestion,
   pickHand,

@@ -15,12 +15,7 @@
 import type { Position, Hand } from '../../types/strategy';
 import type { EvTier } from '../evRanking';
 import { pickRandomHandFromTiers } from './tierLookup';
-
-// ---------------------------------------------------------------------------
-// 定数
-// ---------------------------------------------------------------------------
-
-const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
+import { loadNodeHands } from './gtoNodeCache';
 
 /** プリフロップアクション順。UTG → … → BB。 */
 export const PREFLOP_ORDER: ReadonlyArray<Position> = [
@@ -80,10 +75,6 @@ export interface HandStrategy {
   allin: number;
   /** limp pot で BB が check できるノード (例 sbc_bb) のみ存在。 */
   check?: number;
-}
-
-interface RawNode {
-  hands: Record<string, HandStrategy>;
 }
 
 /** open 戦略 (5 ポジション)。 */
@@ -238,16 +229,11 @@ export function beginnerNodeFile(q: PreflopQuestion): string {
 // データロード
 // ---------------------------------------------------------------------------
 
+// open/vs_open をポジション/ペア単位で索引する view。実体の fetch + キャッシュは
+// 共通の gtoNodeCache が担い、ここはそれを参照するだけ。
 const openCache: OpenStrategies = {};
 const vsOpenCache: VsOpenStrategies = {};
 let loadingPromise: Promise<void> | null = null;
-
-async function fetchNode(url: string): Promise<Record<string, HandStrategy>> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`failed to load ${url}: ${res.status}`);
-  const raw = (await res.json()) as RawNode;
-  return raw.hands;
-}
 
 /** 全 open + vs_open 戦略を一括ロード (冪等)。 */
 async function loadAllStrategies(): Promise<void> {
@@ -263,16 +249,14 @@ async function loadAllStrategies(): Promise<void> {
       await Promise.all(
         OPEN_POSITIONS.map(async (pos) => {
           if (openCache[pos]) return;
-          const url = `${PREFLOP_DATA_ROOT}/${pos.toLowerCase()}.json`;
-          openCache[pos] = await fetchNode(url);
+          openCache[pos] = await loadNodeHands(`${pos.toLowerCase()}.json`);
         }),
       );
       // vs_open: 15 files
       await Promise.all(
         VS_OPEN_PAIRS.map(async ([opener, responder]) => {
           if (vsOpenCache[opener]?.[responder]) return;
-          const url = `${PREFLOP_DATA_ROOT}/${opener.toLowerCase()}r_${responder.toLowerCase()}.json`;
-          const hands = await fetchNode(url);
+          const hands = await loadNodeHands(`${opener.toLowerCase()}r_${responder.toLowerCase()}.json`);
           if (!vsOpenCache[opener]) vsOpenCache[opener] = {};
           vsOpenCache[opener]![responder] = hands;
         }),
