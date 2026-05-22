@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import type { Position } from '../../types/strategy';
 import {
   parseActionHistory,
   toSeatPopups,
@@ -172,4 +174,62 @@ describe('toSeatPopups', () => {
     expect(utg?.label).toBe('raise 20');
     expect(popups).toHaveLength(2); // UTG, HJ
   });
+});
+
+describe('actionsBeforeHero: 多ラウンドの fold 補完 (バグ1)', () => {
+  // cor_btnr_co 相当: CO open → BTN 3bet。folded=[UTG,HJ,SB,BB] だが
+  // action_history に SB/BB の fold が欠落している。
+  const items = parseActionHistory([
+    { position: 'UTG', action: 'Fold' },
+    { position: 'HJ', action: 'Fold' },
+    { position: 'CO', action: 'Raise 2.5' },
+    { position: 'BTN', action: 'Raise 7.5' },
+  ]);
+  const folded: Position[] = ['UTG', 'HJ', 'SB', 'BB'];
+
+  it('多ラウンド: 欠落した SB/BB の fold を補完し、席順に並べる', () => {
+    const r = actionsBeforeHero(items, 'CO', folded);
+    expect(r.map((x) => `${x.position}:${x.kind}`)).toEqual([
+      'UTG:fold', 'HJ:fold', 'CO:raise', 'BTN:raise', 'SB:fold', 'BB:fold',
+    ]);
+  });
+
+  it('補完後 withBlinds は SB/BB をブラインドにせず fold 表示にする', () => {
+    const popups = withBlinds(toSeatPopups(actionsBeforeHero(items, 'CO', folded)));
+    expect(popups.find((p) => p.position === 'SB')).toEqual({ position: 'SB', kind: 'fold', label: 'fold' });
+    expect(popups.find((p) => p.position === 'BB')).toEqual({ position: 'BB', kind: 'fold', label: 'fold' });
+    expect(popups.some((p) => p.kind === 'blind')).toBe(false);
+  });
+
+  it('folded 未指定なら従来どおり補完しない (後方互換)', () => {
+    const r = actionsBeforeHero(items, 'CO');
+    expect(r.some((x) => x.position === 'SB')).toBe(false);
+    expect(r.some((x) => x.position === 'BB')).toBe(false);
+  });
+
+  it('vs_open: folded を渡しても後ろの席は補完しない (既知バグ再発防止)', () => {
+    const vsOpen = parseActionHistory([{ position: 'UTG', action: 'Raise 2.5' }]);
+    const r = actionsBeforeHero(vsOpen, 'HJ', ['CO', 'BTN', 'SB', 'BB']);
+    expect(r.map((x) => x.position)).toEqual(['UTG']);
+  });
+});
+
+describe('実ノードデータ: 多ラウンドで降りた席が fold 表示 (バグ1)', () => {
+  const root = 'public/data/preflop/cash_100bb_6max_nl500_2.5x/';
+  for (const f of ['cor_btnr_co.json', 'cor_btnai_co.json', 'hjr_cor_hjai_co.json']) {
+    it(`${f}: folded_positions の席がブラインドではなく fold で表示される`, () => {
+      const gi = JSON.parse(readFileSync(root + f, 'utf8')).game_info as {
+        hero_position: Position;
+        folded_positions: Position[];
+        action_history: { position: string; action: string }[];
+      };
+      const items = parseActionHistory(gi.action_history);
+      const before = actionsBeforeHero(items, gi.hero_position, gi.folded_positions);
+      const popups = withBlinds(toSeatPopups(before));
+      for (const pos of gi.folded_positions) {
+        expect(popups.find((p) => p.position === pos)?.kind).toBe('fold');
+      }
+      expect(popups.some((p) => p.kind === 'blind')).toBe(false);
+    });
+  }
 });

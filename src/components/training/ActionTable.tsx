@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Position } from '../../types/strategy';
 import {
   loadActionHistory,
+  loadFoldedPositions,
   actionsBeforeHero,
   toSeatPopups,
   withBlinds,
@@ -53,9 +54,9 @@ export function ActionTable({
       setItems([]);
       return;
     }
-    loadActionHistory(file).then((loaded) => {
-      // ヒーロー以降の席 (アイソレーションの fold 等) を除外。
-      if (!cancelled) setItems(actionsBeforeHero(loaded, mePosition));
+    Promise.all([loadActionHistory(file), loadFoldedPositions(file)]).then(([loaded, folded]) => {
+      // ヒーロー以降の席を除外 + 多ラウンドノードでは欠落した過去の fold を補完。
+      if (!cancelled) setItems(actionsBeforeHero(loaded, mePosition, folded));
     });
     return () => {
       cancelled = true;

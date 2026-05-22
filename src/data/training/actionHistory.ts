@@ -70,9 +70,27 @@ const SEAT_ORDER: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB
  * アイソレーション (他全員降ろし) として含むため、そのまま表示するとヒーロー以降まで出てしまう。
  *   - ヒーローが履歴に登場しない (= 最初の決断) → 座席順でヒーローより前の席のアクションのみ
  *   - ヒーローが履歴に登場する (= vs3bet/4bet 等の多ラウンド) → 全アクション (全て現決断より前)
+ *
+ * folded (= ノードの folded_positions) を渡すと、多ラウンドノードに限り、action_history に
+ * fold が欠落している「過去に降りた席」(主に 3bettor より後ろの SB/BB) の fold を補完する。
+ * これにより、降りた席が withBlinds で「生存中のブラインド」と誤表示されるのを防ぐ。
  */
-export function actionsBeforeHero(items: ReadonlyArray<ActionItem>, hero: Position): ActionItem[] {
-  if (items.some((it) => it.position === hero)) return chronologicalOrder(items);
+export function actionsBeforeHero(
+  items: ReadonlyArray<ActionItem>,
+  hero: Position,
+  folded: ReadonlyArray<Position> = [],
+): ActionItem[] {
+  if (items.some((it) => it.position === hero)) {
+    // 多ラウンド (ヒーロー再判断)。folded_positions のうち履歴に登場しない席は
+    // 「過去に降りた席」なので fold を補完する (chronologicalOrder が席順に並べる)。
+    const present = new Set(items.map((it) => it.position));
+    const synthesizedFolds: ActionItem[] = folded
+      .filter((p) => !present.has(p))
+      .map((p) => ({ position: p, kind: 'fold' as const }));
+    return chronologicalOrder([...items, ...synthesizedFolds]);
+  }
+  // vs_open (ヒーロー初回行動)。ヒーローより後ろの席の fold は「未来」のため補完しない
+  // (補完すると「後ろの席まで表示する」既知バグの再発になる)。
   const heroIdx = SEAT_ORDER.indexOf(hero);
   if (heroIdx < 0) return chronologicalOrder(items);
   return chronologicalOrder(items.filter((it) => SEAT_ORDER.indexOf(it.position) < heroIdx));
@@ -121,6 +139,23 @@ export async function loadActionHistory(file: string): Promise<ActionItem[]> {
     const items = parseActionHistory(json.game_info?.action_history ?? []);
     cache[file] = items;
     return items;
+  } catch {
+    return [];
+  }
+}
+
+const foldedCache: Record<string, Position[]> = {};
+
+/** ノードファイルの folded_positions を取得 (キャッシュ)。失敗時は空配列。 */
+export async function loadFoldedPositions(file: string): Promise<Position[]> {
+  if (foldedCache[file]) return foldedCache[file];
+  try {
+    const res = await fetch(`${PREFLOP_DATA_ROOT}/${file}`);
+    if (!res.ok) throw new Error(`failed ${file}`);
+    const json = (await res.json()) as { game_info?: { folded_positions?: string[] } };
+    const folded = (json.game_info?.folded_positions ?? []) as Position[];
+    foldedCache[file] = folded;
+    return folded;
   } catch {
     return [];
   }
@@ -207,4 +242,5 @@ export function getActionDelay(kind: ActionKind): number {
 /** テスト用にキャッシュをクリア。 */
 export function __resetActionHistoryCache(): void {
   for (const k of Object.keys(cache)) delete cache[k];
+  for (const k of Object.keys(foldedCache)) delete foldedCache[k];
 }
