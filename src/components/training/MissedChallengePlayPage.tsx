@@ -36,7 +36,12 @@ import { PositionalChoices } from './PositionalChoices';
 import { positionalPillStyle } from './positionalPill';
 import { intermediateScenarioLabel, rangeFileFor } from './intermediateScenarioLabel';
 import { QuitButton } from './QuitButton';
+import { InstantFeedback } from './InstantFeedback';
+import { NodeRangeSection } from './NodeRangeSection';
+import { beginnerViewInfo, intermediateViewInfo, positionalViewInfo } from './trainingViewInfo';
+import { loadInstantFeedback } from '../../data/userPreferences';
 import { THEME } from '../../styles/theme';
+import type { ReactNode } from 'react';
 import {
   saveChallengeResult,
   scoreMatchesFilter,
@@ -86,10 +91,16 @@ const LEVEL_LABEL: Record<MissedLevel, string> = {
   blind: '中級 Blind',
 };
 
+/** 挑戦モードの回答 (種別ごとに型が異なる)。即時フィードバック表示で使う。 */
+type ChallengeResponse = CorrectAnswer | ReadonlyArray<Action> | PositionalResponse;
+
 export function MissedChallengePlayPage({ level, count, filter }: Props) {
   const auth = useAuth();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const advancingRef = useRef(false);
+  // 即時フィードバック (トレーニング共通トグル)。挑戦モードもこの設定に従う。
+  const [instant] = useState<boolean>(loadInstantFeedback);
+  const [feedback, setFeedback] = useState<{ result: MissedChallengeItem; res: ChallengeResponse } | null>(null);
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -164,52 +175,83 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
     });
   };
 
+  // 回答確定 (採点レコードを追加して次へ)。記録は sessionStorage のみ (DB 更新なし)。
+  const commit = (result: MissedChallengeItem) => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    pushResult(result);
+  };
+
+  // 回答受領: 即時フィードバック ON ならその場で答えを表示 (確定は「次のハンドへ」)。
+  const submit = (result: MissedChallengeItem, res: ChallengeResponse) => {
+    if (state.kind !== 'ready') return;
+    if (instant) {
+      if (feedback) return; // 表示中の重複回答を無視
+      setFeedback({ result, res });
+      return;
+    }
+    commit(result);
+  };
+
+  const proceed = () => {
+    if (!feedback) return;
+    const result = feedback.result;
+    setFeedback(null);
+    commit(result);
+  };
+
   const advanceBeginner = (chosen: CorrectAnswer) => {
-    if (state.kind !== 'ready' || advancingRef.current) return;
+    if (state.kind !== 'ready') return;
     const item = state.questions[state.current];
     if (item.kind !== 'beginner') return;
-    advancingRef.current = true;
     const isCorrect = item.question.correct === chosen;
-    pushResult({
-      missed_problem_id: item.missed_problem_id,
-      hand: item.question.hand,
-      scenario_label:
-        item.question.scenario === 'open'
-          ? `${item.question.myPosition} オープン判定`
-          : `vs ${item.question.opener} open`,
-      final_score: isCorrect ? 1 : -1,
-      is_perfect: isCorrect,
-    });
+    submit(
+      {
+        missed_problem_id: item.missed_problem_id,
+        hand: item.question.hand,
+        scenario_label:
+          item.question.scenario === 'open'
+            ? `${item.question.myPosition} オープン判定`
+            : `vs ${item.question.opener} open`,
+        final_score: isCorrect ? 1 : -1,
+        is_perfect: isCorrect,
+      },
+      chosen,
+    );
   };
 
   const advanceIntermediate = (selected: ReadonlyArray<Action>) => {
-    if (state.kind !== 'ready' || advancingRef.current) return;
+    if (state.kind !== 'ready') return;
     const item = state.questions[state.current];
     if (item.kind !== 'intermediate') return;
-    advancingRef.current = true;
     const finalScore = scoreAnswer(item.question.strategy, selected).finalScore;
-    pushResult({
-      missed_problem_id: item.missed_problem_id,
-      hand: item.question.hand,
-      scenario_label: intermediateScenarioLabel(item.question),
-      final_score: finalScore,
-      is_perfect: finalScore === 2,
-    });
+    submit(
+      {
+        missed_problem_id: item.missed_problem_id,
+        hand: item.question.hand,
+        scenario_label: intermediateScenarioLabel(item.question),
+        final_score: finalScore,
+        is_perfect: finalScore === 2,
+      },
+      selected,
+    );
   };
 
   const advancePositional = (res: PositionalResponse) => {
-    if (state.kind !== 'ready' || advancingRef.current) return;
+    if (state.kind !== 'ready') return;
     const item = state.questions[state.current];
     if (item.kind !== 'positional') return;
-    advancingRef.current = true;
     const points = scorePositionalPoints(item.question, res);
-    pushResult({
-      missed_problem_id: item.missed_problem_id,
-      hand: item.question.hand,
-      scenario_label: item.question.label,
-      final_score: points,
-      is_perfect: points === 2,
-    });
+    submit(
+      {
+        missed_problem_id: item.missed_problem_id,
+        hand: item.question.hand,
+        scenario_label: item.question.label,
+        final_score: points,
+        is_perfect: points === 2,
+      },
+      res,
+    );
   };
 
   if (state.kind === 'loading') {
@@ -235,6 +277,29 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
   const progress = ((state.current + 1) / total) * 100;
   const item = state.questions[state.current];
 
+  // 即時フィードバック表示 (他5モードと同一: 判定 → pt → レンジ → 頻度バー → 次へ)。
+  let sliderLine: ReactNode = null;
+  if (feedback && item.kind === 'positional') {
+    const r = feedback.res as PositionalResponse;
+    if (r.kind === 'slider') {
+      sliderLine = (
+        <div style={sliderPctStyle}>
+          正解 {item.question.sliderCorrectPct}% / あなた {r.pct}%
+        </div>
+      );
+    }
+  }
+  const feedbackNode: ReactNode = feedback ? (
+    <InstantFeedback points={feedback.result.final_score} onNext={proceed}>
+      {sliderLine}
+      <NodeRangeSection
+        file={nodeFileForItem(item)}
+        highlightHand={item.question.hand}
+        actionLabels={item.kind === 'positional' ? item.question.actionLabels : undefined}
+      />
+    </InstantFeedback>
+  ) : undefined;
+
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
@@ -250,20 +315,27 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
 
       <main style={mainStyle}>
         {item.kind === 'beginner' && (
-          <BeginnerStage q={item.question} onAnswer={advanceBeginner} key={state.current} />
+          <BeginnerStage q={item.question} onAnswer={advanceBeginner} feedback={feedbackNode} key={state.current} />
         )}
         {item.kind === 'intermediate' && (
-          <IntermediateStage q={item.question} onAnswer={advanceIntermediate} key={state.current} />
+          <IntermediateStage q={item.question} onAnswer={advanceIntermediate} feedback={feedbackNode} key={state.current} />
         )}
         {item.kind === 'positional' && (
-          <PositionalStage q={item.question} onAnswer={advancePositional} key={state.current} />
+          <PositionalStage q={item.question} onAnswer={advancePositional} feedback={feedbackNode} key={state.current} />
         )}
       </main>
     </div>
   );
 }
 
-function BeginnerStage({ q, onAnswer }: { q: PreflopQuestion; onAnswer: (a: CorrectAnswer) => void }) {
+/** 挑戦モードの各問のノードファイル (共通アダプタを再利用)。 */
+function nodeFileForItem(item: Prepared): string | null {
+  if (item.kind === 'beginner') return beginnerViewInfo(item.question).nodeFile;
+  if (item.kind === 'intermediate') return intermediateViewInfo(item.question).nodeFile;
+  return positionalViewInfo(item.question).nodeFile;
+}
+
+function BeginnerStage({ q, onAnswer, feedback }: { q: PreflopQuestion; onAnswer: (a: CorrectAnswer) => void; feedback?: ReactNode }) {
   return (
     <>
       <ActionTable file={beginnerNodeFile(q)} mePosition={q.myPosition} animate />
@@ -271,15 +343,17 @@ function BeginnerStage({ q, onAnswer }: { q: PreflopQuestion; onAnswer: (a: Corr
         <span style={handLabelStyle}>ハンド</span>
         <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
       </section>
-      <section style={actionRowStyle}>
-        <button type="button" onClick={() => onAnswer('participate')} style={joinBtnStyle}>参加</button>
-        <button type="button" onClick={() => onAnswer('fold')} style={foldBtnStyle}>参加しない</button>
-      </section>
+      {feedback ?? (
+        <section style={actionRowStyle}>
+          <button type="button" onClick={() => onAnswer('participate')} style={joinBtnStyle}>参加</button>
+          <button type="button" onClick={() => onAnswer('fold')} style={foldBtnStyle}>参加しない</button>
+        </section>
+      )}
     </>
   );
 }
 
-function IntermediateStage({ q, onAnswer }: { q: IntermediateQuestion; onAnswer: (sel: ReadonlyArray<Action>) => void }) {
+function IntermediateStage({ q, onAnswer, feedback }: { q: IntermediateQuestion; onAnswer: (sel: ReadonlyArray<Action>) => void; feedback?: ReactNode }) {
   void ACTIONS;
   const scenarioPill = useMemo(() => intermediateScenarioLabel(q), [q]);
   return (
@@ -290,12 +364,12 @@ function IntermediateStage({ q, onAnswer }: { q: IntermediateQuestion; onAnswer:
         <span style={handLabelStyle}>ハンド</span>
         <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
       </section>
-      <IntermediateChoices onSubmit={onAnswer} />
+      {feedback ?? <IntermediateChoices onSubmit={onAnswer} />}
     </>
   );
 }
 
-function PositionalStage({ q, onAnswer }: { q: PositionalQuestion; onAnswer: (res: PositionalResponse) => void }) {
+function PositionalStage({ q, onAnswer, feedback }: { q: PositionalQuestion; onAnswer: (res: PositionalResponse) => void; feedback?: ReactNode }) {
   return (
     <>
       <div style={positionalPillStyle(q.scenarioKey)}>{q.label}</div>
@@ -308,18 +382,20 @@ function PositionalStage({ q, onAnswer }: { q: PositionalQuestion; onAnswer: (re
         <span style={handLabelStyle}>ハンド</span>
         <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
       </section>
-      {q.format === 'slider' ? (
-        <SliderChoice
-          actionLabel={q.actionLabels[q.sliderAction]}
-          onSubmit={(pct) => onAnswer({ kind: 'slider', pct })}
-          onSkip={() => onAnswer({ kind: 'skip' })}
-        />
-      ) : (
-        <PositionalChoices
-          availableActions={q.availableActions}
-          actionLabels={q.actionLabels}
-          onSubmit={(selections) => onAnswer({ kind: 'select', selections })}
-        />
+      {feedback ?? (
+        q.format === 'slider' ? (
+          <SliderChoice
+            actionLabel={q.actionLabels[q.sliderAction]}
+            onSubmit={(pct) => onAnswer({ kind: 'slider', pct })}
+            onSkip={() => onAnswer({ kind: 'skip' })}
+          />
+        ) : (
+          <PositionalChoices
+            availableActions={q.availableActions}
+            actionLabels={q.actionLabels}
+            onSubmit={(selections) => onAnswer({ kind: 'select', selections })}
+          />
+        )
       )}
     </>
   );
@@ -339,6 +415,7 @@ const progressBarInnerStyle: CSSProperties = { height: '100%', background: THEME
 const mainStyle: CSSProperties = { flex: 1, padding: '1rem', maxWidth: 520, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' };
 const handSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' };
 const handLabelStyle: CSSProperties = { fontSize: '0.72rem', color: THEME.textSecondary, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' };
+const sliderPctStyle: CSSProperties = { textAlign: 'center', fontSize: '0.9rem', fontWeight: 700, color: THEME.textPrimary, fontVariantNumeric: 'tabular-nums' };
 const orangePillStyle: CSSProperties = { alignSelf: 'flex-start', fontSize: '0.78rem', fontWeight: 700, color: '#993C1D', background: '#FAEEDA', border: '1px solid #E5A551', borderRadius: '999px', padding: '0.2rem 0.7rem' };
 const actionRowStyle: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginTop: 'auto' };
 const joinBtnStyle: CSSProperties = { padding: '0.85rem 1rem', background: THEME.accent, color: '#fff', border: 'none', borderRadius: '0.45rem', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' };
