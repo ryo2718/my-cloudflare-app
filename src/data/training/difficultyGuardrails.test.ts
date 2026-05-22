@@ -154,11 +154,12 @@ describe('難易度ガードレール', () => {
     expect(maxScoreForMode('blind')).toBe(30);
   });
 
-  it('項目2: 形式構成 (EP/LP slider11/select9, Blind slider3/select27)', () => {
+  it('項目2: 形式構成 (EP slider11/select9, LP slider8/select12, Blind slider3/select27)', () => {
     expect(constEq(stats.ep.perSessionSlider, 11)).toBe(true);
     expect(constEq(stats.ep.perSessionSelect, 9)).toBe(true);
-    expect(constEq(stats.lp.perSessionSlider, 11)).toBe(true);
-    expect(constEq(stats.lp.perSessionSelect, 9)).toBe(true);
+    // LP: lp_vs_4bet 6→3 / lp_vs_3bet 6→9 振替で slider(lp_open3+lp_vs_open_co2+lp_vs_4bet3)=8 / select=12。
+    expect(constEq(stats.lp.perSessionSlider, 8)).toBe(true);
+    expect(constEq(stats.lp.perSessionSelect, 12)).toBe(true);
     expect(constEq(stats.blind.perSessionSlider, 3)).toBe(true);
     expect(constEq(stats.blind.perSessionSelect, 27)).toBe(true);
   });

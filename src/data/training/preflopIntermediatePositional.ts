@@ -340,12 +340,16 @@ export const MODE_RECIPES: Record<PositionalMode, Array<{ spec: string; count: n
     { spec: 'ep_vs_3bet', count: 9 },
     { spec: 'ep_vs_4bet', count: 3 },
   ],
+  // lp_vs_4bet は出題対象ハンドが4 (99/77/66/AQo) かつノード間で不均等
+  // (CO系は99のみ、77/AQo は1ノードのみ) なため、6題だと鳩の巣原理で必ず重複し、
+  // 4題でも稀少ハンドをリトライ内に引けず約1%重複が残る。出題数を 3 に下げて重複を解消し、
+  // 空いた3問をプールの広い lp_vs_3bet (distinct 32) へ振替する。合計20は不変。
   lp: [
     { spec: 'lp_open', count: 3 },
     { spec: 'lp_vs_open_btn', count: 3 },
     { spec: 'lp_vs_open_co', count: 2 },
-    { spec: 'lp_vs_3bet', count: 6 },
-    { spec: 'lp_vs_4bet', count: 6 },
+    { spec: 'lp_vs_3bet', count: 9 },
+    { spec: 'lp_vs_4bet', count: 3 },
   ],
   blind: [
     { spec: 'sb_open', count: 3 },
