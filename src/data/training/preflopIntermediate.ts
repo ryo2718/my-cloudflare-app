@@ -533,28 +533,34 @@ export function generateMiddleVsOpenQuestion(data: StrategiesByPair): Intermedia
 
 /** 際どい open シナリオ: 自分=opener、混合戦略ハンドのみ。 */
 export function generateRiskyOpenQuestion(data: StrategiesByOpener): IntermediateQuestion {
-  const eligibleOpeners = VS_OPEN_OPENERS.filter((op) => !!data[op]);
-  if (eligibleOpeners.length === 0) throw new Error('risky_open: no eligible openers');
-  for (let attempt = 0; attempt < GENERATE_MAX_RETRIES; attempt++) {
-    const opener = pickRandom(eligibleOpeners);
-    const hands = data[opener]!;
-    const handStr = pickRandom(Object.keys(hands));
-    const hand = handStr as Hand;
-    const strategy = hands[handStr];
-    if (!isRiskyOpenHand(strategy)) continue;
-    if (getTierOfHand(hand) === null) continue;
-    return {
-      scenarioType: 'risky_open',
-      myPosition: opener,
-      opener,
-      foldedBefore: positionsBefore(opener),
-      chipExtras: [],
-      hand,
-      cards: handToCards(hand),
-      strategy,
-    };
+  // eligible な (opener, hand) ペアを列挙して直接一様抽選する。
+  // 旧実装は 169 ハンドからの一様抽選 + isRiskyOpenHand 棄却 (rejection sampling) で、
+  // SB の eligible が極小 (2 ハンド) のため稀に GENERATE_MAX_RETRIES を使い切って throw していた。
+  // 採択分布は「eligible ペアの一様分布」と数学的に同一なので、直接列挙に置換しても
+  // 出題分布 (混合戦略傾向・opener/hand 分布) は変わらず、かつ throw しなくなる。
+  const pairs: Array<{ opener: Position; hand: Hand }> = [];
+  for (const opener of VS_OPEN_OPENERS) {
+    const hands = data[opener];
+    if (!hands) continue;
+    for (const handStr of Object.keys(hands)) {
+      const hand = handStr as Hand;
+      if (!isRiskyOpenHand(hands[handStr])) continue;
+      if (getTierOfHand(hand) === null) continue;
+      pairs.push({ opener, hand });
+    }
   }
-  throw new Error('risky_open: no eligible hand after retries');
+  if (pairs.length === 0) throw new Error('risky_open: no eligible hand');
+  const { opener, hand } = pickRandom(pairs);
+  return {
+    scenarioType: 'risky_open',
+    myPosition: opener,
+    opener,
+    foldedBefore: positionsBefore(opener),
+    chipExtras: [],
+    hand,
+    cards: handToCards(hand),
+    strategy: data[opener]![hand]!,
+  };
 }
 
 /** 際どい open ハンドの統計を返す (各 opener で何ハンド該当するか)。 */
