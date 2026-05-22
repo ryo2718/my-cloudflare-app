@@ -28,7 +28,7 @@ const STRATEGY_COLORS: Record<Action, { check: string; text: string }> = {
   fold:  { check: '#378ADD', text: '#185FA5' },
 };
 import { CardSet } from '../CardSet';
-import { HandRangeMatrix } from './HandRangeMatrix';
+import { NodeRangeSection } from './NodeRangeSection';
 import {
   intermediateScenarioLabel,
   rangeCaption,
@@ -37,8 +37,6 @@ import {
 import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
 import type { Suit, Rank } from '../../types/card';
-import type { HandStrategy } from '../../data/training/preflopBeginner';
-import { useEffect, useState } from 'react';
 
 export interface TrainingReviewIntermediateProps {
   level: TrainingLevel;
@@ -182,36 +180,11 @@ export function TrainingReviewIntermediate({ level, index }: TrainingReviewInter
  * 取得失敗時は silent fallback (描画しない)。
  */
 function RangeSection({ record }: { record: IntermediateRecord }) {
-  const file = rangeFileFor(record);
-  const caption = rangeCaption(record);
-  const [hands, setHands] = useState<Record<string, HandStrategy> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchRangeFile(file)
-      .then((h) => { if (!cancelled) setHands(h); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [file]);
-
-  if (!hands) return null;
   return (
     <section style={rangeSectionStyle} aria-label="このシナリオのレンジ">
-      <HandRangeMatrix hands={hands} highlightHand={record.hand} caption={caption} />
+      <NodeRangeSection file={rangeFileFor(record)} highlightHand={record.hand} caption={rangeCaption(record)} />
     </section>
   );
-}
-
-const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
-const rangeFileCache: Record<string, Record<string, HandStrategy>> = {};
-
-async function fetchRangeFile(file: string): Promise<Record<string, HandStrategy>> {
-  if (rangeFileCache[file]) return rangeFileCache[file];
-  const res = await fetch(`${PREFLOP_DATA_ROOT}/${file}`);
-  if (!res.ok) throw new Error(`failed to load ${file}: ${res.status}`);
-  const raw = (await res.json()) as { hands: Record<string, HandStrategy> };
-  rangeFileCache[file] = raw.hands;
-  return raw.hands;
 }
 
 function formatFreq(pct: number): string {

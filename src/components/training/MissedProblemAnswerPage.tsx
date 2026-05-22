@@ -27,7 +27,7 @@ import { PositionalReviewDetail } from './PositionalReviewDetail';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './IntermediateChoices';
 import { CardSet } from '../CardSet';
-import { HandRangeMatrix } from './HandRangeMatrix';
+import { NodeRangeSection } from './NodeRangeSection';
 import { ActionTable } from './ActionTable';
 import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { AppHeader } from '../AppHeader';
@@ -38,7 +38,7 @@ import {
 } from './intermediateScenarioLabel';
 import { THEME } from '../../styles/theme';
 import type { Rank, Suit } from '../../types/card';
-import type { HandStrategy, PreflopQuestion } from '../../data/training/preflopBeginner';
+import type { PreflopQuestion } from '../../data/training/preflopBeginner';
 import type { IntermediateQuestion } from '../../data/training/preflopIntermediate';
 
 export type MissedAnswerLevel = MissedLevel;
@@ -219,42 +219,11 @@ function IntermediateRangeSection({
   q: IntermediateQuestion;
   hand: string;
 }) {
-  const file = rangeFileFor(q);
-  const caption = rangeCaption(q);
-  const [hands, setHands] = useState<Record<string, HandStrategy> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchRangeFile(file)
-      .then((h) => {
-        if (!cancelled) setHands(h);
-      })
-      .catch(() => {
-        /* silent */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [file]);
-
-  if (!hands) return null;
   return (
     <section style={rangeSectionStyle} aria-label="このシナリオのレンジ">
-      <HandRangeMatrix hands={hands} highlightHand={hand} caption={caption} />
+      <NodeRangeSection file={rangeFileFor(q)} highlightHand={hand} caption={rangeCaption(q)} />
     </section>
   );
-}
-
-const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
-const rangeFileCache: Record<string, Record<string, HandStrategy>> = {};
-
-async function fetchRangeFile(file: string): Promise<Record<string, HandStrategy>> {
-  if (rangeFileCache[file]) return rangeFileCache[file];
-  const res = await fetch(`${PREFLOP_DATA_ROOT}/${file}`);
-  if (!res.ok) throw new Error(`failed to load ${file}: ${res.status}`);
-  const raw = (await res.json()) as { hands: Record<string, HandStrategy> };
-  rangeFileCache[file] = raw.hands;
-  return raw.hands;
 }
 
 function formatFreq(pct: number): string {

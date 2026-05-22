@@ -4,21 +4,18 @@
 //   - 判定アイコン
 //   - レンジ表 (該当ノードを遅延ロードして強調)
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import {
-  loadPositionalNode,
   positionalNodeFile,
   type PositionalAction,
   type PositionalQuestion,
   type PositionalResponse,
-  type PositionalStrategy,
 } from '../../data/training/preflopIntermediatePositional';
 import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import { CardSet } from '../CardSet';
 import { ActionTable } from './ActionTable';
-import { HandRangeMatrix } from './HandRangeMatrix';
+import { NodeRangeSection } from './NodeRangeSection';
 import { THEME } from '../../styles/theme';
-import type { HandStrategy } from '../../data/training/preflopBeginner';
 import type { Rank, Suit } from '../../types/card';
 
 const ACTION_ORDER: ReadonlyArray<PositionalAction> = ['allin', 'raise', 'call', 'check', 'fold'];
@@ -30,24 +27,6 @@ export interface PositionalReviewDetailProps {
 }
 
 export function PositionalReviewDetail({ question, response, points }: PositionalReviewDetailProps) {
-  const [nodeHands, setNodeHands] = useState<Record<string, PositionalStrategy> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const file = positionalNodeFile(question.scenarioKey, {
-      hero: question.myPosition,
-      opener: question.opener,
-      threeBettor: question.threeBettor,
-    });
-    if (!file) return;
-    void loadPositionalNode(file).then((h) => {
-      if (!cancelled) setNodeHands(h);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [question.scenarioKey, question.myPosition, question.opener, question.threeBettor]);
-
   const icon = judgmentIcon(points);
   const iconColor = judgmentColor(points);
 
@@ -84,14 +63,15 @@ export function PositionalReviewDetail({ question, response, points }: Positiona
 
       <div>
         <div style={mutedSmallStyle}>レンジ表</div>
-        {nodeHands ? (
-          <HandRangeMatrix
-            hands={nodeHands as Record<string, HandStrategy>}
-            highlightHand={question.hand}
-          />
-        ) : (
-          <div style={mutedSmallStyle}>レンジ読み込み中…</div>
-        )}
+        <NodeRangeSection
+          file={positionalNodeFile(question.scenarioKey, {
+            hero: question.myPosition,
+            opener: question.opener,
+            threeBettor: question.threeBettor,
+          })}
+          highlightHand={question.hand}
+          actionLabels={question.actionLabels}
+        />
       </div>
     </div>
   );
