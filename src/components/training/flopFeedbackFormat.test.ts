@@ -1,7 +1,7 @@
 // フロップ即時FB: ベット表示(bet/pot %) + バー色(check=緑/赤グラデ/紫)。
 
 import { describe, it, expect } from 'vitest';
-import { actionFreqLabel, barColor, flopJudgment } from './flopFeedbackFormat';
+import { actionFreqLabel, barColor, flopJudgment, feedbackRows } from './flopFeedbackFormat';
 import { judgmentIcon } from './judgmentIcon';
 import { ACTION_COLOR } from '../../styles/actionColors';
 
@@ -32,6 +32,23 @@ describe('barColor (修正2: check=緑 / 赤グラデ / 紫)', () => {
     expect(small).toMatch(/^hsl\(2,/); // 赤系
     expect(large).toMatch(/^hsl\(2,/);
     expect(small).not.toBe(large); // サイズで濃淡が変わる
+  });
+});
+
+describe('feedbackRows (チェックは0%でも常時表示)', () => {
+  it('チェックがデータに無くても 0% で先頭に出す', () => {
+    const rows = feedbackRows([{ code: 'R5', freq: 0.9, bp: 0.5 }]);
+    expect(rows[0]).toEqual({ code: 'X', freq: 0, bp: 0 });
+    expect(rows.map((r) => r.code)).toEqual(['X', 'R5']);
+  });
+  it('チェックが0%でも残す。ベットの0%は除外', () => {
+    const rows = feedbackRows([
+      { code: 'X', freq: 0, bp: 0 },
+      { code: 'R2', freq: 0.7, bp: 0.33 },
+      { code: 'R5', freq: 0.002, bp: 0.9 }, // 四捨五入0% → 除外
+    ]);
+    expect(rows.map((r) => r.code)).toEqual(['X', 'R2']);
+    expect(rows[0].freq).toBe(0); // チェック0%でも表示
   });
 });
 

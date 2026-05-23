@@ -20,7 +20,7 @@ import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { ActionTable } from './ActionTable';
 import { FlopBoard } from './FlopBoard';
-import { actionFreqLabel, barColor, flopJudgment } from './flopFeedbackFormat';
+import { actionFreqLabel, barColor, flopJudgment, feedbackRows } from './flopFeedbackFormat';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
 
@@ -162,9 +162,8 @@ function FlopFeedbackDetail({ q }: { q: FlopQuestion }) {
         {verb}頻度 {rate}% → 正解: <span style={fbCorrectStyle}>{correctText}</span>
       </div>
       <ul style={fbListStyle}>
-        {q.actions.map((a) => {
+        {feedbackRows(q.actions).map((a) => {
           const pct = Math.round(a.freq * 100);
-          if (pct <= 0) return null;
           return (
             <li key={a.code} style={fbRowStyle}>
               <span style={fbActionStyle}>{actionFreqLabel(a.code, a.bp)}</span>

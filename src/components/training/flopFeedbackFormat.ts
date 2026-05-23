@@ -3,6 +3,18 @@
 
 import { ACTION_COLOR } from '../../styles/actionColors';
 import type { StrategySymbol } from './judgmentIcon';
+import type { FlopActionFreq } from '../../data/training/flopBeginner';
+
+/**
+ * 即時フィードバックに表示する行。
+ *   - チェック(X) は頻度0%でも必ず先頭に出す (ユーザー要望: 一応チェックだけは出す)。
+ *   - ベットは頻度0% (四捨五入で0) の行は出さない。
+ */
+export function feedbackRows(actions: ReadonlyArray<FlopActionFreq>): FlopActionFreq[] {
+  const check = actions.find((a) => a.code === 'X') ?? { code: 'X', freq: 0, bp: 0 };
+  const bets = actions.filter((a) => a.code !== 'X' && Math.round(a.freq * 100) > 0);
+  return [check, ...bets];
+}
 
 /**
  * フロップ初級の判定記号 (2値): 1pt(正解)→○ / 0pt(不正解)→×。△は使わない。
