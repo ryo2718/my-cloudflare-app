@@ -1,7 +1,8 @@
 // フロップ即時FB: ベット表示(bet/pot %) + バー色(check=緑/赤グラデ/紫)。
 
 import { describe, it, expect } from 'vitest';
-import { actionFreqLabel, barColor } from './flopFeedbackFormat';
+import { actionFreqLabel, barColor, flopJudgment } from './flopFeedbackFormat';
+import { judgmentIcon } from './judgmentIcon';
 import { ACTION_COLOR } from '../../styles/actionColors';
 
 describe('actionFreqLabel (修正1: bet/pot %)', () => {
@@ -31,5 +32,18 @@ describe('barColor (修正2: check=緑 / 赤グラデ / 紫)', () => {
     expect(small).toMatch(/^hsl\(2,/); // 赤系
     expect(large).toMatch(/^hsl\(2,/);
     expect(small).not.toBe(large); // サイズで濃淡が変わる
+  });
+});
+
+describe('flopJudgment (修正2: 1pt→○ / 0pt→×、△は使わない)', () => {
+  it('1pt(正解)→○ / 0pt(不正解)→×', () => {
+    expect(flopJudgment(1)).toBe('○');
+    expect(flopJudgment(0)).toBe('✕');
+  });
+  it('他モードの judgmentIcon は不変 (0pt→△ のまま)', () => {
+    expect(judgmentIcon(0)).toBe('△'); // 部分点モードは従来どおり
+    expect(judgmentIcon(2)).toBe('◎');
+    expect(judgmentIcon(1)).toBe('○');
+    expect(judgmentIcon(-1)).toBe('✕');
   });
 });

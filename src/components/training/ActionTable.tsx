@@ -35,6 +35,8 @@ export interface ActionTableProps {
   items?: ReadonlyArray<ActionItem>;
   /** テーブル中央に置く要素 (フロップ3枚等)。PokerTable へ素通し。 */
   centerSlot?: ReactNode;
+  /** centerSlot 用に最初から楕円を広げておく。PokerTable へ素通し。 */
+  wide?: boolean;
 }
 
 export function ActionTable({
@@ -45,6 +47,7 @@ export function ActionTable({
   resetKey,
   items: providedItems,
   centerSlot,
+  wide = false,
 }: ActionTableProps) {
   // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
   const [items, setItems] = useState<ActionItem[] | null>(null);
@@ -118,5 +121,5 @@ export function ActionTable({
 
   // ブラインド (SB 0.5bb / BB 1bb) は最初から表示。アクションした SB/BB はそのラベルに差し替え。
   const popups = withBlinds(items ? toSeatPopups(items.slice(0, revealed)) : []);
-  return <PokerTable mePosition={mePosition} popups={popups} centerSlot={centerSlot} />;
+  return <PokerTable mePosition={mePosition} popups={popups} centerSlot={centerSlot} wide={wide} />;
 }

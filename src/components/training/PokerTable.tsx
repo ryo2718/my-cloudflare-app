@@ -32,6 +32,11 @@ export interface PokerTableProps {
    * 未指定 (プリフロップ) のときは従来どおり。
    */
   centerSlot?: ReactNode;
+  /**
+   * 中央スロット用に最初から楕円を広げておく (centerSlot がまだ無い再生中も拡大維持)。
+   * フロップ初級でテーブルサイズがフロップ表示時に変化しないようにするため。
+   */
+  wide?: boolean;
 }
 
 /** mePosition を「下中央」とした時の slot → position マッピング。 */
@@ -44,14 +49,15 @@ function arrangePositions(me: Position): Record<Slot, Position> {
   return out as Record<Slot, Position>;
 }
 
-export function PokerTable({ mePosition, popups = [], centerSlot }: PokerTableProps) {
+export function PokerTable({ mePosition, popups = [], centerSlot, wide = false }: PokerTableProps) {
   const slots = arrangePositions(mePosition);
   const popupByPos = new Map<Position, SeatPopup>();
   for (const p of popups) popupByPos.set(p.position, p);
+  const useWide = wide || !!centerSlot;
 
   return (
     <div style={containerStyle}>
-      <div style={centerSlot ? tableWideStyle : tableStyle} aria-label="ポーカーテーブル">
+      <div style={useWide ? tableWideStyle : tableStyle} aria-label="ポーカーテーブル">
         {centerSlot && <div style={centerSlotStyle}>{centerSlot}</div>}
         {SLOTS_CW.map((slot) => {
           const pos = slots[slot];

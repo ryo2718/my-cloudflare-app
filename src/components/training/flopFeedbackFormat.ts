@@ -2,6 +2,15 @@
 // コンポーネントから分離してテスト可能にする。色トークンは共通定義 ACTION_COLOR を参照。
 
 import { ACTION_COLOR } from '../../styles/actionColors';
+import type { StrategySymbol } from './judgmentIcon';
+
+/**
+ * フロップ初級の判定記号 (2値): 1pt(正解)→○ / 0pt(不正解)→×。△は使わない。
+ * 他モードの judgmentIcon (◎○△×) には影響しない。
+ */
+export function flopJudgment(points: number): StrategySymbol {
+  return points >= 1 ? '○' : '✕';
+}
 
 /**
  * action_code + betsize_by_pot → ラベル。

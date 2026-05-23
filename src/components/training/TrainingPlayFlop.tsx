@@ -20,7 +20,7 @@ import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { ActionTable } from './ActionTable';
 import { FlopBoard } from './FlopBoard';
-import { actionFreqLabel, barColor } from './flopFeedbackFormat';
+import { actionFreqLabel, barColor, flopJudgment } from './flopFeedbackFormat';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
 
@@ -114,6 +114,7 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
           mePosition={q.hero}
           items={q.preflopActions}
           animate
+          wide
           resetKey={state.current}
           onAnimationDone={() => setAnimReady(true)}
           centerSlot={animReady ? <FlopBoard key={state.current} cards={q.board} /> : undefined}
@@ -122,7 +123,12 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
         {animReady && (
           <>
             {feedback ? (
-              <InstantFeedback points={feedback.points} onNext={onProceed}>
+              // 修正2: 初級は2値 (1pt→○ / 0pt→×)。△ は使わない (他モードは prop 未指定で従来どおり)。
+              <InstantFeedback
+                points={feedback.points}
+                judgmentFor={flopJudgment}
+                onNext={onProceed}
+              >
                 <FlopFeedbackDetail q={q} />
               </InstantFeedback>
             ) : (
