@@ -1,21 +1,26 @@
 // 役フィルター (レンジ構築補助)。ボードが3枚以上のとき、ボード+現在レンジから
 // 成立する役を逆引きし、選んだ役のコンボだけにレンジを「置き換える」。
-//   - ボードカード表示 (PlayingCard 再利用) / 役名チップ行 / 内訳パネル / 適用ボタン
-//   - チップ=役のオン/オフ。内訳はデフォルト全オン、個別に外せる (部分選択可)
+//   - ボードカード表示 (PlayingCard 再利用) / 役名チップ行 / 内訳の吹き出し / 適用ボタン
+//   - チップ=役の選択 (複数可)。選択中は青 (ACTION_COLOR.fold を流用)。
+//   - 内訳は「吹き出し」式: 1役分のみ表示し、指す先のチップ真下から tail が出る。
+//     タップで選択+内訳表示 / 別の選択中役タップで内訳切替 / 表示中の役を再タップで選択解除。
+//   - 内訳行はプルダウン (デフォルト畳む)。チェック=その組み合わせの選択、開くとスート単位を表示。
 //   - 適用 = 現在レンジ ∩ (オン役 ∩ オン内訳) のコンボ和集合 (置き換え)
 // エクイティ計算には関与しない。
 
 import { useMemo, useState, type CSSProperties } from 'react';
 import { PlayingCard } from '../PlayingCard';
 import { THEME } from '../../styles/theme';
+import { ACTION_COLOR } from '../../styles/actionColors';
 import { cardToInt } from '../../utils/handEvaluator';
 import { cardToString, type Card } from '../../types/card';
 import { ROLE_LABEL, analyzeBoard, applyFilter, type BreakdownItem, type RoleKey } from '../../utils/handFilter';
 import { ComboCards } from './ComboCards';
 
-const CHIP_ON_BG = '#EAF3DE';
-const CHIP_ON_BORDER = '#639922';
-const CHIP_ON_TEXT = '#27500A';
+// 選択中役の「青」は既存の青トークン (ACTION_COLOR.fold) を流用 (新規の色は定義しない)。
+// 吹き出しの地は同トークンを薄めた色 (色は同トークンを参照)。
+const SEL_BLUE = ACTION_COLOR.fold;
+const SEL_BLUE_BG = `color-mix(in srgb, ${SEL_BLUE} 10%, #fff)`;
 
 export interface HandFilterProps {
   /** 現在のボード (3〜5枚)。3枚未満なら呼び出し側で非表示にする想定。 */
@@ -37,12 +42,14 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
     [range, boardKey, excludeKey],
   );
 
-  // オンにした役 (オン順)。最後尾が「直近にオンにした役」。
+  // 選択中の役 (選択順)。最後尾が「直近に選択した役」。
   const [onRoles, setOnRoles] = useState<RoleKey[]>([]);
+  // 吹き出しが指す役 (内訳を表示している役)。選択中の役のみ対象。
+  const [focused, setFocused] = useState<RoleKey | null>(null);
   // オフにした内訳の leaf key 集合 (デフォルトは全オン)。チェック状態。
   const [offItems, setOffItems] = useState<Set<string>>(new Set());
-  // 折りたたみ中の中間見出し leaf key 集合 (デフォルトは全展開)。チェックとは独立。
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // 開いている内訳の leaf key 集合 (デフォルトは畳む)。チェックとは独立。
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const removePrefix = (set: Set<string>, prefix: string) => {
     const next = new Set(set);
@@ -50,10 +57,27 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
     return next;
   };
 
-  const toggleRole = (rk: RoleKey) => {
-    setOffItems((prev) => removePrefix(prev, `${rk}|`)); // 再オンは全オンで開く
-    setCollapsed((prev) => removePrefix(prev, `${rk}|`)); // 再オンは全展開で開く
-    setOnRoles((prev) => (prev.includes(rk) ? prev.filter((r) => r !== rk) : [...prev, rk]));
+  // 役チップのタップ:
+  //   未選択      → 選択し、その役に内訳を向ける (全オン・全畳みで開く)
+  //   選択中の別役 → 内訳の向き先だけ切替 (選択状態は維持)
+  //   内訳表示中  → 選択解除 (向き先は残りの直近選択役へ)
+  const onRoleTap = (rk: RoleKey) => {
+    if (!onRoles.includes(rk)) {
+      setOffItems((prev) => removePrefix(prev, `${rk}|`));
+      setExpanded((prev) => removePrefix(prev, `${rk}|`));
+      setOnRoles((prev) => [...prev, rk]);
+      setFocused(rk);
+      return;
+    }
+    if (focused !== rk) {
+      setFocused(rk);
+      return;
+    }
+    const remaining = onRoles.filter((r) => r !== rk);
+    setOffItems((prev) => removePrefix(prev, `${rk}|`));
+    setExpanded((prev) => removePrefix(prev, `${rk}|`));
+    setOnRoles(remaining);
+    setFocused(remaining.length > 0 ? remaining[remaining.length - 1] : null);
   };
 
   const toggleLeaf = (leafKey: string) => {
@@ -65,9 +89,9 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
     });
   };
 
-  // 折りたたみの開閉 (チェック状態・適用対象は変えない)。
-  const toggleCollapse = (itemLeaf: string) => {
-    setCollapsed((prev) => {
+  // プルダウンの開閉 (チェック状態・適用対象は変えない)。
+  const toggleExpand = (itemLeaf: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(itemLeaf)) next.delete(itemLeaf);
       else next.add(itemLeaf);
@@ -75,8 +99,7 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
     });
   };
 
-  const lastOn = onRoles.length > 0 ? onRoles[onRoles.length - 1] : null;
-  const panelGroup = lastOn ? groups.find((g) => g.key === lastOn) ?? null : null;
+  const panelGroup = focused ? groups.find((g) => g.key === focused) ?? null : null;
 
   // item 配下の具体コンボ key (フラッシュ等は children、それ以外は combos)。
   const comboKeysOf = (item: BreakdownItem): string[] =>
@@ -114,16 +137,19 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
       <div style={chipsStyle}>
         {groups.map((g) => {
           const on = onRoles.includes(g.key);
+          const isFocused = focused === g.key;
           return (
-            <button
-              key={g.key}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggleRole(g.key)}
-              style={on ? chipOnStyle : chipOffStyle}
-            >
-              {g.label}
-            </button>
+            <div key={g.key} style={chipCellStyle}>
+              <button
+                type="button"
+                aria-pressed={on}
+                onClick={() => onRoleTap(g.key)}
+                style={on ? chipOnStyle : chipOffStyle}
+              >
+                {g.label}
+              </button>
+              {isFocused && <div style={tailStyle} aria-hidden="true" />}
+            </div>
           );
         })}
       </div>
@@ -135,23 +161,24 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
             {panelGroup.items.map((item) => {
               const itemLeaf = `${panelGroup.key}|${item.key}`;
               const itemOn = !offItems.has(itemLeaf);
-              const open = !collapsed.has(itemLeaf);
+              const open = expanded.has(itemLeaf);
               return (
                 <div key={item.key} style={itemBlockStyle}>
                   <div style={itemRowStyle}>
+                    <label style={itemCheckStyle}>
+                      <input type="checkbox" checked={itemOn} onChange={() => toggleLeaf(itemLeaf)} />
+                      {item.label}
+                    </label>
+                    <span style={countStyle}>{comboKeysOf(item).length}</span>
                     <button
                       type="button"
-                      onClick={() => toggleCollapse(itemLeaf)}
+                      onClick={() => toggleExpand(itemLeaf)}
                       aria-expanded={open}
                       aria-label="内訳の開閉"
                       style={chevronStyle}
                     >
                       {open ? '▾' : '▸'}
                     </button>
-                    <label style={itemCheckStyle}>
-                      <input type="checkbox" checked={itemOn} onChange={() => toggleLeaf(itemLeaf)} />
-                      {item.label}
-                    </label>
                   </div>
                   {itemOn && open && (
                     <div style={combosWrapStyle}>
@@ -199,7 +226,9 @@ const wrapStyle: CSSProperties = {
   marginBottom: '0.6rem',
 };
 const boardRowStyle: CSSProperties = { display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' };
-const chipsStyle: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' };
+// チップは横一列 (折り返し可)。tail がチップ真下に出るので上揃え。
+const chipsStyle: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '0.35rem' };
+const chipCellStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center' };
 const chipBaseStyle: CSSProperties = {
   padding: '0.3rem 0.6rem',
   borderRadius: '0.4rem',
@@ -215,21 +244,30 @@ const chipOffStyle: CSSProperties = {
 };
 const chipOnStyle: CSSProperties = {
   ...chipBaseStyle,
-  background: CHIP_ON_BG,
-  color: CHIP_ON_TEXT,
-  border: `1px solid ${CHIP_ON_BORDER}`,
+  background: SEL_BLUE,
+  color: '#fff',
+  border: `1px solid ${SEL_BLUE}`,
   fontWeight: 700,
+};
+// 吹き出しの tail (チップ真下の下向き三角、内訳枠と同じ青)。
+const tailStyle: CSSProperties = {
+  width: 0,
+  height: 0,
+  borderLeft: '6px solid transparent',
+  borderRight: '6px solid transparent',
+  borderTop: `7px solid ${SEL_BLUE}`,
+  marginTop: 2,
 };
 const panelStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '0.35rem',
-  background: '#fff',
-  border: `1px solid ${THEME.border}`,
+  background: SEL_BLUE_BG,
+  border: `1px solid ${SEL_BLUE}`,
   borderRadius: '0.4rem',
   padding: '0.5rem',
 };
-const panelHeaderStyle: CSSProperties = { fontSize: '0.85rem', fontWeight: 700, color: THEME.textPrimary };
+const panelHeaderStyle: CSSProperties = { fontSize: '0.85rem', fontWeight: 700, color: SEL_BLUE };
 const panelBodyStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -257,10 +295,17 @@ const itemCheckStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '0.4rem',
+  flex: '1 1 0',
+  minWidth: 0,
   fontSize: '0.82rem',
   fontWeight: 700,
   color: THEME.textPrimary,
   cursor: 'pointer',
+};
+const countStyle: CSSProperties = {
+  fontSize: '0.75rem',
+  color: THEME.textSecondary,
+  fontVariantNumeric: 'tabular-nums',
 };
 // 中間見出し配下の具体コンボ (カードビジュアル) を flex-wrap で折り返し。
 const combosWrapStyle: CSSProperties = {
