@@ -105,6 +105,11 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
   const comboKeysOf = (item: BreakdownItem): string[] =>
     item.children ? item.children.map((c) => c.key) : item.combos;
 
+  // % の分母 = 現在適用されているレンジの総コンボ数 (range.size)。役を「適用」すると
+  // レンジがその役のコンボに置き換わるため、分母も自動で追従する。
+  const total = range.size;
+  const pctOf = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+
   const collectKeys = (): Set<string> => {
     const keys = new Set<string>();
     for (const rk of onRoles) {
@@ -138,6 +143,7 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
         {groups.map((g) => {
           const on = onRoles.includes(g.key);
           const isFocused = focused === g.key;
+          const count = g.combos.length;
           return (
             <div key={g.key} style={chipCellStyle}>
               <button
@@ -146,7 +152,7 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
                 onClick={() => onRoleTap(g.key)}
                 style={on ? chipOnStyle : chipOffStyle}
               >
-                {g.label}
+                {g.label} {pctOf(count)}%({count})
               </button>
               {isFocused && <div style={tailStyle} aria-hidden="true" />}
             </div>
@@ -162,6 +168,7 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
               const itemLeaf = `${panelGroup.key}|${item.key}`;
               const itemOn = !offItems.has(itemLeaf);
               const open = expanded.has(itemLeaf);
+              const itemCount = comboKeysOf(item).length;
               return (
                 <div key={item.key} style={itemBlockStyle}>
                   <div style={itemRowStyle}>
@@ -169,7 +176,7 @@ export function HandFilter({ board, range, excludeCards, onApply }: HandFilterPr
                       <input type="checkbox" checked={itemOn} onChange={() => toggleLeaf(itemLeaf)} />
                       {item.label}
                     </label>
-                    <span style={countStyle}>{comboKeysOf(item).length}</span>
+                    <span style={countStyle}>{pctOf(itemCount)}%({itemCount})</span>
                     <button
                       type="button"
                       onClick={() => toggleExpand(itemLeaf)}
