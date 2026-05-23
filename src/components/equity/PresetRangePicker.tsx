@@ -5,7 +5,7 @@
 //   - 存在しない (ポジション, シナリオ, 相手) はグレーアウト・選択不可
 //   - シナリオは排他 (1つ選択)。選ぶと該当 GTO レンジを onApply で反映
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { Position } from '../../types/strategy';
 import { THEME } from '../../styles/theme';
 import {
@@ -46,6 +46,14 @@ export function PresetRangePicker({ onApply }: PresetRangePickerProps) {
       setLoading(false);
     }
   };
+
+  // 初期表示: open は選択状態 (オレンジ) で描画されるが、apply はユーザー操作時しか
+  // 呼ばれないため、マウント時にも open レンジを適用して選択表示と実態を一致させる。
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void apply(hero, 'open', null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onHeroChange = (h: Position) => {
     setHero(h);
