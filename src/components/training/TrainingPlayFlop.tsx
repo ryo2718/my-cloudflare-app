@@ -1,7 +1,7 @@
 // フロップトレーニング初級の問題画面。
 //   - 全20問・2択 (打つ / 打たない)・1問1pt (正解1/不正解0)・時間制限なし。
 //   - CB問題 (閾値70%) + ドンク問題 (閾値60%)。
-//   - ボードは CardSet (PlayingCard) で表示。即時フィードバックは action 分布バー。
+//   - ボードはテーブル中央に FlopBoard でフリップ表示。即時フィードバックは action 分布バー。
 // 状態機械・回答・即時FB・離脱警告は共通の useTrainingHarness に集約。
 
 import { useState, type CSSProperties } from 'react';
@@ -15,12 +15,12 @@ import {
   type FlopChoice,
 } from '../../data/training/flopBeginner';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
-import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
-import { ACTION_COLOR } from '../../styles/actionColors';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { ActionTable } from './ActionTable';
+import { FlopBoard } from './FlopBoard';
+import { actionFreqLabel, barColor } from './flopFeedbackFormat';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
 
@@ -32,22 +32,6 @@ interface FlopRecord extends FlopQuestion {
   recordId: number;
   choice: FlopChoice | null;
   isCorrect: boolean;
-}
-
-/** action_code → 表示ラベル。X=チェック、それ以外=ベット (サイズ付き)。 */
-function actionLabel(code: string): string {
-  if (code === 'X') return 'チェック';
-  if (code === 'RAI') return 'オールイン';
-  if (code.startsWith('R')) return `ベット ${code.slice(1)}`;
-  return code;
-}
-
-/** ベット頻度バーの色。チェック=青。ベットは betsize_by_pot で 薄赤→濃赤、ポット超(>1.0)=紫。 */
-function barColor(code: string, bp: number): string {
-  if (code === 'X') return ACTION_COLOR.fold; // チェック = 青 (確定配色 fold色を流用)
-  if (bp > 1.0) return ACTION_COLOR.allin; // オーバーベット = 紫
-  const t = Math.max(0, Math.min(1, bp)); // 0→1.0 で明度 72%→38%
-  return `hsl(2, 68%, ${(72 - t * 34).toFixed(0)}%)`;
 }
 
 export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
@@ -125,22 +109,18 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
       <main style={mainStyle}>
         <div style={scenarioPillStyle}>{scenarioLabel}</div>
 
-        {/* 修正2: プリフロップのアクションアニメ (open→fold→call) を流用再生。完了でボード表示。 */}
+        {/* 修正2/3/4: プリフロップのアクションアニメを流用再生し、完了後に中央へフロップ3枚をフリップ登場。 */}
         <ActionTable
           mePosition={q.hero}
           items={q.preflopActions}
           animate
           resetKey={state.current}
           onAnimationDone={() => setAnimReady(true)}
+          centerSlot={animReady ? <FlopBoard key={state.current} cards={q.board} /> : undefined}
         />
 
         {animReady && (
           <>
-            <section style={boardSectionStyle}>
-              <span style={boardLabelStyle}>フロップ</span>
-              <CardSet cards={q.board} size="lg" gap={6} />
-            </section>
-
             {feedback ? (
               <InstantFeedback points={feedback.points} onNext={onProceed}>
                 <FlopFeedbackDetail q={q} />
@@ -181,7 +161,7 @@ function FlopFeedbackDetail({ q }: { q: FlopQuestion }) {
           if (pct <= 0) return null;
           return (
             <li key={a.code} style={fbRowStyle}>
-              <span style={fbActionStyle}>{actionLabel(a.code)}</span>
+              <span style={fbActionStyle}>{actionFreqLabel(a.code, a.bp)}</span>
               <span style={fbBarTrackStyle}>
                 <span style={{ ...fbBarFillStyle, width: `${pct}%`, background: barColor(a.code, a.bp) }} />
               </span>
@@ -216,10 +196,6 @@ const mainStyle: CSSProperties = {
 const scenarioPillStyle: CSSProperties = {
   alignSelf: 'flex-start', fontSize: '0.78rem', fontWeight: 700, color: '#993C1D',
   background: '#FAEEDA', border: '1px solid #E5A551', borderRadius: '999px', padding: '0.2rem 0.7rem',
-};
-const boardSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' };
-const boardLabelStyle: CSSProperties = {
-  fontSize: '0.72rem', color: THEME.textSecondary, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
 };
 const promptStyle: CSSProperties = { margin: 0, fontSize: '1rem', fontWeight: 700, color: THEME.textPrimary, textAlign: 'center' };
 const actionRowStyle: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginTop: 'auto' };

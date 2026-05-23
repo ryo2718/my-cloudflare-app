@@ -5,7 +5,7 @@
 //   - animate=false: 全アクションを即時表示 (振り返り / 答え合わせ画面)
 //   - resetKey を変えると (問題切替) アニメを最初から再生
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Position } from '../../types/strategy';
 import {
   loadActionHistory,
@@ -33,6 +33,8 @@ export interface ActionTableProps {
    * 指定時は file からの読み込み・actionsBeforeHero を行わず、この列をそのまま再生する。
    */
   items?: ReadonlyArray<ActionItem>;
+  /** テーブル中央に置く要素 (フロップ3枚等)。PokerTable へ素通し。 */
+  centerSlot?: ReactNode;
 }
 
 export function ActionTable({
@@ -42,6 +44,7 @@ export function ActionTable({
   onAnimationDone,
   resetKey,
   items: providedItems,
+  centerSlot,
 }: ActionTableProps) {
   // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
   const [items, setItems] = useState<ActionItem[] | null>(null);
@@ -115,5 +118,5 @@ export function ActionTable({
 
   // ブラインド (SB 0.5bb / BB 1bb) は最初から表示。アクションした SB/BB はそのラベルに差し替え。
   const popups = withBlinds(items ? toSeatPopups(items.slice(0, revealed)) : []);
-  return <PokerTable mePosition={mePosition} popups={popups} />;
+  return <PokerTable mePosition={mePosition} popups={popups} centerSlot={centerSlot} />;
 }

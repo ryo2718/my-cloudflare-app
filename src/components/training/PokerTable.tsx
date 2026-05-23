@@ -6,7 +6,7 @@
 //
 // 配置: 自分 (mePosition) は下中央、他 5 名を時計回りに配置。
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Position } from '../../types/strategy';
 import { ACTION_COLORS, type SeatPopup } from '../../data/training/actionHistory';
 
@@ -27,6 +27,11 @@ export interface PokerTableProps {
   mePosition: Position;
   /** 各座席のアクションポップアップ (= その座席の最新アクション)。未指定なら何も表示しない。 */
   popups?: ReadonlyArray<SeatPopup>;
+  /**
+   * テーブル中央に置く要素 (フロップ3枚等)。指定時は楕円を広げて中央に配置する。
+   * 未指定 (プリフロップ) のときは従来どおり。
+   */
+  centerSlot?: ReactNode;
 }
 
 /** mePosition を「下中央」とした時の slot → position マッピング。 */
@@ -39,14 +44,15 @@ function arrangePositions(me: Position): Record<Slot, Position> {
   return out as Record<Slot, Position>;
 }
 
-export function PokerTable({ mePosition, popups = [] }: PokerTableProps) {
+export function PokerTable({ mePosition, popups = [], centerSlot }: PokerTableProps) {
   const slots = arrangePositions(mePosition);
   const popupByPos = new Map<Position, SeatPopup>();
   for (const p of popups) popupByPos.set(p.position, p);
 
   return (
     <div style={containerStyle}>
-      <div style={tableStyle} aria-label="ポーカーテーブル">
+      <div style={centerSlot ? tableWideStyle : tableStyle} aria-label="ポーカーテーブル">
+        {centerSlot && <div style={centerSlotStyle}>{centerSlot}</div>}
         {SLOTS_CW.map((slot) => {
           const pos = slots[slot];
           const isMe = pos === mePosition;
@@ -151,6 +157,27 @@ const tableStyle: CSSProperties = {
   borderRadius: '50%',
   border: '4px solid #5F5E5A',
   boxSizing: 'border-box',
+};
+
+// 中央スロット (フロップ3枚) がある場合は楕円を広げる。
+const tableWideStyle: CSSProperties = {
+  ...tableStyle,
+  maxWidth: 440,
+  aspectRatio: '7 / 5',
+};
+
+// 中央スロット: 楕円の中央やや上に配置。各席ポップアップ (中央寄り 30〜40%) と重ならないよう
+// 縦中央帯 (≈45%) に置き、上下中央ポップアップ (top24% / bottom22%) とも分離する。
+const centerSlotStyle: CSSProperties = {
+  position: 'absolute',
+  top: '46%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  zIndex: 2,
+  pointerEvents: 'none',
 };
 
 const seatBaseStyle: CSSProperties = {
