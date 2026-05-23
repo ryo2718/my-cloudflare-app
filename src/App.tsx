@@ -26,6 +26,7 @@ import { parseMissedFilter } from './components/training/missedChallengeStore';
 import type { MissedLevel } from './api/missedProblems';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
+import { TrainingPlayFlop } from './components/training/TrainingPlayFlop';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResultPositional } from './components/training/TrainingResultPositional';
@@ -146,6 +147,10 @@ export default function App() {
         level.key === 'preflop_intermediate_blind'
       ) {
         return <TrainingPlayPositional level={level} />;
+      }
+      // フロップ初級 (ボード2択: CB/ドンク)
+      if (level.key === 'flop_beginner') {
+        return <TrainingPlayFlop level={level} />;
       }
       // 中級総合は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
       return level.key === 'preflop_intermediate'

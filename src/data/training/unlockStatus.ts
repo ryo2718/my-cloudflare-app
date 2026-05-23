@@ -15,12 +15,15 @@ import type { TrainingResult } from '../../api/account';
 export const INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 /** 上級アンロックに必要な中級ベストスコア (40 点満点の 50%)。 */
 export const ADVANCED_UNLOCK_THRESHOLD = 20;
+/** フロップ初級アンロックに必要なプリフロップ初級ベストスコア (= 20/20 クリア)。 */
+export const FLOP_BEGINNER_UNLOCK_THRESHOLD = 20;
 
 export interface UnlockStatus {
   beginnerUnlocked: boolean;        // 常に true
   intermediateUnlocked: boolean;
   advancedUnlocked: boolean;
   superAdvancedUnlocked: boolean;   // 常に false (未実装)
+  flopBeginnerUnlocked: boolean;    // プリフロップ初級クリアで解放
 }
 
 /** training_results 配列からアンロック状態を計算 (純粋関数)。 */
@@ -34,6 +37,7 @@ export function computeUnlockStatus(records: ReadonlyArray<TrainingResult>): Unl
     intermediateUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
     advancedUnlocked: bestOf('preflop_intermediate') >= ADVANCED_UNLOCK_THRESHOLD,
     superAdvancedUnlocked: false,
+    flopBeginnerUnlocked: bestOf('preflop_beginner') >= FLOP_BEGINNER_UNLOCK_THRESHOLD,
   };
 }
 
@@ -52,7 +56,10 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
       return status.advancedUnlocked;
     case 'preflop_expert':
       return status.superAdvancedUnlocked;
-    // flop はすべて未実装 / ロック扱い
+    // フロップ初級: プリフロップ初級クリアで解放。
+    case 'flop_beginner':
+      return status.flopBeginnerUnlocked;
+    // 他の flop (中級〜超上級) は未実装 / ロック扱い
     default:
       return false;
   }
@@ -70,6 +77,8 @@ export function lockHintFor(levelKey: string): string | null {
       return `中級で ${ADVANCED_UNLOCK_THRESHOLD}pt 取るとアンロック`;
     case 'preflop_expert':
       return '未実装';
+    case 'flop_beginner':
+      return `プリフロップ初級で ${FLOP_BEGINNER_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     default:
       return null;
   }

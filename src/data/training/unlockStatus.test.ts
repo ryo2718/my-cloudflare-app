@@ -41,6 +41,12 @@ describe('computeUnlockStatus (アンロック判定)', () => {
     expect(s.intermediateUnlocked).toBe(true);
   });
 
+  it('初級 20/20 → フロップ初級アンロック / 19 では不可', () => {
+    expect(computeUnlockStatus([rec('preflop_beginner', 20)]).flopBeginnerUnlocked).toBe(true);
+    expect(computeUnlockStatus([rec('preflop_beginner', 19)]).flopBeginnerUnlocked).toBe(false);
+    expect(computeUnlockStatus([]).flopBeginnerUnlocked).toBe(false);
+  });
+
   it('中級 0pt → 上級ロック', () => {
     const s = computeUnlockStatus([
       rec('preflop_beginner', 20),
@@ -93,12 +99,14 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
     intermediateUnlocked: false,
     advancedUnlocked: false,
     superAdvancedUnlocked: false,
+    flopBeginnerUnlocked: false,
   };
   const allUnlocked = {
     beginnerUnlocked: true,
     intermediateUnlocked: true,
     advancedUnlocked: true,
     superAdvancedUnlocked: false, // 超上級は常に false
+    flopBeginnerUnlocked: true,
   };
 
   it('preflop_beginner: 常にアンロック', () => {
@@ -115,8 +123,11 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
   it('preflop_expert: 常にロック', () => {
     expect(isLevelUnlocked('preflop_expert', allUnlocked)).toBe(false);
   });
-  it('flop_*: 全てロック (未実装)', () => {
-    expect(isLevelUnlocked('flop_beginner', allUnlocked)).toBe(false);
+  it('flop_beginner: プリフロップ初級クリアで解放 (flopBeginnerUnlocked に従う)', () => {
+    expect(isLevelUnlocked('flop_beginner', allLocked)).toBe(false);
+    expect(isLevelUnlocked('flop_beginner', allUnlocked)).toBe(true);
+  });
+  it('flop_intermediate 以降: 未実装でロック', () => {
     expect(isLevelUnlocked('flop_intermediate', allUnlocked)).toBe(false);
   });
 });

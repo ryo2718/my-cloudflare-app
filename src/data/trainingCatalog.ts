@@ -48,7 +48,7 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     key: 'flop',
     label: 'フロップトレーニング',
     levels: [
-      { key: 'flop_beginner',     label: '初級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
       { key: 'flop_intermediate', label: '中級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },

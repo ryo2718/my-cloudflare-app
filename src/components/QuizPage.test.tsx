@@ -71,12 +71,13 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('未実装バッジ: 閉じたアコーディオン内は未描画。フラットの未実装のみ (flop初級 + missed上級 = 2)', () => {
+  it('未実装バッジ: 閉じたアコーディオン内は未描画。未実装は missed上級 のみ (flop初級は実装済=ロック表示)', () => {
     // 上級/超上級 (preflop・flop) は既定で閉じたアコーディオン → 中身 (準備中) 未描画。
-    // フラット表示の flop 初級 (未実装) と MissedProblemsSection の上級カードのみバッジが出る。
+    // flop 初級は実装済 (プリフロップ初級クリアで解放) なので未実装ではなくロック表示。
+    // 未実装バッジは MissedProblemsSection の上級カードのみ。
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    expect(matches.length).toBe(2);
+    expect(matches.length).toBe(1);
   });
 
   it('上級/超上級はアコーディオン枠で表示 (既定は閉、準備中は未描画)', () => {

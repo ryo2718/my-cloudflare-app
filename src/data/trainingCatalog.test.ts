@@ -63,16 +63,18 @@ describe('TRAINING_CATALOG', () => {
     expect(intermediate.implemented).toBe(true);
   });
 
-  it('preflop 上級/超上級 と flop 全 level は implemented=false', () => {
+  it('preflop 上級/超上級 と flop 中級以降は implemented=false (flop初級のみ実装)', () => {
     expect(TRAINING_CATALOG[0].levels[5].implemented).toBe(false); // 上級
     expect(TRAINING_CATALOG[0].levels[6].implemented).toBe(false); // 超上級
-    expect(TRAINING_CATALOG[1].levels.every((l) => l.implemented === false)).toBe(true);
+    expect(TRAINING_CATALOG[1].levels[0].implemented).toBe(true);  // フロップ初級 (実装済)
+    expect(TRAINING_CATALOG[1].levels.slice(1).every((l) => l.implemented === false)).toBe(true);
   });
 
-  it('preflop 上級/超上級 と flop 全 level は questionCount=null (未計画)', () => {
+  it('preflop 上級/超上級 と flop 中級以降は questionCount=null、flop初級は20', () => {
     expect(TRAINING_CATALOG[0].levels[5].questionCount).toBeNull();
     expect(TRAINING_CATALOG[0].levels[6].questionCount).toBeNull();
-    expect(TRAINING_CATALOG[1].levels.every((l) => l.questionCount === null)).toBe(true);
+    expect(TRAINING_CATALOG[1].levels[0].questionCount).toBe(20); // フロップ初級
+    expect(TRAINING_CATALOG[1].levels.slice(1).every((l) => l.questionCount === null)).toBe(true);
   });
 });
 
@@ -82,7 +84,8 @@ describe('helpers', () => {
     expect(isPlanned(TRAINING_CATALOG[0].levels[1])).toBe(true);
     expect(isPlanned(TRAINING_CATALOG[0].levels[2])).toBe(true);  // EP (questionCount=20)
     expect(isPlanned(TRAINING_CATALOG[0].levels[5])).toBe(false); // 上級 (未計画)
-    expect(isPlanned(TRAINING_CATALOG[1].levels[0])).toBe(false);
+    expect(isPlanned(TRAINING_CATALOG[1].levels[0])).toBe(true);  // フロップ初級 (計画済)
+    expect(isPlanned(TRAINING_CATALOG[1].levels[1])).toBe(false); // フロップ中級 (未計画)
   });
 
   it('isPlayable: implemented=true かつ pt/問数あり', () => {
@@ -90,7 +93,8 @@ describe('helpers', () => {
     expect(isPlayable(TRAINING_CATALOG[0].levels[1])).toBe(true);
     expect(isPlayable(TRAINING_CATALOG[0].levels[2])).toBe(true);  // EP
     expect(isPlayable(TRAINING_CATALOG[0].levels[5])).toBe(false); // 上級 (未実装)
-    expect(isPlayable(TRAINING_CATALOG[1].levels[0])).toBe(false);
+    expect(isPlayable(TRAINING_CATALOG[1].levels[0])).toBe(true);  // フロップ初級 (実装済)
+    expect(isPlayable(TRAINING_CATALOG[1].levels[1])).toBe(false); // フロップ中級 (未実装)
   });
 
   it('formatLevelInfo: "1pt × 20問・制限時間なし"', () => {
@@ -122,7 +126,7 @@ describe('maxScoreFor', () => {
   });
   it('未計画 (questionCount=null) → 0', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[5])).toBe(0); // 上級
-    expect(maxScoreFor(TRAINING_CATALOG[1].levels[0])).toBe(0);
+    expect(maxScoreFor(TRAINING_CATALOG[1].levels[1])).toBe(0); // フロップ中級
   });
 });
 
