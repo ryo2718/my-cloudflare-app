@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   buildFlopQuestions,
   scoreFlopAnswer,
+  flopScenarioLabel,
   type FlopTrainingData,
   type FlopQuestion,
   FLOP_BEGINNER_COUNT,
@@ -63,13 +64,31 @@ describe('フロップ初級 出題生成', () => {
     const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
     expect(new Set(keys).size).toBe(qs.length);
   });
+
+  it('各問に villain / preflopActions / actions(bp付き) が入る', () => {
+    for (const q of buildFlopQuestions(DATA)) {
+      expect(q.villain).toBeTruthy();
+      expect(q.villain).not.toBe(q.hero);
+      expect(q.preflopActions.length).toBeGreaterThan(0); // open/fold/call の列
+      for (const a of q.actions) expect(typeof a.bp).toBe('number');
+    }
+  });
+});
+
+describe('flopScenarioLabel (修正3)', () => {
+  it('SRP: "srp {hero} vs {villain}"', () => {
+    expect(flopScenarioLabel({ pot: 'SRP', hero: 'BTN', villain: 'BB' })).toBe('srp BTN vs BB');
+  });
+  it('3bet: "3bp {hero} vs {villain}" (3betした側がヒーロー)', () => {
+    expect(flopScenarioLabel({ pot: '3bet', hero: 'BB', villain: 'BTN' })).toBe('3bp BB vs BTN');
+  });
 });
 
 describe('フロップ初級 採点', () => {
   const q = (correct: 'bet' | 'check'): FlopQuestion => ({
-    id: 1, type: 'cb', pot: 'SRP', variant: 'btnr_bbc', hero: 'BTN',
+    id: 1, type: 'cb', pot: 'SRP', variant: 'btnr_bbc', hero: 'BTN', villain: 'BB',
     board: [{ rank: 'A', suit: 's' }, { rank: 'K', suit: 'd' }, { rank: '2', suit: 'c' }],
-    rate: correct === 'bet' ? 0.9 : 0.1, threshold: 0.7, correct, actions: [],
+    rate: correct === 'bet' ? 0.9 : 0.1, threshold: 0.7, correct, actions: [], preflopActions: [],
   });
 
   it('正解で1pt、不正解で0pt、無回答で0pt', () => {

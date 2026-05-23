@@ -19,8 +19,8 @@ import {
 import { PokerTable } from './PokerTable';
 
 export interface ActionTableProps {
-  /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null なら空テーブル。 */
-  file: string | null;
+  /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null/未指定なら空テーブル (items 指定時は不要)。 */
+  file?: string | null;
   mePosition: Position;
   /** true: 0.2 秒間隔アニメ。false: 即時全表示。 */
   animate?: boolean;
@@ -28,6 +28,11 @@ export interface ActionTableProps {
   onAnimationDone?: () => void;
   /** 問題切替でアニメを再生し直すためのキー。 */
   resetKey?: string | number;
+  /**
+   * 直接アクション列を渡す (フロップ等、preflop ノード由来でない局面用)。
+   * 指定時は file からの読み込み・actionsBeforeHero を行わず、この列をそのまま再生する。
+   */
+  items?: ReadonlyArray<ActionItem>;
 }
 
 export function ActionTable({
@@ -36,6 +41,7 @@ export function ActionTable({
   animate = false,
   onAnimationDone,
   resetKey,
+  items: providedItems,
 }: ActionTableProps) {
   // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
   const [items, setItems] = useState<ActionItem[] | null>(null);
@@ -49,6 +55,11 @@ export function ActionTable({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let cancelled = false;
+    // items 直接指定時は読み込み不要 (フロップ等)。そのまま再生する。
+    if (providedItems) {
+      setItems([...providedItems]);
+      return;
+    }
     setItems(null); // 新しい file をロード中は未ロード扱いにする
     if (!file) {
       setItems([]);
@@ -61,7 +72,7 @@ export function ActionTable({
     return () => {
       cancelled = true;
     };
-  }, [file, mePosition]);
+  }, [file, mePosition, providedItems]);
 
   // アニメーション (items ロード後、items / animate / resetKey が変わるたび再生)。
   useEffect(() => {

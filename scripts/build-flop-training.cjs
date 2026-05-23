@@ -89,10 +89,19 @@ function summarize(actions) {
   return { rate: aggr, check };
 }
 
-function compactActions(actions) {
+/** action_code → ポット比 (betsize_by_pot)。X=0、RAI=オーバーベット扱い(2.0)、R<n>=n/pot。 */
+function betsizeByPot(code, pot) {
+  if (code === 'X' || code === 'F' || code === 'C') return 0;
+  if (code === 'RAI') return 2.0; // オールイン = 確実にポット超
+  const n = parseFloat(code.slice(1));
+  if (!Number.isFinite(n) || !pot) return 0;
+  return Number((n / pot).toFixed(3));
+}
+
+function compactActions(actions, pot) {
   return actions
     .filter((a) => Math.round(a.frequency * 100) > 0)
-    .map((a) => ({ code: a.action_code, freq: Number(a.frequency.toFixed(4)) }));
+    .map((a) => ({ code: a.action_code, freq: Number(a.frequency.toFixed(4)), bp: betsizeByPot(a.action_code, pot) }));
 }
 
 function loadNode(variant, filename) {
@@ -107,8 +116,9 @@ function bandOf(bands, rate) {
 }
 
 /** node の solutions[] からバンド別にボードを振り分けて pools に push。 */
-function collect(node, variant, hero, pot, bands, pools) {
+function collect(node, variant, hero, villain, potType, bands, pools) {
   if (!node) return;
+  const pot = node.game_point?.game?.pot ?? 0; // フロップ開始時のポット (betsize_by_pot 算出用)
   for (const s of node.solutions) {
     const { rate } = summarize(s.action_solutions);
     const band = bandOf(bands, rate);
@@ -116,10 +126,10 @@ function collect(node, variant, hero, pot, bands, pools) {
     const arr = pools[band];
     if (arr.length >= PER_BAND_CAP) continue;
     arr.push({
-      variant, hero, pot,
+      variant, hero, villain, pot: potType,
       board: s.name,
       rate: Number(rate.toFixed(4)),
-      actions: compactActions(s.action_solutions),
+      actions: compactActions(s.action_solutions, pot),
     });
   }
 }
@@ -128,6 +138,41 @@ function emptyPools(bands) {
   const o = {};
   for (const [label] of bands) o[label] = [];
   return o;
+}
+
+const OPEN_SIZE = 2.5; // config "2.5x"
+
+/**
+ * 変種のプリフロップ アクション列 (アニメ用)。flop ノードの current_stack から投入額を逆算。
+ *   - SRP: 席順に open(2.5)/call/fold。
+ *   - 3bet: round1 = open(2.5)/3bet(3bettorの投入額)/fold、round2 = opener call。
+ * 返り値は時系列の [{position, kind, amount?}]。kind: 'raise'|'call'|'fold'。
+ */
+function buildPreflopSeq(cls, node) {
+  const players = node?.game_point?.game?.players ?? [];
+  const investedOf = (pos) => {
+    const p = players.find((x) => x.position === pos);
+    if (!p) return 0;
+    return Number((100 - parseFloat(p.current_stack)).toFixed(2));
+  };
+  const { pot, aggressor, defender } = cls;
+  if (pot === 'SRP') {
+    return POSITIONS.map((s) =>
+      s === aggressor ? { position: s, kind: 'raise', amount: OPEN_SIZE }
+        : s === defender ? { position: s, kind: 'call' }
+        : { position: s, kind: 'fold' },
+    );
+  }
+  // 3bet: opener = defender (3bet を受けてコールした側), 3bettor = aggressor
+  const opener = defender;
+  const threeBettor = aggressor;
+  const tbSize = investedOf(threeBettor); // 3bet サイズ (= 投入額)
+  const round1 = POSITIONS.map((s) =>
+    s === opener ? { position: s, kind: 'raise', amount: OPEN_SIZE }
+      : s === threeBettor ? { position: s, kind: 'raise', amount: tbSize }
+      : { position: s, kind: 'fold' },
+  );
+  return [...round1, { position: opener, kind: 'call' }];
 }
 
 function main() {
@@ -141,6 +186,7 @@ function main() {
 
   const cb = { SRP: emptyPools(CB_BANDS), '3bet': emptyPools(CB_BANDS) };
   const donk = emptyPools(DONK_BANDS);
+  const preflop = {}; // variant -> アニメ用プリフロップ列
   const used = { SRP: 0, '3bet': 0, donk: 0 };
 
   for (const variant of variants) {
@@ -149,14 +195,18 @@ function main() {
     const { pot, aggressor, defender } = cls;
     const { oop, aggressorRole } = determineRoles(aggressor, defender);
 
-    // CB: アグレッサーの c-bet ノード
+    // アニメ用プリフロップ列 (flop_root の stack から逆算)。
+    preflop[variant] = buildPreflopSeq(cls, loadNode(variant, 'flop_root.json'));
+
+    // CB: アグレッサーの c-bet ノード。hero=アグレッサー / villain=ディフェンダー。
     const cbFile = aggressorRole === 'OOP' ? 'flop_root.json' : `flop_${oop.toLowerCase()}_x.json`;
-    collect(loadNode(variant, cbFile), variant, aggressor, pot, CB_BANDS, cb[pot]);
+    collect(loadNode(variant, cbFile), variant, aggressor, defender, pot, CB_BANDS, cb[pot]);
     used[pot] += 1;
 
     // Donk: ディフェンダーが OOP のときのみ (= アグレッサー IP)。flop_root = ディフェンダー先制。
+    // hero=ディフェンダー(ドンクする側) / villain=アグレッサー。
     if (aggressorRole === 'IP') {
-      collect(loadNode(variant, 'flop_root.json'), variant, defender, pot, DONK_BANDS, donk);
+      collect(loadNode(variant, 'flop_root.json'), variant, defender, aggressor, pot, DONK_BANDS, donk);
       used.donk += 1;
     }
   }
@@ -169,6 +219,7 @@ function main() {
     donk_threshold: 0.6,
     cb,
     donk,
+    preflop,
   };
   fs.writeFileSync(OUT_FILE, JSON.stringify(out));
 

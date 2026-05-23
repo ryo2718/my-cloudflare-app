@@ -6,19 +6,28 @@
 
 import type { Rank, Suit, Card } from '../../types/card';
 import type { Position } from '../../types/strategy';
+import type { ActionItem } from './actionHistory';
 
 export type FlopQuestionType = 'cb' | 'donk';
 export type FlopPot = 'SRP' | '3bet';
 export type FlopChoice = 'bet' | 'check';
 
+/** アクション頻度 (フィードバック表示用)。bp = betsize_by_pot (X/check は 0)。 */
+export interface FlopActionFreq {
+  code: string;
+  freq: number;
+  bp: number;
+}
+
 /** データ1ボード分。 */
 interface BoardRecord {
   variant: string;
   hero: string;
+  villain: string;
   pot: FlopPot;
   board: string; // 例 "8h8d8c"
   rate: number; // CB or donk 頻度 (0..1)
-  actions: ReadonlyArray<{ code: string; freq: number }>;
+  actions: ReadonlyArray<FlopActionFreq>;
 }
 
 export interface FlopTrainingData {
@@ -26,6 +35,8 @@ export interface FlopTrainingData {
   donk: Record<string, BoardRecord[]>;
   cb_threshold: number;
   donk_threshold: number;
+  /** 変種 → アニメ用プリフロップ アクション列。 */
+  preflop: Record<string, ActionItem[]>;
 }
 
 export interface FlopQuestion {
@@ -34,6 +45,8 @@ export interface FlopQuestion {
   pot: FlopPot;
   variant: string;
   hero: Position;
+  /** 相手 (CB問題=ディフェンダー / ドンク問題=アグレッサー)。シナリオラベル用。 */
+  villain: Position;
   board: [Card, Card, Card];
   /** CB or donk 頻度 (0..1)。 */
   rate: number;
@@ -41,8 +54,10 @@ export interface FlopQuestion {
   threshold: number;
   /** 正解 (rate >= threshold なら bet)。 */
   correct: FlopChoice;
-  /** フィードバック用のアクション頻度分布。 */
-  actions: ReadonlyArray<{ code: string; freq: number }>;
+  /** フィードバック用のアクション頻度分布 (bp = betsize_by_pot)。 */
+  actions: ReadonlyArray<FlopActionFreq>;
+  /** アニメ用プリフロップ アクション列 (open/3bet/fold/call → board)。 */
+  preflopActions: ActionItem[];
 }
 
 /** 回答 (2択 or 時間切れ)。初級は時間制限なしだが共通ハーネスに合わせ timedOut を持つ。 */
@@ -137,11 +152,13 @@ export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
         pot: rec.pot,
         variant: rec.variant,
         hero: rec.hero as Position,
+        villain: rec.villain as Position,
         board: parseBoard(rec.board),
         rate: rec.rate,
         threshold,
         correct: rec.rate >= threshold ? 'bet' : 'check',
         actions: rec.actions,
+        preflopActions: data.preflop?.[rec.variant] ?? [],
       });
     }
   }
@@ -151,6 +168,11 @@ export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
 /** ロード + 生成。 */
 export async function generateFlopBeginnerQuestions(): Promise<FlopQuestion[]> {
   return buildFlopQuestions(await loadFlopTrainingData());
+}
+
+/** シナリオラベル: 「{srp|3bp} {ヒーロー} vs {相手}」。 */
+export function flopScenarioLabel(q: { pot: FlopPot; hero: Position; villain: Position }): string {
+  return `${q.pot === 'SRP' ? 'srp' : '3bp'} ${q.hero} vs ${q.villain}`;
 }
 
 /** 採点: 正解で1pt、不正解/無回答で0pt (マイナスなし)。 */
