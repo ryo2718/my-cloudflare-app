@@ -59,6 +59,22 @@ describe('フロップ初級 出題生成', () => {
     }
   });
 
+  it('出題順がシャッフルされる (CB打つ→打たない→ドンク の固まりにならない)', () => {
+    // レシピ順のままなら先頭は必ず cb/bet。シャッフルされていれば先頭の type/correct が変動する。
+    const firstKeys = new Set<string>();
+    let interleaved = false;
+    for (let s = 0; s < 40; s++) {
+      const qs = buildFlopQuestions(DATA);
+      firstKeys.add(`${qs[0].type}:${qs[0].correct}`);
+      // donk(末尾5問)が後半に固まっていない = どこかで donk より後に cb が来る
+      const lastDonk = qs.map((q) => q.type).lastIndexOf('donk');
+      const firstCbAfter = qs.findIndex((q, i) => i > 0 && q.type === 'cb');
+      if (lastDonk > firstCbAfter && qs.slice(0, lastDonk).some((q) => q.type === 'cb')) interleaved = true;
+    }
+    expect(firstKeys.size).toBeGreaterThan(1); // 先頭が毎回同じでない = シャッフルされている
+    expect(interleaved).toBe(true); // donk と cb が混ざる
+  });
+
   it('同一 variant:board は重複しない', () => {
     const qs = buildFlopQuestions(DATA);
     const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);

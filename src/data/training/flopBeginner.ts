@@ -122,6 +122,15 @@ function pickRandom<T>(arr: ReadonlyArray<T>): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** Fisher-Yates シャッフル (プリフロップ各モードと同じく出題順をランダム化)。 */
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function poolFor(data: FlopTrainingData, pick: Pick): BoardRecord[] {
   return pick.type === 'donk' ? (data.donk[pick.band] ?? []) : (data.cb[pick.pot][pick.band] ?? []);
 }
@@ -147,7 +156,7 @@ export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
       if (!rec) continue; // プール空 (通常起きない)
       id += 1;
       out.push({
-        id,
+        id, // 生成順の識別子 (表示順はシャッフル後の配列順)
         type: pick.type,
         pot: rec.pot,
         variant: rec.variant,
@@ -162,7 +171,8 @@ export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
       });
     }
   }
-  return out;
+  // 出題順をシャッフル (CB打つ→打たない→ドンク の固まりを崩す。レシピ順のままだと答えが読める)。
+  return shuffle(out);
 }
 
 /** ロード + 生成。 */
