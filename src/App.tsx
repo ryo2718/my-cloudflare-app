@@ -27,10 +27,12 @@ import type { MissedLevel } from './api/missedProblems';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayFlop } from './components/training/TrainingPlayFlop';
+import { TrainingPlayFlopIntermediate } from './components/training/TrainingPlayFlopIntermediate';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResultPositional } from './components/training/TrainingResultPositional';
 import { TrainingResultFlop } from './components/training/TrainingResultFlop';
+import { TrainingResultFlopIntermediate } from './components/training/TrainingResultFlopIntermediate';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingRules } from './components/training/TrainingRules';
@@ -153,6 +155,10 @@ export default function App() {
       if (level.key === 'flop_beginner') {
         return <TrainingPlayFlop level={level} />;
       }
+      // フロップ中級CB (複数選択: check/各サイズ/ALLIN)
+      if (level.key === 'flop_intermediate') {
+        return <TrainingPlayFlopIntermediate level={level} />;
+      }
       // 中級総合は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
       return level.key === 'preflop_intermediate'
         ? <TrainingPlayIntermediate level={level} />
@@ -168,6 +174,9 @@ export default function App() {
       }
       if (level.key === 'flop_beginner') {
         return <TrainingResultFlop level={level} />;
+      }
+      if (level.key === 'flop_intermediate') {
+        return <TrainingResultFlopIntermediate level={level} />;
       }
       return <TrainingResult level={level} />;
     }

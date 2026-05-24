@@ -4,21 +4,22 @@
 
 import { type CSSProperties } from 'react';
 import type { Card } from '../../types/card';
-import type { FlopPot } from '../../data/training/flopBeginner';
-import { potPillColor } from './flopFeedbackFormat';
+import { potPillColor, type PotPillKind } from './flopFeedbackFormat';
 import { PlayingCard } from '../PlayingCard';
+
+const POT_PILL_LABEL: Record<PotPillKind, string> = { SRP: 'SRP', '3bet': '3bp', '4bet': '4bp', '5bet': '5bp' };
 
 const FLIP_MS = 120; // 1枚あたりのフリップ時間
 const FLIP_STAGGER_MS = 120; // 次のカードまでの間隔
 const FLIP_KEYFRAMES = '@keyframes flopCardFlipIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }';
 
-export function FlopBoard({ cards, pot }: { cards: ReadonlyArray<Card>; pot: FlopPot }) {
+export function FlopBoard({ cards, pot }: { cards: ReadonlyArray<Card>; pot: PotPillKind }) {
   const pill = potPillColor(pot);
   return (
     <div style={wrapStyle}>
       <style>{FLIP_KEYFRAMES}</style>
       <span style={{ ...pillStyle, background: pill.bg, color: pill.fg }}>
-        {pot === 'SRP' ? 'SRP' : '3bp'}
+        {POT_PILL_LABEL[pot]}
       </span>
       <div style={rowStyle}>
         {cards.map((c, i) => (

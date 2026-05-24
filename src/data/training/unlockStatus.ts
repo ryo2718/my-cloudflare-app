@@ -17,6 +17,8 @@ export const INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 export const ADVANCED_UNLOCK_THRESHOLD = 20;
 /** フロップ初級アンロックに必要なプリフロップ初級ベストスコア (= 20/20 クリア)。 */
 export const FLOP_BEGINNER_UNLOCK_THRESHOLD = 20;
+/** フロップ中級アンロックに必要なフロップ初級ベストスコア (= 20/20 クリア)。 */
+export const FLOP_INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 
 export interface UnlockStatus {
   beginnerUnlocked: boolean;        // 常に true
@@ -24,6 +26,7 @@ export interface UnlockStatus {
   advancedUnlocked: boolean;
   superAdvancedUnlocked: boolean;   // 常に false (未実装)
   flopBeginnerUnlocked: boolean;    // プリフロップ初級クリアで解放
+  flopIntermediateUnlocked: boolean; // フロップ初級クリアで解放 (CB/Donk/BMCB 枠)
 }
 
 /** training_results 配列からアンロック状態を計算 (純粋関数)。 */
@@ -38,6 +41,7 @@ export function computeUnlockStatus(records: ReadonlyArray<TrainingResult>): Unl
     advancedUnlocked: bestOf('preflop_intermediate') >= ADVANCED_UNLOCK_THRESHOLD,
     superAdvancedUnlocked: false,
     flopBeginnerUnlocked: bestOf('preflop_beginner') >= FLOP_BEGINNER_UNLOCK_THRESHOLD,
+    flopIntermediateUnlocked: bestOf('flop_beginner') >= FLOP_INTERMEDIATE_UNLOCK_THRESHOLD,
   };
 }
 
@@ -59,7 +63,12 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
     // フロップ初級: プリフロップ初級クリアで解放。
     case 'flop_beginner':
       return status.flopBeginnerUnlocked;
-    // 他の flop (中級〜超上級) は未実装 / ロック扱い
+    // フロップ中級 (CB/Donk/BMCB 枠): フロップ初級クリアで解放。
+    case 'flop_intermediate':
+    case 'flop_intermediate_donk':
+    case 'flop_intermediate_bmcb':
+      return status.flopIntermediateUnlocked;
+    // 他の flop (上級〜超上級) は未実装 / ロック扱い
     default:
       return false;
   }
@@ -79,6 +88,10 @@ export function lockHintFor(levelKey: string): string | null {
       return '未実装';
     case 'flop_beginner':
       return `プリフロップ初級で ${FLOP_BEGINNER_UNLOCK_THRESHOLD}/20 取るとアンロック`;
+    case 'flop_intermediate':
+    case 'flop_intermediate_donk':
+    case 'flop_intermediate_bmcb':
+      return `フロップ初級で ${FLOP_INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     default:
       return null;
   }

@@ -3,21 +3,28 @@
 
 import { ACTION_COLOR } from '../../styles/actionColors';
 import type { StrategySymbol } from './judgmentIcon';
-import type { FlopActionFreq, FlopPot } from '../../data/training/flopBeginner';
+import type { FlopActionFreq } from '../../data/training/flopBeginner';
+
+/** ボードピルが扱うポット種別 (初級は SRP/3bet、中級は 4bet/5bet も)。 */
+export type PotPillKind = 'SRP' | '3bet' | '4bet' | '5bet';
 
 /**
  * ボード上のポット種別ピルの色 {背景, 文字}。
  * 紫はオールイン/ポットオーバー (barColor) 専用のため使わない。
  * ポットのアグレッションで暖色を濃くするエスカレーション:
- *   SRP = クリーム(濃いめ=アンバー) → 3bp = 赤系オレンジ → (将来 4bp = 濃い赤)。
+ *   SRP = クリーム(濃いめ=アンバー) → 3bp = 赤系オレンジ → 4bp = 濃い赤 → 5bp = さらに濃い赤。
  * 値は既存の暖色トークン系に揃える (アンバー = FlopReportCell ◎ / 濃赤 = achievements 系)。
  */
-export function potPillColor(pot: FlopPot): { bg: string; fg: string } {
+export function potPillColor(pot: PotPillKind): { bg: string; fg: string } {
   switch (pot) {
     case 'SRP':
       return { bg: '#FAC775', fg: '#412402' }; // 濃いめクリーム (アンバー)
     case '3bet':
       return { bg: '#DD5A2E', fg: '#ffffff' }; // 赤系オレンジ
+    case '4bet':
+      return { bg: '#A32D2D', fg: '#ffffff' }; // 濃い赤 (achievements 系)
+    case '5bet':
+      return { bg: '#7E1D1D', fg: '#ffffff' }; // さらに濃い赤
   }
 }
 

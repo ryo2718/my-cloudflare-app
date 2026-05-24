@@ -5,18 +5,24 @@
 //   - actionLabels: アクション別ラベル (例 SB open の call=「リンプ」)。
 
 import { useState, type CSSProperties } from 'react';
-import { ACTION_BUTTON_COLORS, type ButtonActionKey } from './actionButtonStyle';
+import { ACTION_BUTTON_COLORS, type ActionButtonColor, type ButtonActionKey } from './actionButtonStyle';
 import { THEME } from '../../styles/theme';
 
 const ACTION_ORDER: ReadonlyArray<string> = ['allin', 'raise', 'call', 'check', 'fold'];
 
 export interface ChoiceButtonsProps<A extends string> {
-  /** 表示するアクション (順序は ACTION_ORDER で正規化)。 */
+  /** 表示するアクション (順序は order で正規化)。 */
   availableActions: ReadonlyArray<A>;
   /** アクション別ラベル。 */
   actionLabels: Record<A, string>;
   onSubmit: (selections: ReadonlyArray<A>) => void;
   disabled?: boolean;
+  /** 表示/選択順 (既定 = プリフロのアクション順)。order に無いものは後ろに据え置き。 */
+  order?: ReadonlyArray<string>;
+  /** アクション別の配色 (既定 = ACTION_BUTTON_COLORS)。フロップのサイズ選択肢用に差し替え可。 */
+  resolveColor?: (a: A) => ActionButtonColor;
+  /** 見出し (既定 = 「どう応答する?(複数選択可)」)。 */
+  prompt?: string;
 }
 
 export function ChoiceButtons<A extends string>({
@@ -24,27 +30,35 @@ export function ChoiceButtons<A extends string>({
   actionLabels,
   onSubmit,
   disabled = false,
+  order = ACTION_ORDER,
+  resolveColor,
+  prompt = 'どう応答する?(複数選択可)',
 }: ChoiceButtonsProps<A>) {
   const [selected, setSelected] = useState<ReadonlyArray<A>>([]);
-  const actions = ACTION_ORDER.filter((a) => (availableActions as ReadonlyArray<string>).includes(a)) as A[];
+  const ordered = order.filter((a) => (availableActions as ReadonlyArray<string>).includes(a)) as A[];
+  // order に無い available は末尾に据え置き (取りこぼし防止)。
+  const extra = (availableActions as ReadonlyArray<string>).filter((a) => !order.includes(a)) as A[];
+  const actions = [...ordered, ...extra];
+  const colorOf = (a: A): ActionButtonColor =>
+    resolveColor ? resolveColor(a) : ACTION_BUTTON_COLORS[a as ButtonActionKey];
 
   const toggle = (a: A) => {
     if (disabled) return;
     setSelected((prev) => {
       if (prev.includes(a)) return prev.filter((x) => x !== a);
       const next = [...prev, a];
-      next.sort((x, y) => ACTION_ORDER.indexOf(x) - ACTION_ORDER.indexOf(y));
+      next.sort((x, y) => actions.indexOf(x) - actions.indexOf(y));
       return next;
     });
   };
 
   return (
     <div style={containerStyle}>
-      <p style={promptStyle}>どう応答する?(複数選択可)</p>
+      <p style={promptStyle}>{prompt}</p>
       <ul style={listStyle}>
         {actions.map((a) => {
           const isOn = selected.includes(a);
-          const color = ACTION_BUTTON_COLORS[a as ButtonActionKey];
+          const color = colorOf(a);
           const row: CSSProperties = {
             ...rowBase,
             background: color.bg,
