@@ -52,6 +52,8 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       // 中級レンジベット: CB(複数選択) + Donk(スライダー) 混在。best_score が finalSum
       // (0-50, 1問 -1〜+2pt × 25問) を直接表す。 points=1 で累計と整合。
       { key: 'flop_intermediate', label: '中級レンジベット', points: 1, questionCount: 25, timeLimitSec: 'none', implemented: true },
+      // 中級CB (個別ハンド): 30問・1問1pt (満点相当のみ加点)・満点30。best_score = 正解数。
+      { key: 'flop_intermediate_cb', label: '中級CB', points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],

@@ -35,6 +35,7 @@ const TRAINING_TYPES = new Set<string>([
   'preflop_expert',
   'flop_beginner',
   'flop_intermediate',
+  'flop_intermediate_cb',
   'flop_advanced',
   'flop_expert',
 ]);
