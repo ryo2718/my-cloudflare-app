@@ -126,6 +126,25 @@ describe('複数選択採点 (プリフロ中級方式・1問2pt)', () => {
     expect(scoreFlopCb(strat, { selections: [], timedOut: false }).finalScore).toBe(0);
     expect(scoreFlopCb(strat, { selections: [], timedOut: true }).finalScore).toBe(-1);
   });
+
+  describe('多数派サイド必須 (毎回チェック対策)', () => {
+    it('ベット主体 (合計>チェック) でチェックのみは -1', () => {
+      const s: FlopCbStrat = { check: 0.3, '33': 0.4, '50': 0.3 }; // bet合計0.7 > check0.3
+      expect(scoreFlopCb(s, { selections: ['check'], timedOut: false }).finalScore).toBe(-1);
+    });
+    it('ベット主体でベットを選べば -1 ではない', () => {
+      const s: FlopCbStrat = { check: 0.3, '33': 0.4, '50': 0.3 };
+      expect(scoreFlopCb(s, { selections: ['33'], timedOut: false }).finalScore).toBeGreaterThanOrEqual(0);
+    });
+    it('チェック主体 (チェック>ベット合計) ならチェックのみで部分点が残る', () => {
+      const s: FlopCbStrat = { check: 0.6, '33': 0.3, '50': 0.1 }; // check0.6 > bet0.4
+      expect(scoreFlopCb(s, { selections: ['check'], timedOut: false }).finalScore).toBeGreaterThanOrEqual(1);
+    });
+    it('チェック主体でチェック未選択 (ベットのみ) は -1', () => {
+      const s: FlopCbStrat = { check: 0.6, '33': 0.25, '50': 0.15 };
+      expect(scoreFlopCb(s, { selections: ['33'], timedOut: false }).finalScore).toBe(-1);
+    });
+  });
   it('満点・クリア定数 (30問×2pt=60、クリア=54)', () => {
     expect(FLOP_CB_MAX_SCORE).toBe(60);
     expect(FLOP_CB_CLEAR_SCORE).toBe(54);

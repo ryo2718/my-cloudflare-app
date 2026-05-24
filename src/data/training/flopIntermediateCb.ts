@@ -153,7 +153,29 @@ function isMissedMajor(strat: FlopCbStrat, selections: ReadonlyArray<string>): b
   return false;
 }
 
-/** 複数選択の採点。プリフロ中級と同じ規則。 */
+/** ベット合計頻度 (check 以外の全バケット)。 */
+function betTotalOf(strat: FlopCbStrat): number {
+  let s = 0;
+  for (const [k, f] of Object.entries(strat)) if (k !== 'check') s += f;
+  return s;
+}
+
+/**
+ * 多数派サイド (ベット合計 vs チェック) を取りこぼしているか。
+ *   - ベット合計 > チェック なのにベットを1つも選ばない → 取りこぼし (= 毎回チェック対策)。
+ *   - チェック > ベット合計 なのにチェックを選ばない → 取りこぼし。
+ * サイズが分散して単一バケットが70%未満でも、ベット/チェックの主決定を外したら -1 にする。
+ */
+function isMissedPrimary(strat: FlopCbStrat, selections: ReadonlyArray<string>): boolean {
+  const bet = betTotalOf(strat);
+  const check = strat.check ?? 0;
+  const pickedBet = selections.some((s) => s !== 'check');
+  if (bet > check && !pickedBet) return true;
+  if (check > bet && !selections.includes('check')) return true;
+  return false;
+}
+
+/** 複数選択の採点。プリフロ中級と同じ規則 + 多数派サイド必須 (ベット/チェックの主決定)。 */
 export function scoreFlopCb(strat: FlopCbStrat, res: FlopCbResponse): FlopCbScore {
   const theoreticalMax = getTheoreticalMax(strat);
   if (res.timedOut) return { rawScore: -1, finalScore: -1, theoreticalMax };
@@ -161,6 +183,7 @@ export function scoreFlopCb(strat: FlopCbStrat, res: FlopCbResponse): FlopCbScor
   if (sel.length === 0) return { rawScore: 0, finalScore: 0, theoreticalMax };
   if (isInstantPenalty(strat, sel)) return { rawScore: -1, finalScore: -1, theoreticalMax };
   if (isMissedMajor(strat, sel)) return { rawScore: -1, finalScore: -1, theoreticalMax };
+  if (isMissedPrimary(strat, sel)) return { rawScore: -1, finalScore: -1, theoreticalMax };
   let sum = 0;
   for (const s of sel) sum += bandScore(strat[s] ?? 0);
   const rawScore = Math.floor(sum);
