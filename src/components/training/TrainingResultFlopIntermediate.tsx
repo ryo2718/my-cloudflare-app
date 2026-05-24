@@ -1,5 +1,6 @@
-// フロップ中級CB の結果画面。プリフロ中級ポジション (TrainingResultPositional) と同じ構成:
-//   スコア + 達成率 / 内訳 (◎○△×) / 振り返り一覧 (各問タップで頻度詳細 + 自分の選択)。
+// フロップ中級レンジベットの結果画面。プリフロ中級ポジション (TrainingResultPositional) と同じ構成:
+//   スコア + 達成率 / 内訳 (◎○△×) / 振り返り一覧 (各問タップで詳細)。
+//   CB問題は頻度詳細 + 自分の選択、Donk問題は正解ドンク頻度 vs 自分の回答。
 // best_score は POST /api/account/training-result で保存 (training_type=flop_intermediate)。
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -8,8 +9,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
 import { navigate } from '../../router/router-core';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
-import { loadFlopCbRecords } from '../../data/training/flopCbRecordsStore';
-import { flopCbScenarioLabel, type FlopCbRecord } from '../../data/training/flopIntermediateCb';
+import { loadFlopRbRecords } from '../../data/training/flopCbRecordsStore';
+import { flopRbScenarioLabel, type FlopRbRecord } from '../../data/training/flopIntermediateCb';
 import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
 import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
@@ -34,14 +35,14 @@ function parseQuery(): { score: number; total: number } | null {
 export function TrainingResultFlopIntermediate({ level }: TrainingResultFlopIntermediateProps) {
   const auth = useAuth();
   const scoreInfo = parseQuery();
-  const [records, setRecords] = useState<FlopCbRecord[]>(() => loadFlopCbRecords(level.key) ?? []);
+  const [records, setRecords] = useState<FlopRbRecord[]>(() => loadFlopRbRecords(level.key) ?? []);
   const [save, setSave] = useState<TrainingResultSubmission | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
-    const r = loadFlopCbRecords(level.key);
+    const r = loadFlopRbRecords(level.key);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (r) setRecords(r);
   }, [level.key]);
@@ -177,7 +178,8 @@ export function TrainingResultFlopIntermediate({ level }: TrainingResultFlopInte
                       <span style={{ ...iconStyle, color: judgmentColor(r.finalScore) }}>
                         {judgmentIcon(r.finalScore)}
                       </span>
-                      <span style={scenarioPillStyle}>{flopCbScenarioLabel(r)}</span>
+                      <span style={scenarioPillStyle}>{flopRbScenarioLabel(r)}</span>
+                      <span style={kindTagStyle}>{r.kind === 'cb' ? 'CB' : 'ドンク'}</span>
                       <span style={boardStyle}>
                         {r.board.map((c, i) => (
                           <PlayingCard key={`${c.rank}${c.suit}-${i}`} rank={c.rank} suit={c.suit} size="sm" />
@@ -187,8 +189,18 @@ export function TrainingResultFlopIntermediate({ level }: TrainingResultFlopInte
                     </button>
                     {open && (
                       <div style={detailWrapStyle}>
-                        {r.timedOut && <div style={timedOutStyle}>⏱ 時間切れ</div>}
-                        <FlopCbReviewDetail choices={r.choices} strat={r.strat} selections={r.selections} />
+                        {r.kind === 'cb' ? (
+                          <FlopCbReviewDetail
+                            choices={r.choices}
+                            strat={r.strat}
+                            selections={r.response.kind === 'select' ? r.response.selections : []}
+                          />
+                        ) : (
+                          <div style={donkDetailStyle}>
+                            ドンク正解 {Math.round(r.donkRate * 100)}% / あなた{' '}
+                            {r.response.kind === 'slider' ? `${r.response.pct}%` : 'スキップ'}
+                          </div>
+                        )}
                       </div>
                     )}
                   </li>
@@ -274,7 +286,8 @@ const scenarioPillStyle: CSSProperties = {
 const boardStyle: CSSProperties = { display: 'flex', gap: 3, marginLeft: 'auto' };
 const chevronStyle: CSSProperties = { fontSize: '0.75rem', color: THEME.textMuted };
 const detailWrapStyle: CSSProperties = { padding: '0.7rem', borderTop: `1px solid ${THEME.border}`, background: '#FCFBF8', display: 'flex', flexDirection: 'column', gap: '0.5rem' };
-const timedOutStyle: CSSProperties = { fontSize: '0.8rem', fontWeight: 700, color: THEME.errorText };
+const donkDetailStyle: CSSProperties = { fontSize: '0.88rem', fontWeight: 700, color: THEME.textPrimary };
+const kindTagStyle: CSSProperties = { fontSize: '0.62rem', fontWeight: 800, color: '#fff', background: THEME.accent, borderRadius: 999, padding: '0.02rem 0.4rem' };
 const btnRowStyle: CSSProperties = { display: 'flex', gap: '0.6rem', marginTop: '0.5rem' };
 const retryBtnStyle: CSSProperties = {
   flex: 1, padding: '0.8rem 1rem', background: THEME.accent, color: '#fff', border: 'none',

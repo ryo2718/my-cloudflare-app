@@ -63,10 +63,8 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
     // フロップ初級: プリフロップ初級クリアで解放。
     case 'flop_beginner':
       return status.flopBeginnerUnlocked;
-    // フロップ中級 (CB/Donk/BMCB 枠): フロップ初級クリアで解放。
+    // フロップ中級レンジベット: フロップ初級クリアで解放。
     case 'flop_intermediate':
-    case 'flop_intermediate_donk':
-    case 'flop_intermediate_bmcb':
       return status.flopIntermediateUnlocked;
     // 他の flop (上級〜超上級) は未実装 / ロック扱い
     default:
@@ -89,8 +87,6 @@ export function lockHintFor(levelKey: string): string | null {
     case 'flop_beginner':
       return `プリフロップ初級で ${FLOP_BEGINNER_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     case 'flop_intermediate':
-    case 'flop_intermediate_donk':
-    case 'flop_intermediate_bmcb':
       return `フロップ初級で ${FLOP_INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     default:
       return null;

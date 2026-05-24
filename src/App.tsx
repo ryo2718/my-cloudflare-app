@@ -155,7 +155,7 @@ export default function App() {
       if (level.key === 'flop_beginner') {
         return <TrainingPlayFlop level={level} />;
       }
-      // フロップ中級CB (複数選択: check/各サイズ/ALLIN)
+      // フロップ中級レンジベット (CB=複数選択 / Donk=スライダー 混在)
       if (level.key === 'flop_intermediate') {
         return <TrainingPlayFlopIntermediate level={level} />;
       }

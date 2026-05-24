@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-// フロップ中級CB 結果画面: 内訳 (◎○△×) + 振り返り一覧 (タップで頻度詳細 + 自分の選択)。
+// フロップ中級レンジベット 結果画面: 内訳 (◎○△×) + 振り返り一覧 (CB=頻度詳細 / Donk=正解頻度)。
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, userEvent } from '../../test/ui';
 import { AuthContext, type AuthState } from '../../contexts/AuthContext';
 import { TRAINING_CATALOG } from '../../data/trainingCatalog';
-import { saveFlopCbRecords, clearFlopCbRecords } from '../../data/training/flopCbRecordsStore';
-import type { FlopCbRecord } from '../../data/training/flopIntermediateCb';
+import { saveFlopRbRecords, clearFlopRbRecords } from '../../data/training/flopCbRecordsStore';
+import type { FlopRbRecord } from '../../data/training/flopIntermediateCb';
 
 vi.mock('../../api/account', async (orig) => ({
   ...(await orig<typeof import('../../api/account')>()),
@@ -17,27 +17,29 @@ vi.mock('../../api/account', async (orig) => ({
 
 import { TrainingResultFlopIntermediate } from './TrainingResultFlopIntermediate';
 
-// flop_intermediate = 中級CB
+// flop_intermediate = 中級レンジベット
 const LEVEL = TRAINING_CATALOG[1].levels[1];
 
-function rec(recordId: number, finalScore: number): FlopCbRecord {
+const board = (): FlopRbRecord['board'] => [
+  { rank: 'A', suit: 's' }, { rank: 'K', suit: 'd' }, { rank: '2', suit: 'c' },
+];
+
+function cbRec(recordId: number, finalScore: number): FlopRbRecord {
   return {
-    id: recordId,
-    recordId,
-    potCat: 'SRP',
-    pot: 'SRP',
-    variant: 'cor_btnc',
-    hero: 'CO',
-    villain: 'BTN',
-    board: [{ rank: 'A', suit: 's' }, { rank: 'K', suit: 'd' }, { rank: '2', suit: 'c' }],
-    choices: ['check', '33', '50', '75', '125'],
+    kind: 'cb', id: recordId, recordId, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
+    board: board(), choices: ['check', '33', '50', '75', '125'],
     strat: { check: 0.4, '33': 0.4, '50': 0.2, '75': 0, '125': 0 },
     preflopActions: [],
-    selections: ['check', '33'],
-    timedOut: false,
-    rawScore: finalScore,
+    response: { kind: 'select', selections: ['check', '33'] },
     finalScore,
-    theoreticalMax: 2,
+  };
+}
+function donkRec(recordId: number, finalScore: number): FlopRbRecord {
+  return {
+    kind: 'donk', id: recordId, recordId, pot: '3bet', variant: 'utgr_btnr_utgc', hero: 'UTG', villain: 'BTN',
+    board: board(), donkRate: 0.3, preflopActions: [],
+    response: { kind: 'slider', pct: 30 },
+    finalScore,
   };
 }
 
@@ -63,37 +65,45 @@ function renderResult() {
 
 beforeEach(() => {
   sessionStorage.clear();
-  clearFlopCbRecords(LEVEL.key);
-  window.history.replaceState({}, '', `/quiz/${LEVEL.key}/result?score=40&total=60`);
+  clearFlopRbRecords(LEVEL.key);
+  window.history.replaceState({}, '', `/quiz/${LEVEL.key}/result?score=40&total=50`);
 });
 afterEach(() => {
   sessionStorage.clear();
-  clearFlopCbRecords(LEVEL.key);
+  clearFlopRbRecords(LEVEL.key);
 });
 
 describe('TrainingResultFlopIntermediate', () => {
   it('スコア・内訳・振り返り一覧を表示する', () => {
-    saveFlopCbRecords(LEVEL.key, [rec(1, 2), rec(2, 1), rec(3, -1)]);
+    saveFlopRbRecords(LEVEL.key, [cbRec(1, 2), cbRec(2, 1), donkRec(3, -1)]);
     renderResult();
-    expect(screen.getByText('40/60')).toBeTruthy();
+    expect(screen.getByText('40/50')).toBeTruthy();
     expect(screen.getByText(/振り返り一覧 \(3問\)/)).toBeTruthy();
     expect(screen.getByText('スコア内訳')).toBeTruthy();
   });
 
-  it('問題タップで頻度詳細 (選択肢ラベル + あなた) が展開される', async () => {
+  it('CB問題タップで頻度詳細 (選択肢ラベル + あなた) が展開される', async () => {
     const user = userEvent.setup();
-    saveFlopCbRecords(LEVEL.key, [rec(1, 1)]);
+    saveFlopRbRecords(LEVEL.key, [cbRec(1, 1)]);
     renderResult();
     expect(screen.queryByText('あなた')).toBeNull();
     await user.click(screen.getByRole('button', { name: /srp CO vs BTN/ }));
     expect(screen.getByText('チェック')).toBeTruthy();
     expect(screen.getByText('ベット33%')).toBeTruthy();
-    expect(screen.getAllByText('あなた').length).toBeGreaterThanOrEqual(1); // 選択した check/33 に付く
+    expect(screen.getAllByText('あなた').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Donk問題タップで正解ドンク頻度 vs 自分の回答が出る', async () => {
+    const user = userEvent.setup();
+    saveFlopRbRecords(LEVEL.key, [donkRec(1, 2)]);
+    renderResult();
+    await user.click(screen.getByRole('button', { name: /3bp UTG vs BTN/ }));
+    expect(screen.getByText(/ドンク正解 30% \/ あなた 30%/)).toBeTruthy();
   });
 
   it('記録が無くてもスコアは表示 (クラッシュしない)', () => {
     renderResult();
-    expect(screen.getByText('40/60')).toBeTruthy();
+    expect(screen.getByText('40/50')).toBeTruthy();
     expect(screen.queryByText(/振り返り一覧/)).toBeNull();
   });
 });

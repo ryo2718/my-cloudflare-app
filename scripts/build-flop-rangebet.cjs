@@ -1,15 +1,14 @@
 #!/usr/bin/env node
-// フロップトレーニング中級CB 用データセットを生成。
+// フロップトレーニング「中級レンジベット」用データセットを生成。
 //
 // 入力: data/cash_100bb_6max_nl500_2.5x/<variant>/flop_*.json (初級と同じフロップツリー)
-// 出力: public/data/flop/flop_intermediate_cb_v1.json
+// 出力: public/data/flop/flop_rangebet_v1.json
 //
-// CB ノード = アグレッサーの c-bet 局面 (アグレッサー IP→flop_<oop>_x / OOP→flop_root)。
-// 各ボードのアクション頻度を、ポット種別ごとの選択肢バケットに集約する:
-//   SRP     : check / 33 / 50 / 75 / 125
-//   3bet    : check / 20 / 33 / 50 / 75 / 125 / ALLIN  (10,25→20 / 100,150→125)
-//   4bet5bet: check / 10 / 25 / 33 / 50 / ALLIN        (50%超→ALLIN)
-// 出題は複数選択 (プリフロ中級方式)。中級らしさのため「混合戦略」ボードのみ収録。
+// 2 種類を抽出:
+//   CB問題 (複数選択, SRP のみ): アグレッサーの c-bet 局面
+//     (アグレッサー IP→flop_<oop>_x / OOP→flop_root)。選択肢 check/33/50/75/125 に集約。
+//   Donk問題 (スライダー, SRP/3bp/4bp): アグレッサー IP のとき OOP ディフェンダーが
+//     flop_root で先制ベットする頻度 (donkRate = 1 - X)。5bp はアグレッサーIP局面が無く対象外。
 
 const fs = require('fs');
 const path = require('path');
@@ -17,19 +16,17 @@ const path = require('path');
 const CONFIG = 'cash_100bb_6max_nl500_2.5x';
 const DATA_ROOT = path.resolve(__dirname, '..', 'data', CONFIG);
 const OUT_DIR = path.resolve(__dirname, '..', 'public', 'data', 'flop');
-const OUT_FILE = path.join(OUT_DIR, 'flop_intermediate_cb_v1.json');
+const OUT_FILE = path.join(OUT_DIR, 'flop_rangebet_v1.json');
 
 const POSITIONS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN']; // earlier = OOP
 const OPEN_SIZE = 2.5;
 const PER_POT_CAP = 1600; // ポット種別ごとの最大ボード数 (出題に十分な多様性 + 軽量化)
-const MIXED_MIN = 0.1; // 「混合戦略」判定: この頻度以上のバケットが2つ以上
+const MIXED_MIN = 0.1; // CB「混合戦略」判定: この頻度以上のバケットが2つ以上
+const DONK_MIN = 0.05; // Donk問題に収録する下限 (donkRate >= 5% = ドンクが実戦的に選択肢の局面)
 
-const CHOICES = {
-  SRP: ['check', '33', '50', '75', '125'],
-  '3bet': ['check', '20', '33', '50', '75', '125', 'ALLIN'],
-  '4bet5bet': ['check', '10', '25', '33', '50', 'ALLIN'],
-};
+// CB問題の選択肢は SRP のみ。
+const CB_CHOICES = ['check', '33', '50', '75', '125'];
 
 function parseVariant(name) {
   const seq = [];
@@ -82,35 +79,39 @@ function nearestAnchor(pct, anchors) {
   return String(best);
 }
 
-/** action_code を potCat のバケットラベルに変換 (X はここでは扱わない)。 */
-function bucketOf(potCat, code, pot) {
-  if (code === 'RAI') return potCat === 'SRP' ? '125' : 'ALLIN';
+/** action_code を SRP の CB バケット (33/50/75/125) に寄せる。RAI→125。X はここでは扱わない。 */
+function bucketSrp(code, pot) {
+  if (code === 'RAI') return '125';
   if (code[0] !== 'R') return null;
   const n = parseFloat(code.slice(1));
   if (!Number.isFinite(n) || !pot) return null;
-  const pct = Math.round((n / pot) * 100);
-  if (potCat === 'SRP') return nearestAnchor(pct, [33, 50, 75, 125]);
-  if (potCat === '3bet') return nearestAnchor(pct, [20, 33, 50, 75, 125]);
-  // 4bet5bet: 50%超は ALLIN、それ以外は 10/25/33/50 に寄せる
-  if (pct > 50) return 'ALLIN';
-  return nearestAnchor(pct, [10, 25, 33, 50]);
+  return nearestAnchor(Math.round((n / pot) * 100), [33, 50, 75, 125]);
 }
 
-/** action_solutions → バケット別頻度 (0..1)。 */
-function bucketize(potCat, actions, pot) {
+/** SRP CB ノードの action_solutions → バケット別頻度 (0..1)。 */
+function bucketizeSrp(actions, pot) {
   const strat = {};
-  for (const label of CHOICES[potCat]) strat[label] = 0;
+  for (const label of CB_CHOICES) strat[label] = 0;
   for (const a of actions) {
     if (a.action_code === 'F' || a.action_code === 'C') continue;
     if (a.action_code === 'X') { strat.check += a.frequency; continue; }
     if (Math.round(a.frequency * 100) <= 0) continue;
-    const b = bucketOf(potCat, a.action_code, pot);
+    const b = bucketSrp(a.action_code, pot);
     if (b == null) continue;
     strat[b] += a.frequency;
   }
-  // 丸め
   for (const k of Object.keys(strat)) strat[k] = Number(strat[k].toFixed(4));
   return strat;
+}
+
+/** ノードの先制ベット率 (= 1 - X、F/C は除く)。Donk頻度の算出に使う。 */
+function betRate(actions) {
+  let bet = 0;
+  for (const a of actions) {
+    if (a.action_code === 'X' || a.action_code === 'F' || a.action_code === 'C') continue;
+    bet += a.frequency;
+  }
+  return bet;
 }
 
 /** 混合戦略か (MIXED_MIN 以上のバケットが2つ以上)。 */
@@ -171,7 +172,8 @@ function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const variants = fs.readdirSync(DATA_ROOT).filter((d) => fs.statSync(path.join(DATA_ROOT, d)).isDirectory());
 
-  const pots = { SRP: [], '3bet': [], '4bet5bet': [] };
+  const cb = []; // CB問題 (SRP のみ, 複数選択)
+  const donk = { SRP: [], '3bet': [], '4bet': [] }; // Donk問題 (スライダー)
   const preflop = {};
 
   for (const variant of variants) {
@@ -179,31 +181,53 @@ function main() {
     if (!cls) continue;
     const { pot, potCat, aggressor, defender } = cls;
     const { oop, aggressorRole } = roles(aggressor, defender);
-    const cbFile = aggressorRole === 'OOP' ? 'flop_root.json' : `flop_${oop.toLowerCase()}_x.json`;
-    const node = loadNode(variant, cbFile);
-    if (!node) continue;
     preflop[variant] = buildPreflopSeq(variant, loadNode(variant, 'flop_root.json'));
-    const flopPot = node.game_point?.game?.pot ?? 0;
-    for (const s of node.solutions) {
-      if (pots[potCat].length >= PER_POT_CAP) break;
-      const strat = bucketize(potCat, s.action_solutions, flopPot);
-      if (!isMixed(strat)) continue; // 中級: 混合戦略ボードのみ
-      pots[potCat].push({ variant, hero: aggressor, villain: defender, pot, board: s.name, strat });
+
+    // CB問題: SRP のみ。アグレッサーの c-bet ノード。hero=アグレッサー / villain=ディフェンダー。
+    if (potCat === 'SRP' && cb.length < PER_POT_CAP) {
+      const cbFile = aggressorRole === 'OOP' ? 'flop_root.json' : `flop_${oop.toLowerCase()}_x.json`;
+      const node = loadNode(variant, cbFile);
+      if (node) {
+        const flopPot = node.game_point?.game?.pot ?? 0;
+        for (const s of node.solutions) {
+          if (cb.length >= PER_POT_CAP) break;
+          const strat = bucketizeSrp(s.action_solutions, flopPot);
+          if (!isMixed(strat)) continue; // 中級: 混合戦略ボードのみ
+          cb.push({ variant, hero: aggressor, villain: defender, pot, board: s.name, strat });
+        }
+      }
+    }
+
+    // Donk問題: アグレッサー IP のときだけ存在 (OOP ディフェンダーが flop_root で先制)。
+    //   hero=ディフェンダー(ドンクする側) / villain=アグレッサー。donkRate = 1 - X。
+    const donkPool = pot === '5bet' ? null : donk[pot]; // 5bp はアグレッサーIP局面が無い
+    if (aggressorRole === 'IP' && donkPool && donkPool.length < PER_POT_CAP) {
+      const node = loadNode(variant, 'flop_root.json');
+      if (node) {
+        for (const s of node.solutions) {
+          if (donkPool.length >= PER_POT_CAP) break;
+          const rate = betRate(s.action_solutions);
+          if (rate < DONK_MIN) continue; // ドンクが実戦的に選択肢の局面のみ
+          donkPool.push({ variant, hero: defender, villain: aggressor, pot, board: s.name, donkRate: Number(rate.toFixed(4)) });
+        }
+      }
     }
   }
 
   const out = {
     config: CONFIG,
     generated_at: new Date().toISOString(),
-    note: 'Flop intermediate CB. strat = bucketed c-bet frequencies (0..1). Multi-select scoring (preflop intermediate method).',
-    choices: CHOICES,
+    note: 'Flop intermediate range-bet. cb = SRP c-bet (multi-select). donk = OOP defender lead freq (slider).',
+    cb_choices: CB_CHOICES,
     preflop,
-    pots,
+    cb,
+    donk,
   };
   fs.writeFileSync(OUT_FILE, JSON.stringify(out));
-  console.log('SRP boards     :', pots.SRP.length);
-  console.log('3bet boards    :', pots['3bet'].length);
-  console.log('4bet5bet boards:', pots['4bet5bet'].length);
+  console.log('CB SRP boards :', cb.length);
+  console.log('Donk SRP      :', donk.SRP.length);
+  console.log('Donk 3bet     :', donk['3bet'].length);
+  console.log('Donk 4bet     :', donk['4bet'].length);
   console.log(`Wrote ${path.relative(process.cwd(), OUT_FILE)} (${(fs.statSync(OUT_FILE).size / 1024).toFixed(1)}KB)`);
 }
 

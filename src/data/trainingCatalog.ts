@@ -49,11 +49,9 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'フロップトレーニング',
     levels: [
       { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      // 中級CB: best_score が finalSum (0-60, 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
-      { key: 'flop_intermediate',      label: '中級CB',   points: 1,    questionCount: 30,   timeLimitSec: 'none', implemented: true  },
-      // 中級 Donk / BMCB は枠のみ (未実装)。BMCB の正式名称は後日確定。
-      { key: 'flop_intermediate_donk', label: '中級Donk', points: null, questionCount: null, timeLimitSec: null, implemented: false },
-      { key: 'flop_intermediate_bmcb', label: '中級BMCB', points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      // 中級レンジベット: CB(複数選択) + Donk(スライダー) 混在。best_score が finalSum
+      // (0-50, 1問 -1〜+2pt × 25問) を直接表す。 points=1 で累計と整合。
+      { key: 'flop_intermediate', label: '中級レンジベット', points: 1, questionCount: 25, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -77,9 +75,9 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
   }
-  // フロップ中級CB は満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
+  // フロップ中級レンジベットは満点 50pt 表記 (1問 -1〜+2pt × 25問・制限時間なし)。
   if (level.key === 'flop_intermediate') {
-    const qc = level.questionCount ?? 30;
+    const qc = level.questionCount ?? 25;
     return `${qc}問・最大 ${qc * 2}pt・制限時間なし`;
   }
   // 中級ポジション別 (EP/LP/Blind) は満点 = questionCount (素点÷2)。

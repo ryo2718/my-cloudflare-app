@@ -129,11 +129,9 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
     expect(isLevelUnlocked('flop_beginner', allLocked)).toBe(false);
     expect(isLevelUnlocked('flop_beginner', allUnlocked)).toBe(true);
   });
-  it('flop_intermediate (CB/Donk/BMCB枠): フロップ初級クリアで解放', () => {
+  it('flop_intermediate (レンジベット): フロップ初級クリアで解放', () => {
     expect(isLevelUnlocked('flop_intermediate', allLocked)).toBe(false);
     expect(isLevelUnlocked('flop_intermediate', allUnlocked)).toBe(true);
-    expect(isLevelUnlocked('flop_intermediate_donk', allUnlocked)).toBe(true);
-    expect(isLevelUnlocked('flop_intermediate_bmcb', allUnlocked)).toBe(true);
   });
   it('flop_advanced 以降: 未実装でロック', () => {
     expect(isLevelUnlocked('flop_advanced', allUnlocked)).toBe(false);

@@ -1,10 +1,10 @@
-// フロップ中級CB の回答記録ストア (in-memory + sessionStorage)。
+// フロップ中級レンジベットの回答記録ストア (in-memory + sessionStorage)。
 // flopRecordsStore と同方式。鍵 prefix は専用にして衝突回避。
 
-import type { FlopCbRecord } from './flopIntermediateCb';
+import type { FlopRbRecord } from './flopIntermediateCb';
 
-const STORAGE_KEY_PREFIX = 'flop_cb_records:';
-const memStore = new Map<string, FlopCbRecord[]>();
+const STORAGE_KEY_PREFIX = 'flop_rb_records:';
+const memStore = new Map<string, FlopRbRecord[]>();
 
 function keyOf(levelKey: string): string {
   return STORAGE_KEY_PREFIX + levelKey;
@@ -18,7 +18,7 @@ function getSessionStorage(): Storage | null {
   }
 }
 
-export function saveFlopCbRecords(levelKey: string, records: ReadonlyArray<FlopCbRecord>): void {
+export function saveFlopRbRecords(levelKey: string, records: ReadonlyArray<FlopRbRecord>): void {
   memStore.set(levelKey, [...records]);
   const ss = getSessionStorage();
   if (!ss) return;
@@ -29,7 +29,7 @@ export function saveFlopCbRecords(levelKey: string, records: ReadonlyArray<FlopC
   }
 }
 
-export function loadFlopCbRecords(levelKey: string): FlopCbRecord[] | null {
+export function loadFlopRbRecords(levelKey: string): FlopRbRecord[] | null {
   const inMem = memStore.get(levelKey);
   if (inMem) return [...inMem];
   const ss = getSessionStorage();
@@ -37,7 +37,7 @@ export function loadFlopCbRecords(levelKey: string): FlopCbRecord[] | null {
   try {
     const raw = ss.getItem(keyOf(levelKey));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as FlopCbRecord[];
+    const parsed = JSON.parse(raw) as FlopRbRecord[];
     memStore.set(levelKey, parsed);
     return [...parsed];
   } catch {
@@ -45,7 +45,7 @@ export function loadFlopCbRecords(levelKey: string): FlopCbRecord[] | null {
   }
 }
 
-export function clearFlopCbRecords(levelKey: string): void {
+export function clearFlopRbRecords(levelKey: string): void {
   memStore.delete(levelKey);
   const ss = getSessionStorage();
   if (!ss) return;

@@ -1,21 +1,22 @@
-// フロップトレーニング中級CB の問題画面。
-//   - 全30問・1問2pt(複数選択, プリフロ中級と同じ採点)・満点60・時間制限なし。
-//   - SRP/3bp/4bp/5bp の c-bet を、ポット別の選択肢 (check/各サイズ/ALLIN) から複数選択。
-//   - テーブル図・カード・アニメは初級 (TrainingPlayFlop) を流用。複数選択UIは ChoiceButtons を流用。
+// フロップトレーニング「中級レンジベット」の問題画面。
+//   - 全25問・1問2pt・満点50・時間制限なし。
+//   - CB問題 (複数選択, SRP) と Donk問題 (スライダー, SRP/3bp/4bp) が混在。
+//   - テーブル図・カード・アニメは初級 (TrainingPlayFlop) を流用。
+//     CB=ChoiceButtons(中級CBから)、Donk=SliderChoice(プリフロ中級から) を流用。
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
-  generateFlopCbQuestions,
-  scoreFlopCb,
-  flopCbScenarioLabel,
-  FLOP_CB_MAX_SCORE,
-  type FlopCbQuestion,
-  type FlopCbResponse,
-  type FlopCbRecord,
+  generateFlopRbQuestions,
+  scoreFlopRb,
+  flopRbScenarioLabel,
+  FLOP_RB_MAX_SCORE,
+  type FlopRbQuestion,
+  type FlopRbResponse,
+  type FlopRbRecord,
 } from '../../data/training/flopIntermediateCb';
 import { flopShowsVillainCheck } from '../../data/training/flopBeginner';
-import { saveFlopCbRecords, clearFlopCbRecords } from '../../data/training/flopCbRecordsStore';
+import { saveFlopRbRecords, clearFlopRbRecords } from '../../data/training/flopCbRecordsStore';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { THEME } from '../../styles/theme';
 import type { SeatPopup } from '../../data/training/actionHistory';
@@ -25,16 +26,18 @@ import { ActionTable } from './ActionTable';
 import { PokerTable } from './PokerTable';
 import { FlopBoard } from './FlopBoard';
 import { ChoiceButtons } from './ChoiceButtons';
+import { SliderChoice } from './SliderChoice';
 import { DebugAnswerBar } from './DebugAnswerBar';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import { FLOP_CB_ORDER, flopCbLabels, flopCbColor } from './flopCbChoiceStyle';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
 
-// アニメの流れは初級と同じ: preflop → flop → (CB問題でヒーローIPなら villain check) → 手番。
 type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
 const FLOP_SETTLE_MS = 400;
 const CHECK_TO_TURN_MS = 200;
+
+const selOf = (r: FlopRbResponse | null): ReadonlyArray<string> => (r?.kind === 'select' ? r.selections : []);
 
 export interface TrainingPlayFlopIntermediateProps {
   level: TrainingLevel;
@@ -42,69 +45,62 @@ export interface TrainingPlayFlopIntermediateProps {
 
 export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermediateProps) {
   const [instant] = useState<boolean>(loadInstantFeedback);
-  const [lastSelections, setLastSelections] = useState<ReadonlyArray<string>>([]);
+  const [lastRes, setLastRes] = useState<FlopRbResponse | null>(null);
 
-  const finish = (records: FlopCbRecord[]) => {
-    saveFlopCbRecords(level.key, records);
+  const finish = (records: FlopRbRecord[]) => {
+    saveFlopRbRecords(level.key, records);
     const finalSum = records.reduce((s, r) => s + r.finalScore, 0);
-    const params = new URLSearchParams({
-      score: String(finalSum),
-      total: String(FLOP_CB_MAX_SCORE),
-    });
+    const params = new URLSearchParams({ score: String(finalSum), total: String(FLOP_RB_MAX_SCORE) });
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
   const { state, feedback, onAnswer, onProceed, debugComplete } = useTrainingHarness<
-    FlopCbQuestion,
-    FlopCbResponse,
-    FlopCbRecord
+    FlopRbQuestion,
+    FlopRbResponse,
+    FlopRbRecord
   >({
-    load: () => generateFlopCbQuestions(),
-    onLoadStart: () => clearFlopCbRecords(level.key),
+    load: () => generateFlopRbQuestions(),
+    onLoadStart: () => clearFlopRbRecords(level.key),
     reloadKey: level.key,
     instant,
-    scorePoints: (q, res) => scoreFlopCb(q.strat, res).finalScore,
-    buildRecord: (q, res, i) => {
-      const sc = scoreFlopCb(q.strat, res);
-      return {
-        ...q,
-        recordId: i + 1,
-        selections: res.timedOut ? [] : res.selections,
-        timedOut: res.timedOut,
-        rawScore: sc.rawScore,
-        finalScore: sc.finalScore,
-        theoreticalMax: sc.theoreticalMax,
-      };
-    },
+    scorePoints: (q, res) => scoreFlopRb(q, res),
+    buildRecord: (q, res, i) => ({ ...q, recordId: i + 1, response: res, finalScore: scoreFlopRb(q, res) }),
     finish,
   });
 
-  const handleAnswer = (res: FlopCbResponse) => {
-    setLastSelections([...res.selections]);
+  const handleAnswer = (res: FlopRbResponse) => {
+    setLastRes(res);
     onAnswer(res);
   };
 
   // デバッグ (admin 専用) picker。
-  const dbgCorrect = (q: FlopCbQuestion): FlopCbResponse => ({
-    selections: q.choices.filter((c) => (q.strat[c] ?? 0) >= 0.05), // GTOで使う全アクション → 満点
-    timedOut: false,
-  });
-  const dbgWrong = (q: FlopCbQuestion): FlopCbResponse => {
-    let lo = q.choices[0];
-    for (const c of q.choices) if ((q.strat[c] ?? 0) < (q.strat[lo] ?? 0)) lo = c;
-    return { selections: [lo], timedOut: false }; // 最小頻度 (多くは0% → -1)
+  const dbgCorrect = (q: FlopRbQuestion): FlopRbResponse =>
+    q.kind === 'cb'
+      ? { kind: 'select', selections: q.choices.filter((c) => (q.strat[c] ?? 0) >= 0.05) }
+      : { kind: 'slider', pct: Math.round(q.donkRate * 100) };
+  const dbgWrong = (q: FlopRbQuestion): FlopRbResponse => {
+    if (q.kind === 'cb') {
+      let lo = q.choices[0];
+      for (const c of q.choices) if ((q.strat[c] ?? 0) < (q.strat[lo] ?? 0)) lo = c;
+      return { kind: 'select', selections: [lo] };
+    }
+    return { kind: 'slider', pct: Math.round(q.donkRate * 100) >= 50 ? 0 : 100 };
   };
-  const dbgRandom = (q: FlopCbQuestion): FlopCbResponse => {
-    const picks = q.choices.filter(() => Math.random() < 0.5);
-    return { selections: picks.length ? picks : [q.choices[0]], timedOut: false };
+  const dbgRandom = (q: FlopRbQuestion): FlopRbResponse => {
+    if (q.kind === 'cb') {
+      const picks = q.choices.filter(() => Math.random() < 0.5);
+      return { kind: 'select', selections: picks.length ? picks : [q.choices[0]] };
+    }
+    return { kind: 'slider', pct: Math.floor(Math.random() * 11) * 10 };
   };
 
-  // 問題切替で preflop からやり直す (レンダー中に状態調整: React 公式パターン)。
+  // アニメの流れ。問題切替で preflop からやり直す。CB(ヒーローIP)のみ villain check を挟む。
   const currentIdx = state.kind === 'ready' ? state.current : -1;
   const currentQ = state.kind === 'ready' ? state.questions[state.current] : null;
-  const needsCheck = currentQ
-    ? flopShowsVillainCheck({ type: 'cb', hero: currentQ.hero, villain: currentQ.villain })
-    : false;
+  const needsCheck =
+    currentQ?.kind === 'cb'
+      ? flopShowsVillainCheck({ type: 'cb', hero: currentQ.hero, villain: currentQ.villain })
+      : false;
   const [phase, setPhase] = useState<FlopPhase>('preflop');
   const [phaseIdx, setPhaseIdx] = useState(currentIdx);
   if (phaseIdx !== currentIdx) {
@@ -146,7 +142,7 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
 
   const q = state.questions[state.current];
   const progress = ((state.current + 1) / state.questions.length) * 100;
-  const scenarioLabel = flopCbScenarioLabel(q);
+  const scenarioLabel = flopRbScenarioLabel(q);
 
   const showVillainCheck = needsCheck && (phase === 'check' || phase === 'question');
   const tablePopups: SeatPopup[] = showVillainCheck
@@ -174,7 +170,10 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
       </header>
 
       <main style={mainStyle}>
-        <div style={scenarioPillStyle}>{scenarioLabel}</div>
+        <div style={scenarioRowStyle}>
+          <span style={scenarioPillStyle}>{scenarioLabel}</span>
+          <span style={kindPillStyle}>{q.kind === 'cb' ? 'CB' : 'ドンク'}</span>
+        </div>
 
         {phase === 'preflop' ? (
           <ActionTable
@@ -197,32 +196,41 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
           />
         )}
 
-        {phase === 'question' && (
-          feedback ? (
+        {phase === 'question' &&
+          (feedback ? (
             <InstantFeedback points={feedback.points} onNext={onProceed}>
-              <FlopCbReviewDetail choices={q.choices} strat={q.strat} selections={lastSelections} />
+              {q.kind === 'cb' ? (
+                <FlopCbReviewDetail choices={q.choices} strat={q.strat} selections={selOf(lastRes)} />
+              ) : (
+                <div style={donkFbStyle}>
+                  ドンク正解 {Math.round(q.donkRate * 100)}% / あなた{' '}
+                  {lastRes?.kind === 'slider' ? `${lastRes.pct}%` : 'スキップ'}
+                </div>
+              )}
             </InstantFeedback>
-          ) : (
+          ) : q.kind === 'cb' ? (
             <ChoiceButtons
-              key={`choices-${state.current}`}
+              key={`cb-${state.current}`}
               availableActions={q.choices}
               actionLabels={flopCbLabels(q.choices)}
               order={FLOP_CB_ORDER}
               resolveColor={flopCbColor}
               showColorChip
               prompt="CBをどう打つ?(複数選択可)"
-              onSubmit={(selections) => handleAnswer({ selections: [...selections], timedOut: false })}
+              onSubmit={(selections) => handleAnswer({ kind: 'select', selections: [...selections] })}
             />
-          )
-        )}
+          ) : (
+            <SliderChoice
+              key={`donk-${state.current}`}
+              actionLabel="ドンク"
+              onSubmit={(pct) => handleAnswer({ kind: 'slider', pct })}
+              onSkip={() => handleAnswer({ kind: 'skip' })}
+            />
+          ))}
       </main>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles (TrainingPlayFlop と統一)
-// ---------------------------------------------------------------------------
 
 const pageStyle: CSSProperties = { minHeight: '100vh', background: THEME.bg, display: 'flex', flexDirection: 'column' };
 const headerBarStyle: CSSProperties = {
@@ -238,10 +246,16 @@ const mainStyle: CSSProperties = {
   flex: 1, padding: '1rem', maxWidth: 520, width: '100%', margin: '0 auto',
   display: 'flex', flexDirection: 'column', gap: '1rem',
 };
+const scenarioRowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.4rem' };
 const scenarioPillStyle: CSSProperties = {
-  alignSelf: 'flex-start', fontSize: '0.78rem', fontWeight: 700, color: '#993C1D',
+  fontSize: '0.78rem', fontWeight: 700, color: '#993C1D',
   background: '#FAEEDA', border: '1px solid #E5A551', borderRadius: '999px', padding: '0.2rem 0.7rem',
 };
+const kindPillStyle: CSSProperties = {
+  fontSize: '0.72rem', fontWeight: 800, color: '#fff', background: THEME.accent,
+  borderRadius: '999px', padding: '0.18rem 0.6rem',
+};
+const donkFbStyle: CSSProperties = { fontSize: '0.92rem', fontWeight: 700, color: THEME.textPrimary };
 const loadingStyle: CSSProperties = { margin: 'auto', fontSize: '0.95rem', color: THEME.textMuted };
 const errorStyle: CSSProperties = {
   margin: 'auto', fontSize: '0.92rem', color: THEME.errorText, background: THEME.errorBg,
