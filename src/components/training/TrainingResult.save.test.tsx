@@ -17,6 +17,7 @@ vi.mock('../../api/account', async (orig) => ({
 
 import { apiSubmitTrainingResult } from '../../api/account';
 import { TrainingResult } from './TrainingResult';
+import { TrainingResultFlop } from './TrainingResultFlop';
 
 const BEGINNER = TRAINING_CATALOG[0].levels[0];
 const FLOP_BEGINNER = TRAINING_CATALOG[1].levels[0];
@@ -95,12 +96,12 @@ describe('TrainingResult 保存失敗時の退避・再送', () => {
   });
 });
 
-// フロップ初級も同じ TrainingResult / apiSubmitTrainingResult 経路 (プリフロップ方式) で保存される。
-describe('TrainingResult フロップ初級 (プリフロップ方式に統一)', () => {
+// フロップ初級は TrainingResultFlop で、同じ apiSubmitTrainingResult 経路 (プリフロップ方式) で保存される。
+describe('TrainingResultFlop フロップ初級 (プリフロップ方式に統一)', () => {
   function renderFlop() {
     return render(
       <AuthContext.Provider value={fakeAuth()}>
-        <TrainingResult level={FLOP_BEGINNER} />
+        <TrainingResultFlop level={FLOP_BEGINNER} />
       </AuthContext.Provider>,
     );
   }

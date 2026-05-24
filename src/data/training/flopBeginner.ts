@@ -65,6 +65,16 @@ export interface FlopResponse {
   choice: FlopChoice | null; // null = 無回答/時間切れ
 }
 
+/** 1問の回答記録 (結果画面の振り返り用)。 */
+export interface FlopRecord extends FlopQuestion {
+  /** 1〜20 (1-indexed)。出題順。 */
+  recordId: number;
+  /** プレイヤーの解答 (bet / check / 無回答)。 */
+  choice: FlopChoice | null;
+  /** 正解と一致するか。 */
+  isCorrect: boolean;
+}
+
 export const FLOP_BEGINNER_COUNT = 20;
 export const CB_THRESHOLD = 0.7;
 export const DONK_THRESHOLD = 0.6;

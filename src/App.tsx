@@ -30,6 +30,7 @@ import { TrainingPlayFlop } from './components/training/TrainingPlayFlop';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResultPositional } from './components/training/TrainingResultPositional';
+import { TrainingResultFlop } from './components/training/TrainingResultFlop';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingRules } from './components/training/TrainingRules';
@@ -164,6 +165,9 @@ export default function App() {
         level.key === 'preflop_intermediate_blind'
       ) {
         return <TrainingResultPositional level={level} />;
+      }
+      if (level.key === 'flop_beginner') {
+        return <TrainingResultFlop level={level} />;
       }
       return <TrainingResult level={level} />;
     }
