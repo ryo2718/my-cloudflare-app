@@ -166,6 +166,7 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
             mePosition={q.hero}
             wide
             popups={tablePopups}
+            involvedPositions={[q.hero, q.villain]}
             centerSlot={<FlopBoard key={state.current} cards={q.board} pot={q.pot} />}
           />
         )}

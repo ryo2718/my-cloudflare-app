@@ -37,7 +37,8 @@ const wrapStyle: CSSProperties = {
   alignItems: 'center',
   gap: '0.2rem',
 };
-// ポット種別ピル: 緑系の既存トークン (ACTION_COLOR.check) をベタ塗り流用。新規色は定義しない。
+// ポット種別ピル: 紫系の既存トークン (ACTION_COLOR.allin = #534AB7 = ティア「マスター」色) を
+// ベタ塗り流用。テーブル/check の緑、fold の青、raise の赤と被らない。新規色は定義しない。
 const pillStyle: CSSProperties = {
   fontSize: '0.62rem',
   color: '#fff',
@@ -45,7 +46,7 @@ const pillStyle: CSSProperties = {
   letterSpacing: '0.08em',
   padding: '2px 9px',
   borderRadius: 999,
-  background: ACTION_COLOR.check,
+  background: ACTION_COLOR.allin,
   boxShadow: '0 1px 2px rgba(0,0,0,0.35)',
 };
 const rowStyle: CSSProperties = {

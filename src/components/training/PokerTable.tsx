@@ -37,6 +37,12 @@ export interface PokerTableProps {
    * フロップ初級でテーブルサイズがフロップ表示時に変化しないようにするため。
    */
   wide?: boolean;
+  /**
+   * 局面に関与している席 (ヒーロー + 相手)。指定時、ここに無い席 (= 降りた席) を
+   * fold ポップアップが無くても半透明にする。フロップ初級でアクション表示を消した後も
+   * 降りた席を視覚的に区別するため。未指定なら従来どおり (fold ポップアップのみで判定)。
+   */
+  involvedPositions?: ReadonlyArray<Position>;
 }
 
 /** mePosition を「下中央」とした時の slot → position マッピング。 */
@@ -49,11 +55,18 @@ function arrangePositions(me: Position): Record<Slot, Position> {
   return out as Record<Slot, Position>;
 }
 
-export function PokerTable({ mePosition, popups = [], centerSlot, wide = false }: PokerTableProps) {
+export function PokerTable({
+  mePosition,
+  popups = [],
+  centerSlot,
+  wide = false,
+  involvedPositions,
+}: PokerTableProps) {
   const slots = arrangePositions(mePosition);
   const popupByPos = new Map<Position, SeatPopup>();
   for (const p of popups) popupByPos.set(p.position, p);
   const useWide = wide || !!centerSlot;
+  const involvedSet = involvedPositions ? new Set(involvedPositions) : null;
 
   return (
     <div style={containerStyle}>
@@ -63,7 +76,8 @@ export function PokerTable({ mePosition, popups = [], centerSlot, wide = false }
           const pos = slots[slot];
           const isMe = pos === mePosition;
           const popup = popupByPos.get(pos) ?? null;
-          const isFolded = popup?.kind === 'fold';
+          // fold ポップアップがある席、または involvedPositions に含まれない席 (降りた席) を半透明に。
+          const isFolded = popup?.kind === 'fold' || (involvedSet ? !involvedSet.has(pos) : false);
           return (
             <PlayerSeat
               key={slot}
