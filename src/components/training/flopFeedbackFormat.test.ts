@@ -1,7 +1,7 @@
 // フロップ即時FB: ベット表示(bet/pot %) + バー色(check=緑/赤グラデ/紫)。
 
 import { describe, it, expect } from 'vitest';
-import { actionFreqLabel, barColor, flopJudgment, feedbackRows } from './flopFeedbackFormat';
+import { actionFreqLabel, barColor, flopJudgment, feedbackRows, potPillColor } from './flopFeedbackFormat';
 import { judgmentIcon } from './judgmentIcon';
 import { ACTION_COLOR } from '../../styles/actionColors';
 
@@ -49,6 +49,17 @@ describe('feedbackRows (チェックは0%でも常時表示)', () => {
     ]);
     expect(rows.map((r) => r.code)).toEqual(['X', 'R2']);
     expect(rows[0].freq).toBe(0); // チェック0%でも表示
+  });
+});
+
+describe('potPillColor (SRP=クリーム / 3bp=赤系オレンジ、紫は使わない)', () => {
+  it('SRP は濃いめクリーム、3bp は赤系オレンジ', () => {
+    expect(potPillColor('SRP')).toEqual({ bg: '#FAC775', fg: '#412402' });
+    expect(potPillColor('3bet')).toEqual({ bg: '#DD5A2E', fg: '#ffffff' });
+  });
+  it('紫 (オールイン/ポットオーバー専用) を使わない', () => {
+    expect(potPillColor('SRP').bg).not.toBe(ACTION_COLOR.allin);
+    expect(potPillColor('3bet').bg).not.toBe(ACTION_COLOR.allin);
   });
 });
 

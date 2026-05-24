@@ -3,7 +3,23 @@
 
 import { ACTION_COLOR } from '../../styles/actionColors';
 import type { StrategySymbol } from './judgmentIcon';
-import type { FlopActionFreq } from '../../data/training/flopBeginner';
+import type { FlopActionFreq, FlopPot } from '../../data/training/flopBeginner';
+
+/**
+ * ボード上のポット種別ピルの色 {背景, 文字}。
+ * 紫はオールイン/ポットオーバー (barColor) 専用のため使わない。
+ * ポットのアグレッションで暖色を濃くするエスカレーション:
+ *   SRP = クリーム(濃いめ=アンバー) → 3bp = 赤系オレンジ → (将来 4bp = 濃い赤)。
+ * 値は既存の暖色トークン系に揃える (アンバー = FlopReportCell ◎ / 濃赤 = achievements 系)。
+ */
+export function potPillColor(pot: FlopPot): { bg: string; fg: string } {
+  switch (pot) {
+    case 'SRP':
+      return { bg: '#FAC775', fg: '#412402' }; // 濃いめクリーム (アンバー)
+    case '3bet':
+      return { bg: '#DD5A2E', fg: '#ffffff' }; // 赤系オレンジ
+  }
+}
 
 /**
  * 即時フィードバックに表示する行。

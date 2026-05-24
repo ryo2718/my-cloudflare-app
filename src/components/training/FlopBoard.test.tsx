@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { FlopBoard } from './FlopBoard';
+import { potPillColor } from './flopFeedbackFormat';
 import { ACTION_COLOR } from '../../styles/actionColors';
 import type { Card } from '../../types/card';
 
@@ -23,9 +24,15 @@ describe('FlopBoard ポット種別ピル (修正2)', () => {
     expect(html).toContain('3bp');
     expect(html).not.toContain('フロップ');
   });
-  it('ピルは紫系トークン (ACTION_COLOR.allin) で、緑 (check/テーブル) ではない', () => {
-    const html = renderToStaticMarkup(<FlopBoard cards={BOARD} pot="SRP" />);
-    expect(html).toContain(ACTION_COLOR.allin); // 紫 #534AB7
-    expect(html).not.toContain(ACTION_COLOR.check); // 緑ではない
+  it('SRP ピルはクリーム / 3bp ピルは赤系オレンジ。紫・緑は使わない', () => {
+    const srp = renderToStaticMarkup(<FlopBoard cards={BOARD} pot="SRP" />);
+    expect(srp).toContain(potPillColor('SRP').bg); // クリーム #FAC775
+    const threeb = renderToStaticMarkup(<FlopBoard cards={BOARD} pot="3bet" />);
+    expect(threeb).toContain(potPillColor('3bet').bg); // 赤系オレンジ #DD5A2E
+    // 紫 (オールイン/ポットオーバー専用) と 緑 (check/テーブル) は使わない
+    for (const html of [srp, threeb]) {
+      expect(html).not.toContain(ACTION_COLOR.allin); // 紫 #534AB7
+      expect(html).not.toContain(ACTION_COLOR.check); // 緑 #3B8A1E
+    }
   });
 });
