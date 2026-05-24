@@ -8,10 +8,12 @@ import {
   flopScenarioLabel,
   flopOop,
   flopShowsVillainCheck,
+  trimLeadingFolds,
   type FlopTrainingData,
   type FlopQuestion,
   FLOP_BEGINNER_COUNT,
 } from './flopBeginner';
+import type { ActionItem } from './actionHistory';
 
 const DATA: FlopTrainingData = JSON.parse(
   readFileSync('public/data/flop/flop_training_v1.json', 'utf8'),
@@ -99,6 +101,39 @@ describe('flopScenarioLabel (修正3)', () => {
   });
   it('3bet: "3bp {hero} vs {villain}" (3betした側がヒーロー)', () => {
     expect(flopScenarioLabel({ pot: '3bet', hero: 'BB', villain: 'BTN' })).toBe('3bp BB vs BTN');
+  });
+});
+
+describe('trimLeadingFolds (プリフロ先頭の fold を省く)', () => {
+  it('BTN vs BB: UTG〜CO の fold を飛ばし BTN レイズから開始', () => {
+    const items: ActionItem[] = [
+      { position: 'UTG', kind: 'fold' },
+      { position: 'HJ', kind: 'fold' },
+      { position: 'CO', kind: 'fold' },
+      { position: 'BTN', kind: 'raise', amount: 2.5 },
+      { position: 'SB', kind: 'fold' },
+      { position: 'BB', kind: 'call' },
+    ];
+    const out = trimLeadingFolds(items);
+    expect(out[0]).toEqual({ position: 'BTN', kind: 'raise', amount: 2.5 });
+    expect(out.map((i) => i.position)).toEqual(['BTN', 'SB', 'BB']); // BTN 以降は維持
+  });
+  it('先頭が既に非 fold ならそのまま', () => {
+    const items: ActionItem[] = [
+      { position: 'CO', kind: 'raise', amount: 2.5 },
+      { position: 'BB', kind: 'call' },
+    ];
+    expect(trimLeadingFolds(items)).toEqual(items);
+  });
+});
+
+describe('各問の preflopActions は先頭 fold を含まない (最初は非 fold)', () => {
+  it('生成された全問でプリフロ列の先頭が fold でない', () => {
+    for (const q of buildFlopQuestions(DATA)) {
+      if (q.preflopActions.length > 0) {
+        expect(q.preflopActions[0].kind).not.toBe('fold');
+      }
+    }
   });
 });
 
