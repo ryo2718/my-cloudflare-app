@@ -43,6 +43,7 @@ describe('中級CB(個別ハンド) 出題生成', () => {
       const boardKeys = new Set(q.board.map((c) => c.rank + c.suit));
       for (const c of q.heroCards) expect(boardKeys.has(c.rank + c.suit)).toBe(false);
       expect(Object.keys(q.rangeHands).length).toBeGreaterThan(0); // grid 用
+      expect(q.preflopActions.length).toBeGreaterThan(0); // アニメ用 (中級レンジから流用)
     }
   });
 

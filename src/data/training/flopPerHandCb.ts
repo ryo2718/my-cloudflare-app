@@ -9,6 +9,7 @@
 import type { Rank, Suit, Card } from '../../types/card';
 import type { Position } from '../../types/strategy';
 import type { HandStrategy } from './preflopBeginner';
+import type { ActionItem } from './actionHistory';
 import { scoreFlopCb, type FlopCbStrat } from './flopIntermediateCb';
 
 export type FlopPhScenario = 'SRP' | '3bet' | '4bet';
@@ -30,6 +31,7 @@ interface RawNode {
   villain: string;
   aggressor: string;
   decision: 'cbet' | 'lead';
+  preflop?: ActionItem[];
   boards: RawBoard[];
 }
 export interface FlopPhData {
@@ -47,10 +49,12 @@ export interface FlopPhQuestion {
   hand: string; // "QQ" / "AKs" / "72o"
   heroCards: [Card, Card];
   choices: string[];
-  /** 出題ハンドの戦略 (採点用, 0..1)。 */
+  /** 出題ハンドの戦略 (採点 + 答え合わせのサイズ混合表示用, 0..1)。 */
   strat: FlopCbStrat;
   /** grid 用: ボードのレンジ全ハンド strategy (check→緑/ベット→赤/125→紫)。 */
   rangeHands: Record<string, HandStrategy>;
+  /** アニメ用プリフロップ アクション列 (中級レンジから流用)。 */
+  preflopActions: ActionItem[];
 }
 
 export interface FlopPhResponse {
@@ -211,6 +215,7 @@ export function buildFlopPhQuestions(data: FlopPhData): FlopPhQuestion[] {
         choices: [...FLOP_PH_CHOICES],
         strat: stratFromS(rb.hands[hand].s),
         rangeHands,
+        preflopActions: node.preflop ?? [],
       });
     }
   }

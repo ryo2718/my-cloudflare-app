@@ -13,6 +13,7 @@ import { savePendingResult, clearPendingResult } from '../../data/training/pendi
 import { getSymbolStyle } from '../../utils/strategySymbol';
 import { flopJudgment } from './flopFeedbackFormat';
 import { flopCbLabel } from './flopCbChoiceStyle';
+import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import { HandRangeMatrix } from './HandRangeMatrix';
 import { PlayingCard } from '../PlayingCard';
 import { THEME } from '../../styles/theme';
@@ -184,6 +185,7 @@ export function TrainingResultFlopPerHandCb({ level }: TrainingResultFlopPerHand
                         <div style={answerLineStyle}>
                           あなたの回答: {r.selections.map((s) => flopCbLabel(s)).join(' / ') || '(なし)'}
                         </div>
+                        <FlopCbReviewDetail choices={r.choices} strat={r.strat} selections={r.selections} />
                         <HandRangeMatrix
                           hands={r.rangeHands}
                           highlightHand={r.hand}

@@ -1,8 +1,9 @@
 // フロップトレーニング「中級CB(個別ハンド)」の問題画面。
-//   - ボード + 自分のハンド を提示し、CBサイズを複数選択。1問1pt (満点相当のみ加点)。
-//   - 解答後にハンドレンジgrid (HandRangeMatrix) を表示 (プリフロップと同じ)。
+//   - プリフロップ→フロップのアニメ (中級レンジから流用) → ボード + 自分のハンド を提示し、
+//     CBサイズを複数選択。1問1pt (満点相当のみ加点)。
+//   - 解答後: 出題ハンドのサイズ混合戦略 (FlopCbReviewDetail) + ハンドレンジgrid を表示。
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
   generateFlopPhQuestions,
@@ -13,21 +14,30 @@ import {
   type FlopPhResponse,
   type FlopPhRecord,
 } from '../../data/training/flopPerHandCb';
+import { flopShowsVillainCheck } from '../../data/training/flopBeginner';
 import { saveFlopPhRecords, clearFlopPhRecords } from '../../data/training/flopPerHandRecordsStore';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { THEME } from '../../styles/theme';
+import type { SeatPopup } from '../../data/training/actionHistory';
 import type { Rank, Suit } from '../../types/card';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
+import { ActionTable } from './ActionTable';
+import { PokerTable } from './PokerTable';
 import { FlopBoard } from './FlopBoard';
 import { CardSet } from '../CardSet';
 import { ChoiceButtons } from './ChoiceButtons';
 import { DebugAnswerBar } from './DebugAnswerBar';
 import { HandRangeMatrix } from './HandRangeMatrix';
+import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import { FLOP_CB_ORDER, flopCbLabels, flopCbColor } from './flopCbChoiceStyle';
 import { flopJudgment } from './flopFeedbackFormat';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
+
+type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
+const FLOP_SETTLE_MS = 400;
+const CHECK_TO_TURN_MS = 200;
 
 export interface TrainingPlayFlopPerHandCbProps {
   level: TrainingLevel;
@@ -35,6 +45,7 @@ export interface TrainingPlayFlopPerHandCbProps {
 
 export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbProps) {
   const [instant] = useState<boolean>(loadInstantFeedback);
+  const [lastSel, setLastSel] = useState<ReadonlyArray<string>>([]);
 
   const finish = (records: FlopPhRecord[]) => {
     saveFlopPhRecords(level.key, records);
@@ -60,7 +71,12 @@ export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbPr
     finish,
   });
 
-  // デバッグ (admin): 正解=主要(>=5%)選択 / 不正解=最小頻度 / ランダム。
+  const handleAnswer = (res: FlopPhResponse) => {
+    setLastSel(res.selections);
+    onAnswer(res);
+  };
+
+  // デバッグ (admin)。
   const dbgCorrect = (q: FlopPhQuestion): FlopPhResponse => ({
     selections: q.choices.filter((c) => (q.strat[c] ?? 0) >= 0.05),
   });
@@ -73,6 +89,29 @@ export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbPr
     const picks = q.choices.filter(() => Math.random() < 0.5);
     return { selections: picks.length ? picks : [q.choices[0]] };
   };
+
+  // アニメの流れ (中級レンジから流用)。問題切替で preflop からやり直す。
+  const currentIdx = state.kind === 'ready' ? state.current : -1;
+  const currentQ = state.kind === 'ready' ? state.questions[state.current] : null;
+  const needsCheck = currentQ
+    ? flopShowsVillainCheck({ type: 'cb', hero: currentQ.hero, villain: currentQ.villain })
+    : false;
+  const [phase, setPhase] = useState<FlopPhase>('preflop');
+  const [phaseIdx, setPhaseIdx] = useState(currentIdx);
+  if (phaseIdx !== currentIdx) {
+    setPhaseIdx(currentIdx);
+    setPhase('preflop');
+  }
+  useEffect(() => {
+    if (phase === 'flop') {
+      const t = setTimeout(() => setPhase(needsCheck ? 'check' : 'question'), FLOP_SETTLE_MS);
+      return () => clearTimeout(t);
+    }
+    if (phase === 'check') {
+      const t = setTimeout(() => setPhase('question'), CHECK_TO_TURN_MS);
+      return () => clearTimeout(t);
+    }
+  }, [phase, needsCheck]);
 
   if (state.kind === 'loading') {
     return (
@@ -98,6 +137,10 @@ export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbPr
 
   const q = state.questions[state.current];
   const progress = ((state.current + 1) / state.questions.length) * 100;
+  const showVillainCheck = needsCheck && (phase === 'check' || phase === 'question');
+  const tablePopups: SeatPopup[] = showVillainCheck
+    ? [{ position: q.villain, kind: 'call', label: 'check' }]
+    : [];
 
   return (
     <div style={pageStyle}>
@@ -122,9 +165,26 @@ export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbPr
       <main style={mainStyle}>
         <div style={scenarioPillStyle}>{flopPhScenarioLabel(q)}</div>
 
-        <div style={boardWrapStyle}>
-          <FlopBoard key={state.current} cards={q.board} pot={q.scenario} />
-        </div>
+        {phase === 'preflop' ? (
+          <ActionTable
+            mePosition={q.hero}
+            items={q.preflopActions}
+            animate
+            wide
+            instantLeadingFolds
+            involvedPositions={[q.hero, q.villain]}
+            resetKey={state.current}
+            onAnimationDone={() => setPhase('flop')}
+          />
+        ) : (
+          <PokerTable
+            mePosition={q.hero}
+            wide
+            popups={tablePopups}
+            involvedPositions={[q.hero, q.villain]}
+            centerSlot={<FlopBoard key={state.current} cards={q.board} pot={q.scenario} />}
+          />
+        )}
 
         <section style={handSectionStyle}>
           <span style={handLabelStyle}>あなたのハンド ({q.hand})</span>
@@ -135,26 +195,28 @@ export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbPr
           />
         </section>
 
-        {feedback ? (
-          <InstantFeedback points={feedback.points} judgmentFor={flopJudgment} onNext={onProceed}>
-            <HandRangeMatrix
-              hands={q.rangeHands}
-              highlightHand={q.hand}
-              caption={`${flopPhScenarioLabel(q)} のCBレンジ`}
+        {phase === 'question' &&
+          (feedback ? (
+            <InstantFeedback points={feedback.points} judgmentFor={flopJudgment} onNext={onProceed}>
+              <FlopCbReviewDetail choices={q.choices} strat={q.strat} selections={lastSel} />
+              <HandRangeMatrix
+                hands={q.rangeHands}
+                highlightHand={q.hand}
+                caption={`${flopPhScenarioLabel(q)} のCBレンジ`}
+              />
+            </InstantFeedback>
+          ) : (
+            <ChoiceButtons
+              key={`ph-${state.current}`}
+              availableActions={q.choices}
+              actionLabels={flopCbLabels(q.choices)}
+              order={FLOP_CB_ORDER}
+              resolveColor={flopCbColor}
+              showColorChip
+              prompt={`${q.hand} でCBをどう打つ?(複数選択可)`}
+              onSubmit={(selections) => handleAnswer({ selections: [...selections] })}
             />
-          </InstantFeedback>
-        ) : (
-          <ChoiceButtons
-            key={`ph-${state.current}`}
-            availableActions={q.choices}
-            actionLabels={flopCbLabels(q.choices)}
-            order={FLOP_CB_ORDER}
-            resolveColor={flopCbColor}
-            showColorChip
-            prompt={`${q.hand} でCBをどう打つ?(複数選択可)`}
-            onSubmit={(selections) => onAnswer({ selections: [...selections] })}
-          />
-        )}
+          ))}
       </main>
     </div>
   );
@@ -178,7 +240,6 @@ const scenarioPillStyle: CSSProperties = {
   alignSelf: 'flex-start', fontSize: '0.78rem', fontWeight: 700, color: '#993C1D',
   background: '#FAEEDA', border: '1px solid #E5A551', borderRadius: '999px', padding: '0.2rem 0.7rem',
 };
-const boardWrapStyle: CSSProperties = { display: 'flex', justifyContent: 'center', padding: '0.5rem 0' };
 const handSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' };
 const handLabelStyle: CSSProperties = { fontSize: '0.8rem', fontWeight: 700, color: THEME.textSecondary };
 const loadingStyle: CSSProperties = { margin: 'auto', fontSize: '0.95rem', color: THEME.textMuted };
