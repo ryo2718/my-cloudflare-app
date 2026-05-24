@@ -209,6 +209,7 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
               actionLabels={flopCbLabels(q.choices)}
               order={FLOP_CB_ORDER}
               resolveColor={flopCbColor}
+              showColorChip
               prompt="CBをどう打つ?(複数選択可)"
               onSubmit={(selections) => handleAnswer({ selections: [...selections], timedOut: false })}
             />

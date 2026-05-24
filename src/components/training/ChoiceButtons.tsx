@@ -23,6 +23,8 @@ export interface ChoiceButtonsProps<A extends string> {
   resolveColor?: (a: A) => ActionButtonColor;
   /** 見出し (既定 = 「どう応答する?(複数選択可)」)。 */
   prompt?: string;
+  /** 各ボタン左に色チップ (縦長矩形, 枠色と同色) を表示する。サイズ別配色の識別用。 */
+  showColorChip?: boolean;
 }
 
 export function ChoiceButtons<A extends string>({
@@ -33,6 +35,7 @@ export function ChoiceButtons<A extends string>({
   order = ACTION_ORDER,
   resolveColor,
   prompt = 'どう応答する?(複数選択可)',
+  showColorChip = false,
 }: ChoiceButtonsProps<A>) {
   const [selected, setSelected] = useState<ReadonlyArray<A>>([]);
   const ordered = order.filter((a) => (availableActions as ReadonlyArray<string>).includes(a)) as A[];
@@ -70,6 +73,7 @@ export function ChoiceButtons<A extends string>({
           return (
             <li key={a}>
               <button type="button" onClick={() => toggle(a)} disabled={disabled} style={row} aria-pressed={isOn}>
+                {showColorChip && <span style={chipStyle(color.border)} aria-hidden />}
                 <span style={checkboxStyle(isOn, color.check)} aria-hidden>
                   {isOn ? '✓' : ''}
                 </span>
@@ -89,6 +93,11 @@ export function ChoiceButtons<A extends string>({
       </button>
     </div>
   );
+}
+
+/** 左の色チップ (縦長矩形)。サイズ別配色をひと目で識別できるようにする。 */
+function chipStyle(color: string): CSSProperties {
+  return { width: 5, height: 20, minWidth: 5, borderRadius: 2, background: color };
 }
 
 /** 選択肢チェックボックス: 未選択=濃色枠の空箱 / 選択=濃色塗り + 白チェック。 */
