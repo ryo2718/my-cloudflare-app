@@ -78,15 +78,19 @@ describe('TrainingResultFlop 振り返り', () => {
     expect(screen.getAllByText('srp BTN vs BB').length).toBe(2);
   });
 
-  it('問題をタップすると頻度詳細 (正解 + あなたの回答) が展開される', async () => {
+  it('問題をタップすると展開し、2択枠に「あなた」「正解」バッジが出る', async () => {
     const user = userEvent.setup();
-    saveFlopRecords(FLOP.key, [REC(1, true)]);
+    saveFlopRecords(FLOP.key, [REC(1, true)]); // choice=bet / correct=bet (一致)
     renderFlop();
-    // 展開前は詳細なし
-    expect(screen.queryByText(/あなたの回答/)).toBeNull();
+    // 展開前は詳細 (あなたバッジ) なし
+    expect(screen.queryByText('あなた')).toBeNull();
     await user.click(screen.getByRole('button', { name: /srp BTN vs BB/ }));
-    expect(screen.getByText(/あなたの回答/)).toBeTruthy();
-    expect(screen.getByText(/正解:/)).toBeTruthy();
+    // 2択枠 + バッジ
+    expect(screen.getByText(/CB打つ/)).toBeTruthy();
+    expect(screen.getByText(/CB打たない/)).toBeTruthy();
+    expect(screen.getByText('あなた')).toBeTruthy();
+    // 「正解」は内訳ピル + 正解バッジで複数
+    expect(screen.getAllByText('正解').length).toBeGreaterThanOrEqual(2);
   });
 
   it('記録が無くてもスコアは表示される (クラッシュしない)', () => {

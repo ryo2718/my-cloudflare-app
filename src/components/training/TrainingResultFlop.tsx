@@ -14,7 +14,7 @@ import { flopScenarioLabel, type FlopRecord } from '../../data/training/flopBegi
 import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
 import { getSymbolStyle } from '../../utils/strategySymbol';
 import { flopJudgment } from './flopFeedbackFormat';
-import { FlopFeedbackDetail } from './FlopFeedbackDetail';
+import { FlopReviewDetail } from './FlopReviewDetail';
 import { PlayingCard } from '../PlayingCard';
 import { THEME } from '../../styles/theme';
 
@@ -31,13 +31,6 @@ function parseQuery(): { score: number; total: number } | null {
   const t = Number(sp.get('total'));
   if (!Number.isFinite(s) || !Number.isFinite(t) || t <= 0) return null;
   return { score: s, total: t };
-}
-
-function answerText(r: FlopRecord): string {
-  const verb = r.type === 'cb' ? 'CB' : 'ドンク';
-  if (r.choice === 'bet') return `${verb}打つ`;
-  if (r.choice === 'check') return `${verb}打たない`;
-  return '無回答';
 }
 
 export function TrainingResultFlop({ level }: TrainingResultFlopProps) {
@@ -189,10 +182,7 @@ export function TrainingResultFlop({ level }: TrainingResultFlopProps) {
                     </button>
                     {open && (
                       <div style={detailWrapStyle}>
-                        <div style={answerLineStyle}>
-                          あなたの回答: <span style={{ color }}>{answerText(r)}</span>
-                        </div>
-                        <FlopFeedbackDetail q={r} />
+                        <FlopReviewDetail record={r} />
                       </div>
                     )}
                   </li>
@@ -278,7 +268,6 @@ const scenarioPillStyle: CSSProperties = {
 const boardStyle: CSSProperties = { display: 'flex', gap: 3, marginLeft: 'auto' };
 const chevronStyle: CSSProperties = { fontSize: '0.75rem', color: THEME.textMuted };
 const detailWrapStyle: CSSProperties = { padding: '0.7rem', borderTop: `1px solid ${THEME.border}`, background: '#FCFBF8', display: 'flex', flexDirection: 'column', gap: '0.5rem' };
-const answerLineStyle: CSSProperties = { fontSize: '0.85rem', fontWeight: 700, color: THEME.textPrimary };
 const btnRowStyle: CSSProperties = { display: 'flex', gap: '0.6rem', marginTop: '0.5rem' };
 const retryBtnStyle: CSSProperties = {
   flex: 1, padding: '0.8rem 1rem', background: THEME.accent, color: '#fff', border: 'none',
