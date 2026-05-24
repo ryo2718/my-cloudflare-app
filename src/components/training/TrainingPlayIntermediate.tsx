@@ -41,6 +41,7 @@ import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
 import { Countdown } from './Countdown';
 import { useTrainingHarness } from './useTrainingHarness';
+import { DebugAnswerBar } from './DebugAnswerBar';
 import { intermediateViewInfo } from './trainingViewInfo';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
@@ -111,7 +112,7 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed, debugComplete } = useTrainingHarness<
     IntermediateQuestion,
     IntermediateResponse,
     IntermediateRecord
@@ -164,6 +165,21 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
   const view = intermediateViewInfo(q);
   const progress = ((state.current + 1) / state.questions.length) * 100;
 
+  // デバッグ (admin 専用) picker。strategy は % (0-100)。
+  const dbgCorrect = (qq: IntermediateQuestion): IntermediateResponse => ({
+    selections: ACTIONS.filter((a) => (qq.strategy[a] ?? 0) >= 5),
+    timedOut: false,
+  });
+  const dbgWrong = (qq: IntermediateQuestion): IntermediateResponse => {
+    let lo: Action = ACTIONS[0];
+    for (const a of ACTIONS) if ((qq.strategy[a] ?? 0) < (qq.strategy[lo] ?? 0)) lo = a;
+    return { selections: [lo], timedOut: false };
+  };
+  const dbgRandom = (): IntermediateResponse => {
+    const picks = ACTIONS.filter(() => Math.random() < 0.5);
+    return { selections: picks.length ? picks : [ACTIONS[1]], timedOut: false };
+  };
+
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
@@ -177,6 +193,11 @@ export function TrainingPlayIntermediate({ level }: TrainingPlayIntermediateProp
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
         </div>
+        <DebugAnswerBar
+          onCorrect={() => debugComplete(dbgCorrect)}
+          onWrong={() => debugComplete(dbgWrong)}
+          onRandom={() => debugComplete(dbgRandom)}
+        />
       </header>
 
       {animReady && !feedback && (

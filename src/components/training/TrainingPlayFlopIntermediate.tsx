@@ -25,6 +25,7 @@ import { ActionTable } from './ActionTable';
 import { PokerTable } from './PokerTable';
 import { FlopBoard } from './FlopBoard';
 import { ChoiceButtons } from './ChoiceButtons';
+import { DebugAnswerBar } from './DebugAnswerBar';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import { FLOP_CB_ORDER, flopCbLabels, flopCbColor } from './flopCbChoiceStyle';
 import { useTrainingHarness } from './useTrainingHarness';
@@ -53,7 +54,7 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  const { state, feedback, onAnswer, onProceed } = useTrainingHarness<
+  const { state, feedback, onAnswer, onProceed, debugComplete } = useTrainingHarness<
     FlopCbQuestion,
     FlopCbResponse,
     FlopCbRecord
@@ -81,6 +82,21 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
   const handleAnswer = (res: FlopCbResponse) => {
     setLastSelections([...res.selections]);
     onAnswer(res);
+  };
+
+  // デバッグ (admin 専用) picker。
+  const dbgCorrect = (q: FlopCbQuestion): FlopCbResponse => ({
+    selections: q.choices.filter((c) => (q.strat[c] ?? 0) >= 0.05), // GTOで使う全アクション → 満点
+    timedOut: false,
+  });
+  const dbgWrong = (q: FlopCbQuestion): FlopCbResponse => {
+    let lo = q.choices[0];
+    for (const c of q.choices) if ((q.strat[c] ?? 0) < (q.strat[lo] ?? 0)) lo = c;
+    return { selections: [lo], timedOut: false }; // 最小頻度 (多くは0% → -1)
+  };
+  const dbgRandom = (q: FlopCbQuestion): FlopCbResponse => {
+    const picks = q.choices.filter(() => Math.random() < 0.5);
+    return { selections: picks.length ? picks : [q.choices[0]], timedOut: false };
   };
 
   // 問題切替で preflop からやり直す (レンダー中に状態調整: React 公式パターン)。
@@ -150,6 +166,11 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
         </div>
+        <DebugAnswerBar
+          onCorrect={() => debugComplete(dbgCorrect)}
+          onWrong={() => debugComplete(dbgWrong)}
+          onRandom={() => debugComplete(dbgRandom)}
+        />
       </header>
 
       <main style={mainStyle}>

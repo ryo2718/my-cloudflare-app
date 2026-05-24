@@ -48,6 +48,8 @@ export interface TrainingHarness<Q, R, Rec> {
   onAnswer: (res: R) => void;
   /** 「次のハンドへ」: 保留回答を確定して次へ。 */
   onProceed: () => void;
+  /** デバッグ (admin): 全問を picker の回答で一括確定し finish へ。 */
+  debugComplete: (pick: (q: Q) => R) => void;
 }
 
 export function useTrainingHarness<Q, R, Rec>(
@@ -138,6 +140,13 @@ export function useTrainingHarness<Q, R, Rec>(
     commit(res);
   };
 
+  // デバッグ (admin 専用): 全問を picker の回答で一括確定して finish。
+  const debugComplete = (pick: (q: Q) => R) => {
+    if (state.kind !== 'ready') return;
+    const records = state.questions.map((q, i) => buildRecord(q, pick(q), i));
+    finish(records);
+  };
+
   return {
     state,
     current: currentIdx,
@@ -147,5 +156,6 @@ export function useTrainingHarness<Q, R, Rec>(
     feedback,
     onAnswer,
     onProceed,
+    debugComplete,
   };
 }

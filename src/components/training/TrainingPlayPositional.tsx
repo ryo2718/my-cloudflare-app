@@ -35,6 +35,7 @@ import { CardSet } from '../CardSet';
 import { THEME } from '../../styles/theme';
 import { SliderChoice } from './SliderChoice';
 import { ChoiceButtons } from './ChoiceButtons';
+import { DebugAnswerBar } from './DebugAnswerBar';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
@@ -86,7 +87,7 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed, debugComplete } = useTrainingHarness<
     PositionalQuestion,
     PositionalResponse,
     PositionalRecord
@@ -140,6 +141,23 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
   const view = positionalViewInfo(q);
   const progress = ((state.current + 1) / state.questions.length) * 100;
 
+  // デバッグ (admin 専用) picker。slider/select の format で分岐。
+  const dbgCorrect = (qq: PositionalQuestion): PositionalResponse =>
+    qq.format === 'slider'
+      ? { kind: 'slider', pct: qq.sliderCorrectPct }
+      : { kind: 'select', selections: qq.availableActions.filter((a) => (qq.strategy[a] ?? 0) >= 5) };
+  const dbgWrong = (qq: PositionalQuestion): PositionalResponse => {
+    if (qq.format === 'slider') return { kind: 'slider', pct: qq.sliderCorrectPct >= 50 ? 0 : 100 };
+    let lo = qq.availableActions[0];
+    for (const a of qq.availableActions) if ((qq.strategy[a] ?? 0) < (qq.strategy[lo] ?? 0)) lo = a;
+    return { kind: 'select', selections: [lo] };
+  };
+  const dbgRandom = (qq: PositionalQuestion): PositionalResponse => {
+    if (qq.format === 'slider') return { kind: 'slider', pct: Math.floor(Math.random() * 101) };
+    const picks = qq.availableActions.filter(() => Math.random() < 0.5);
+    return { kind: 'select', selections: picks.length ? picks : [qq.availableActions[0]] };
+  };
+
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
@@ -153,6 +171,11 @@ export function TrainingPlayPositional({ level }: TrainingPlayPositionalProps) {
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
         </div>
+        <DebugAnswerBar
+          onCorrect={() => debugComplete(dbgCorrect)}
+          onWrong={() => debugComplete(dbgWrong)}
+          onRandom={() => debugComplete(dbgRandom)}
+        />
       </header>
 
       {animReady && !feedback && (

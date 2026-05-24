@@ -14,10 +14,9 @@ import {
   type FlopQuestion,
   type FlopResponse,
   type FlopRecord,
-  type FlopChoice,
 } from '../../data/training/flopBeginner';
 import { saveFlopRecords } from '../../data/training/flopRecordsStore';
-import { useAuth } from '../../hooks/useAuth';
+import { DebugAnswerBar } from './DebugAnswerBar';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { THEME } from '../../styles/theme';
 import type { SeatPopup } from '../../data/training/actionHistory';
@@ -46,8 +45,6 @@ export interface TrainingPlayFlopProps {
 
 export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
   const [instant] = useState<boolean>(loadInstantFeedback);
-  const auth = useAuth();
-  const isAdmin = auth.account?.is_admin ?? false;
 
   const finish = (records: FlopRecord[]) => {
     // 振り返り (答え合わせ) 用に各問の記録を保存してから結果画面へ。
@@ -60,7 +57,7 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  const { state, feedback, onAnswer, onProceed } = useTrainingHarness<
+  const { state, feedback, onAnswer, onProceed, debugComplete } = useTrainingHarness<
     FlopQuestion,
     FlopResponse,
     FlopRecord
@@ -127,16 +124,10 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
   const verb = q.type === 'cb' ? 'CB' : 'ドンク';
   const scenarioLabel = flopScenarioLabel(q); // 修正3: 「{srp|3bp} {ヒーロー} vs {相手}」
 
-  // デバッグ (admin 専用): 全問を一括解答して結果画面へ。手作業20問を省く。
-  const debugAnswerAll = (pick: (q: FlopQuestion) => FlopChoice | null) => {
-    if (state.kind !== 'ready') return;
-    const records: FlopRecord[] = state.questions.map((qq, i) => {
-      const choice = pick(qq);
-      return { ...qq, recordId: i + 1, choice, isCorrect: scoreFlopAnswer(qq, choice).correct };
-    });
-    finish(records);
-  };
-  const opposite = (qq: FlopQuestion): FlopChoice => (qq.correct === 'bet' ? 'check' : 'bet');
+  // デバッグ (admin 専用): 全問を一括解答 (正解 / 不正解 / ランダム)。
+  const dbgCorrect = (qq: FlopQuestion): FlopResponse => ({ choice: qq.correct });
+  const dbgWrong = (qq: FlopQuestion): FlopResponse => ({ choice: qq.correct === 'bet' ? 'check' : 'bet' });
+  const dbgRandom = (): FlopResponse => ({ choice: Math.random() < 0.5 ? 'bet' : 'check' });
 
   // フロップ以降のテーブルに残すアクション表示。プリフロップのアクションは全消去し、
   // CB問題 (ヒーロー IP) のときだけ OOP の check を表示する。それ以外は空 (席とボードのみ)。
@@ -158,24 +149,11 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
         </div>
-        {isAdmin && (
-          <div style={debugBarStyle} aria-label="デバッグ (admin)">
-            <span style={debugLabelStyle}>DEBUG</span>
-            <button type="button" style={debugBtnStyle} onClick={() => debugAnswerAll((qq) => qq.correct)}>
-              全問正解
-            </button>
-            <button type="button" style={debugBtnStyle} onClick={() => debugAnswerAll(opposite)}>
-              全問不正解
-            </button>
-            <button
-              type="button"
-              style={debugBtnStyle}
-              onClick={() => debugAnswerAll(() => (Math.random() < 0.5 ? 'bet' : 'check'))}
-            >
-              ランダム
-            </button>
-          </div>
-        )}
+        <DebugAnswerBar
+          onCorrect={() => debugComplete(dbgCorrect)}
+          onWrong={() => debugComplete(dbgWrong)}
+          onRandom={() => debugComplete(dbgRandom)}
+        />
       </header>
 
       <main style={mainStyle}>
@@ -276,15 +254,4 @@ const errorStyle: CSSProperties = {
 const errorBtnStyle: CSSProperties = {
   padding: '0.45rem 1rem', background: THEME.accent, color: '#fff', border: 'none',
   borderRadius: '0.35rem', fontFamily: 'inherit', cursor: 'pointer',
-};
-// デバッグ (admin 専用) バー。
-const debugBarStyle: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap',
-  marginTop: '0.2rem', padding: '0.3rem 0.4rem', background: '#FDF3F2',
-  border: '1px dashed #E0A6A2', borderRadius: '0.35rem',
-};
-const debugLabelStyle: CSSProperties = { fontSize: '0.65rem', fontWeight: 800, color: '#B23B33', letterSpacing: '0.06em' };
-const debugBtnStyle: CSSProperties = {
-  padding: '0.25rem 0.6rem', background: '#fff', color: '#B23B33', border: '1px solid #E0A6A2',
-  borderRadius: '0.3rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
 };
