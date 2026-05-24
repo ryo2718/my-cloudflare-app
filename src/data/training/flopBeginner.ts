@@ -185,6 +185,24 @@ export function flopScenarioLabel(q: { pot: FlopPot; hero: Position; villain: Po
   return `${q.pot === 'SRP' ? 'srp' : '3bp'} ${q.hero} vs ${q.villain}`;
 }
 
+/** ポストフロップのアクション順 (先 = OOP)。 */
+const POSTFLOP_ORDER: ReadonlyArray<Position> = ['SB', 'BB', 'UTG', 'HJ', 'MP', 'CO', 'BTN'];
+
+/** 2席のうち OOP (先に行動する側) を返す。 */
+export function flopOop(a: Position, b: Position): Position {
+  return POSTFLOP_ORDER.indexOf(a) <= POSTFLOP_ORDER.indexOf(b) ? a : b;
+}
+
+/**
+ * ヒーローの手番の前に、相手(OOP)の check 表示を挟むか。
+ *   - CB問題でヒーローが IP (相手が OOP) のときだけ true。
+ *     その c-bet ノードは「相手が check した後」の局面なので、相手 check → ヒーロー手番。
+ *   - ドンク問題、および CB でヒーロー自身が OOP の場合は先頭手番なので false (即ヒーロー手番)。
+ */
+export function flopShowsVillainCheck(q: { type: FlopQuestionType; hero: Position; villain: Position }): boolean {
+  return q.type === 'cb' && flopOop(q.hero, q.villain) === q.villain;
+}
+
 /** 採点: 正解で1pt、不正解/無回答で0pt (マイナスなし)。 */
 export function scoreFlopAnswer(q: FlopQuestion, choice: FlopChoice | null): { points: number; correct: boolean } {
   const correct = choice !== null && choice === q.correct;

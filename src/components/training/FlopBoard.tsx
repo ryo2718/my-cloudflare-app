@@ -4,17 +4,19 @@
 
 import { type CSSProperties } from 'react';
 import type { Card } from '../../types/card';
+import type { FlopPot } from '../../data/training/flopBeginner';
+import { ACTION_COLOR } from '../../styles/actionColors';
 import { PlayingCard } from '../PlayingCard';
 
 const FLIP_MS = 120; // 1枚あたりのフリップ時間
 const FLIP_STAGGER_MS = 120; // 次のカードまでの間隔
 const FLIP_KEYFRAMES = '@keyframes flopCardFlipIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }';
 
-export function FlopBoard({ cards }: { cards: ReadonlyArray<Card> }) {
+export function FlopBoard({ cards, pot }: { cards: ReadonlyArray<Card>; pot: FlopPot }) {
   return (
     <div style={wrapStyle}>
       <style>{FLIP_KEYFRAMES}</style>
-      <span style={labelStyle}>フロップ</span>
+      <span style={pillStyle}>{pot === 'SRP' ? 'SRP' : '3bp'}</span>
       <div style={rowStyle}>
         {cards.map((c, i) => (
           <span
@@ -35,13 +37,16 @@ const wrapStyle: CSSProperties = {
   alignItems: 'center',
   gap: '0.2rem',
 };
-const labelStyle: CSSProperties = {
+// ポット種別ピル: 緑系の既存トークン (ACTION_COLOR.check) をベタ塗り流用。新規色は定義しない。
+const pillStyle: CSSProperties = {
   fontSize: '0.62rem',
-  color: '#EAF3DE',
+  color: '#fff',
   fontWeight: 700,
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+  letterSpacing: '0.08em',
+  padding: '2px 9px',
+  borderRadius: 999,
+  background: ACTION_COLOR.check,
+  boxShadow: '0 1px 2px rgba(0,0,0,0.35)',
 };
 const rowStyle: CSSProperties = {
   display: 'flex',

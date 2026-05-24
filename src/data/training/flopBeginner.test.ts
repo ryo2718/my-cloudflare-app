@@ -6,6 +6,8 @@ import {
   buildFlopQuestions,
   scoreFlopAnswer,
   flopScenarioLabel,
+  flopOop,
+  flopShowsVillainCheck,
   type FlopTrainingData,
   type FlopQuestion,
   FLOP_BEGINNER_COUNT,
@@ -97,6 +99,22 @@ describe('flopScenarioLabel (修正3)', () => {
   });
   it('3bet: "3bp {hero} vs {villain}" (3betした側がヒーロー)', () => {
     expect(flopScenarioLabel({ pot: '3bet', hero: 'BB', villain: 'BTN' })).toBe('3bp BB vs BTN');
+  });
+});
+
+describe('flopOop / flopShowsVillainCheck (修正1: アニメの流れ)', () => {
+  it('flopOop: ポストフロップで先に動く側 (SB,BB,...,BTN 順) を返す', () => {
+    expect(flopOop('BTN', 'BB')).toBe('BB'); // BB が先 (OOP)
+    expect(flopOop('SB', 'BTN')).toBe('SB'); // SB が先 (OOP)
+    expect(flopOop('CO', 'SB')).toBe('SB');
+  });
+  it('CB問題でヒーローが IP (相手 OOP) のときだけ check を挟む', () => {
+    // CO(hero) vs SB(villain): SB が OOP → CB前に SB check
+    expect(flopShowsVillainCheck({ type: 'cb', hero: 'CO', villain: 'SB' })).toBe(true);
+    // SB(hero, OOP) vs BB: ヒーローが先頭手番 → check なし
+    expect(flopShowsVillainCheck({ type: 'cb', hero: 'SB', villain: 'BB' })).toBe(false);
+    // ドンク (ヒーロー OOP) → check なし
+    expect(flopShowsVillainCheck({ type: 'donk', hero: 'BB', villain: 'BTN' })).toBe(false);
   });
 });
 

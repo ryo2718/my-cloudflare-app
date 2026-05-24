@@ -4,25 +4,37 @@
 //   - ボードはテーブル中央に FlopBoard でフリップ表示。即時フィードバックは action 分布バー。
 // 状態機械・回答・即時FB・離脱警告は共通の useTrainingHarness に集約。
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
   generateFlopBeginnerQuestions,
   scoreFlopAnswer,
   flopScenarioLabel,
+  flopShowsVillainCheck,
   type FlopQuestion,
   type FlopResponse,
   type FlopChoice,
 } from '../../data/training/flopBeginner';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { THEME } from '../../styles/theme';
+import type { SeatPopup } from '../../data/training/actionHistory';
 import { QuitButton } from './QuitButton';
 import { InstantFeedback } from './InstantFeedback';
 import { ActionTable } from './ActionTable';
+import { PokerTable } from './PokerTable';
 import { FlopBoard } from './FlopBoard';
 import { actionFreqLabel, barColor, flopJudgment, feedbackRows } from './flopFeedbackFormat';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
+
+// アニメーションの流れ (修正1):
+//   preflop : プリフロップのアクションを順次再生 (ActionTable)。
+//   flop    : プリフロップのアクション表示を全消去し、フロップ3枚をフリップ登場 (PokerTable + FlopBoard)。
+//   check   : (CB問題でヒーローが IP のときだけ) OOP の check 表示を出す。
+//   question: ヒーローの手番。問題文 + 選択ボタンを提示。
+type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
+const FLOP_SETTLE_MS = 400; // フロップのフリップが出そろうまで待つ
+const CHECK_TO_TURN_MS = 200; // OOP check → ヒーロー手番
 
 export interface TrainingPlayFlopProps {
   level: TrainingLevel;
@@ -46,7 +58,7 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+  const { state, feedback, onAnswer, onProceed } = useTrainingHarness<
     FlopQuestion,
     FlopResponse,
     FlopRecord
@@ -63,6 +75,28 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
     }),
     finish,
   });
+
+  // アニメーションの流れ (修正1)。問題が切り替わるたびに preflop からやり直す
+  // (= prop 変化で状態リセットする React 公式パターン: レンダー中に調整)。
+  const currentIdx = state.kind === 'ready' ? state.current : -1;
+  const currentQ = state.kind === 'ready' ? state.questions[state.current] : null;
+  const needsCheck = currentQ ? flopShowsVillainCheck(currentQ) : false;
+  const [phase, setPhase] = useState<FlopPhase>('preflop');
+  const [phaseIdx, setPhaseIdx] = useState(currentIdx);
+  if (phaseIdx !== currentIdx) {
+    setPhaseIdx(currentIdx);
+    setPhase('preflop');
+  }
+  useEffect(() => {
+    if (phase === 'flop') {
+      const t = setTimeout(() => setPhase(needsCheck ? 'check' : 'question'), FLOP_SETTLE_MS);
+      return () => clearTimeout(t);
+    }
+    if (phase === 'check') {
+      const t = setTimeout(() => setPhase('question'), CHECK_TO_TURN_MS);
+      return () => clearTimeout(t);
+    }
+  }, [phase, needsCheck]);
 
   if (state.kind === 'loading') {
     return (
@@ -91,6 +125,13 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
   const verb = q.type === 'cb' ? 'CB' : 'ドンク';
   const scenarioLabel = flopScenarioLabel(q); // 修正3: 「{srp|3bp} {ヒーロー} vs {相手}」
 
+  // フロップ以降のテーブルに残すアクション表示。プリフロップのアクションは全消去し、
+  // CB問題 (ヒーロー IP) のときだけ OOP の check を表示する。それ以外は空 (席とボードのみ)。
+  const showVillainCheck = needsCheck && (phase === 'check' || phase === 'question');
+  const tablePopups: SeatPopup[] = showVillainCheck
+    ? [{ position: q.villain, kind: 'call', label: 'check' }]
+    : [];
+
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
@@ -109,18 +150,27 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
       <main style={mainStyle}>
         <div style={scenarioPillStyle}>{scenarioLabel}</div>
 
-        {/* 修正2/3/4: プリフロップのアクションアニメを流用再生し、完了後に中央へフロップ3枚をフリップ登場。 */}
-        <ActionTable
-          mePosition={q.hero}
-          items={q.preflopActions}
-          animate
-          wide
-          resetKey={state.current}
-          onAnimationDone={() => setAnimReady(true)}
-          centerSlot={animReady ? <FlopBoard key={state.current} cards={q.board} /> : undefined}
-        />
+        {/* 修正1: preflop はアクションを順次再生。完了後はプリフロップ表示を全消去し、
+            PokerTable + FlopBoard でフロップを出す (CB問題は OOP check を経てヒーロー手番)。 */}
+        {phase === 'preflop' ? (
+          <ActionTable
+            mePosition={q.hero}
+            items={q.preflopActions}
+            animate
+            wide
+            resetKey={state.current}
+            onAnimationDone={() => setPhase('flop')}
+          />
+        ) : (
+          <PokerTable
+            mePosition={q.hero}
+            wide
+            popups={tablePopups}
+            centerSlot={<FlopBoard key={state.current} cards={q.board} pot={q.pot} />}
+          />
+        )}
 
-        {animReady && (
+        {phase === 'question' && (
           <>
             {feedback ? (
               // 修正2: 初級は2値 (1pt→○ / 0pt→×)。△ は使わない (他モードは prop 未指定で従来どおり)。
