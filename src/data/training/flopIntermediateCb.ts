@@ -116,6 +116,10 @@ export function flopCbBucket(potCat: FlopCbPotCat, sizePct: number, allin = fals
 
 const INSTANT_PENALTY = 0.05; // <5% を選ぶと即 -1
 const MISSED_MAJOR = 0.7; // >=70% を取りこぼすと即 -1
+// 満点判定は「主要アクション (>=20%) だけ」で算出する (易化)。少数 (<20%) サイズの
+// 取りこぼしは減点しない。主要が無いボードのみ >=10% にフォールバック。
+const MAJOR_FOR_MAX = 0.2;
+const MAJOR_FALLBACK = 0.1;
 const BAND_ZERO = 0.1;
 const BAND_HALF = 0.2;
 const BAND_FULL = 0.7;
@@ -133,13 +137,15 @@ function bandScore(f: number): number {
   return 2;
 }
 
+/** 理論最高点 = 主要アクション (>=20%) の基礎点合計 (少数サイズは要求しない)。 */
 export function getTheoreticalMax(strat: FlopCbStrat): number {
-  let sum = 0;
-  for (const f of Object.values(strat)) {
-    if (f < INSTANT_PENALTY) continue;
-    sum += bandScore(f);
-  }
-  return Math.floor(sum);
+  const sumOver = (thr: number) => {
+    let s = 0;
+    for (const f of Object.values(strat)) if (f >= thr) s += bandScore(f);
+    return Math.floor(s);
+  };
+  const major = sumOver(MAJOR_FOR_MAX);
+  return major > 0 ? major : sumOver(MAJOR_FALLBACK);
 }
 
 function isInstantPenalty(strat: FlopCbStrat, selections: ReadonlyArray<string>): boolean {
@@ -187,7 +193,8 @@ export function scoreFlopCb(strat: FlopCbStrat, res: FlopCbResponse): FlopCbScor
   let sum = 0;
   for (const s of sel) sum += bandScore(strat[s] ?? 0);
   const rawScore = Math.floor(sum);
-  const finalScore = theoreticalMax <= 0 ? 0 : Math.round((rawScore / theoreticalMax) * 2);
+  // 少数サイズも選べば raw が max を超え得るので 2 で頭打ち。
+  const finalScore = theoreticalMax <= 0 ? 0 : Math.min(2, Math.round((rawScore / theoreticalMax) * 2));
   return { rawScore, finalScore, theoreticalMax };
 }
 

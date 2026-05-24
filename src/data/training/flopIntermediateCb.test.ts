@@ -127,6 +127,20 @@ describe('複数選択採点 (プリフロ中級方式・1問2pt)', () => {
     expect(scoreFlopCb(strat, { selections: [], timedOut: true }).finalScore).toBe(-1);
   });
 
+  describe('採点緩和: 主要アクション(>=20%)だけで満点、少数サイズの取りこぼしは減点しない', () => {
+    it('主要 (check45/33→45) だけ選べば満点。少数 (50→10%) は不要', () => {
+      const s: FlopCbStrat = { check: 0.45, '33': 0.45, '50': 0.1 };
+      expect(scoreFlopCb(s, { selections: ['check', '33'], timedOut: false }).finalScore).toBe(2);
+      // 少数を足しても満点のまま (頭打ち)
+      expect(scoreFlopCb(s, { selections: ['check', '33', '50'], timedOut: false }).finalScore).toBe(2);
+    });
+    it('理論最高点は >=20% のアクションのみで算出', () => {
+      const s: FlopCbStrat = { check: 0.5, '33': 0.4, '50': 0.1 };
+      // check(0.5,band1)+33(0.4,band1)=2 (50 は <20% で除外)
+      expect(scoreFlopCb(s, { selections: ['check', '33'], timedOut: false }).theoreticalMax).toBe(2);
+    });
+  });
+
   describe('多数派サイド必須 (毎回チェック対策)', () => {
     it('ベット主体 (合計>チェック) でチェックのみは -1', () => {
       const s: FlopCbStrat = { check: 0.3, '33': 0.4, '50': 0.3 }; // bet合計0.7 > check0.3
