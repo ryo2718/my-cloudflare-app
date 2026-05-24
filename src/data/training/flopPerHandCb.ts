@@ -8,7 +8,6 @@
 
 import type { Rank, Suit, Card } from '../../types/card';
 import type { Position } from '../../types/strategy';
-import type { HandStrategy } from './preflopBeginner';
 import type { ActionItem } from './actionHistory';
 import { scoreFlopCb, type FlopCbStrat } from './flopIntermediateCb';
 
@@ -51,8 +50,8 @@ export interface FlopPhQuestion {
   choices: string[];
   /** 出題ハンドの戦略 (採点 + 答え合わせのサイズ混合表示用, 0..1)。 */
   strat: FlopCbStrat;
-  /** grid 用: ボードのレンジ全ハンド strategy (check→緑/ベット→赤/125→紫)。 */
-  rangeHands: Record<string, HandStrategy>;
+  /** grid 用: ボードのレンジ全ハンドのバケット別頻度 (0..1)。6色積み上げ表示。 */
+  rangeHands: Record<string, FlopCbStrat>;
   /** アニメ用プリフロップ アクション列 (中級レンジから流用)。 */
   preflopActions: ActionItem[];
 }
@@ -85,12 +84,6 @@ export const FLOP_PH_DISTRIBUTION: ReadonlyArray<{ scenario: FlopPhScenario; cou
 function stratFromS(s: number[]): FlopCbStrat {
   const pad = [s[0] ?? 0, s[1] ?? 0, s[2] ?? 0, s[3] ?? 0, s[4] ?? 0];
   return { check: pad[0] / 100, '33': pad[1] / 100, '50': pad[2] / 100, '75': pad[3] / 100, '125': pad[4] / 100 };
-}
-
-/** grid 表示用: s → HandStrategy (check=緑 / 33+50+75=raise赤 / 125=allin紫)。%表記のまま。 */
-function handStrategyFromS(s: number[]): HandStrategy {
-  const pad = [s[0] ?? 0, s[1] ?? 0, s[2] ?? 0, s[3] ?? 0, s[4] ?? 0];
-  return { check: pad[0], raise: pad[1] + pad[2] + pad[3], allin: pad[4], call: 0, fold: 0 };
 }
 
 export function scoreFlopPh(strat: FlopCbStrat, res: FlopPhResponse): { correct: boolean; points: number } {
@@ -201,8 +194,8 @@ export function buildFlopPhQuestions(data: FlopPhData): FlopPhQuestion[] {
       seen.add(key);
       made += 1;
       id += 1;
-      const rangeHands: Record<string, HandStrategy> = {};
-      for (const [h, v] of Object.entries(rb.hands)) rangeHands[h] = handStrategyFromS(v.s);
+      const rangeHands: Record<string, FlopCbStrat> = {};
+      for (const [h, v] of Object.entries(rb.hands)) rangeHands[h] = stratFromS(v.s);
       out.push({
         id,
         scenario,

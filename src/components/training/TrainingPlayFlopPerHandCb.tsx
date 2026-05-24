@@ -28,7 +28,7 @@ import { FlopBoard } from './FlopBoard';
 import { CardSet } from '../CardSet';
 import { ChoiceButtons } from './ChoiceButtons';
 import { DebugAnswerBar } from './DebugAnswerBar';
-import { HandRangeMatrix } from './HandRangeMatrix';
+import { FlopHandGrid } from './FlopHandGrid';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import { FLOP_CB_ORDER, flopCbLabels, flopCbColor } from './flopCbChoiceStyle';
 import { flopJudgment } from './flopFeedbackFormat';
@@ -199,7 +199,7 @@ export function TrainingPlayFlopPerHandCb({ level }: TrainingPlayFlopPerHandCbPr
           (feedback ? (
             <InstantFeedback points={feedback.points} judgmentFor={flopJudgment} onNext={onProceed}>
               <FlopCbReviewDetail choices={q.choices} strat={q.strat} selections={lastSel} />
-              <HandRangeMatrix
+              <FlopHandGrid
                 hands={q.rangeHands}
                 highlightHand={q.hand}
                 caption={`${flopPhScenarioLabel(q)} のCBレンジ`}

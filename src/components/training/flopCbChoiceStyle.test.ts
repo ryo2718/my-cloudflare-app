@@ -1,43 +1,40 @@
-// フロップ中級CB 選択肢の配色: check=緑 / ALLIN=紫 / ベットはサイズで濃淡 (頻度バーと一貫)。
+// フロップ中級のベットサイズ配色: 6色ランプ (check緑/33アンバー/50コーラル/75赤/125濃赤/ALLIN紫)。
 
 import { describe, it, expect } from 'vitest';
-import { flopCbColor, flopCbLabel } from './flopCbChoiceStyle';
-import { barColor } from './flopFeedbackFormat';
-import { ACTION_COLOR } from '../../styles/actionColors';
+import { flopCbColor, flopCbLabel, flopSizeColor, FLOP_SIZE_COLORS } from './flopCbChoiceStyle';
 
-const lightnessOf = (hsl: string): number => Number(/(\d+)%\)$/.exec(hsl)?.[1] ?? -1);
+describe('flopSizeColor (6色ランプ)', () => {
+  it('各サイズが規定の色', () => {
+    expect(flopSizeColor('check')).toBe('#3B8A1E');
+    expect(flopSizeColor('33')).toBe('#EF9F27');
+    expect(flopSizeColor('50')).toBe('#D85A30');
+    expect(flopSizeColor('75')).toBe('#E24B4A');
+    expect(flopSizeColor('125')).toBe('#A32D2D');
+    expect(flopSizeColor('ALLIN')).toBe('#534AB7');
+  });
+  it('6色すべて異なる (隣接サイズで見分け可能)', () => {
+    const vals = Object.values(FLOP_SIZE_COLORS);
+    expect(new Set(vals).size).toBe(vals.length);
+  });
+});
 
-describe('flopCbColor', () => {
-  it('check は緑 (ACTION_COLOR.check)', () => {
-    expect(flopCbColor('check').border).toBe(ACTION_COLOR.check);
+describe('flopCbColor (選択肢ボタンの枠/チップ=ランプ色)', () => {
+  it('check=緑 / ALLIN=紫', () => {
+    expect(flopCbColor('check').border).toBe('#3B8A1E');
+    expect(flopCbColor('ALLIN').border).toBe('#534AB7');
   });
-  it('ALLIN は紫 (ACTION_COLOR.allin)', () => {
-    expect(flopCbColor('ALLIN').border).toBe(ACTION_COLOR.allin);
-  });
-  it('125% (ポットオーバー) は紫', () => {
-    expect(flopCbColor('125').border).toBe(ACTION_COLOR.allin);
-  });
-  it('ベット色は頻度バー (barColor) と同色', () => {
-    expect(flopCbColor('33').border).toBe(barColor('R', 0.33));
-    expect(flopCbColor('50').border).toBe(barColor('R', 0.5));
-    expect(flopCbColor('75').border).toBe(barColor('R', 0.75));
-  });
-  it('サイズが大きいほど濃い (明度が下がる)', () => {
-    const l20 = lightnessOf(flopCbColor('20').border);
-    const l50 = lightnessOf(flopCbColor('50').border);
-    const l75 = lightnessOf(flopCbColor('75').border);
-    expect(l20).toBeGreaterThan(l50);
-    expect(l50).toBeGreaterThan(l75);
-  });
-  it('チェックボックス(check 色)も枠線と同じサイズ色', () => {
-    expect(flopCbColor('75').check).toBe(flopCbColor('75').border);
+  it('ベットの枠線・チェックボックスはランプ色 (33→アンバー / 75→赤 / 125→濃赤)', () => {
+    expect(flopCbColor('33').border).toBe('#EF9F27');
+    expect(flopCbColor('33').check).toBe('#EF9F27');
+    expect(flopCbColor('75').border).toBe('#E24B4A');
+    expect(flopCbColor('125').border).toBe('#A32D2D');
   });
 });
 
 describe('flopCbLabel', () => {
   it('チェック / ベット% / オールイン', () => {
     expect(flopCbLabel('check')).toBe('チェック');
-    expect(flopCbLabel('33')).toBe('ベット33%');
+    expect(flopCbLabel('50')).toBe('ベット50%');
     expect(flopCbLabel('ALLIN')).toBe('オールイン');
   });
 });

@@ -1,14 +1,30 @@
 // フロップ中級CB の選択肢 (check / 各サイズ% / ALLIN) のラベル・表示順・配色。
-// 配色: check=緑 / オールイン=紫 / ベットはサイズで濃淡 (薄赤→濃赤→ポットオーバー紫)。
-// ベットの濃淡は即時フィードバックの頻度バー (barColor) と同一ロジックを流用し、
-// 同じサイズが同じ色になるようにする。共通基盤 (actionColors) には新色を足さない。
+// 配色: 色相を振った6色ランプ (フロップ中級のベットサイズ標準配色)。小さいサイズほど暖色、
+// 大きいサイズほど赤〜紫。小領域 (グリッドの小セル) で隣接しても見分けられる。
+// この6色は training 配下に閉じて定義し、共通基盤 (actionColors/theme) には足さない。
 
 import { ACTION_BUTTON_COLORS, type ActionButtonColor } from './actionButtonStyle';
-import { ACTION_COLOR } from '../../styles/actionColors';
-import { barColor } from './flopFeedbackFormat';
 
 /** 表示/選択順 (check → 小さいサイズ → ALLIN)。 */
 export const FLOP_CB_ORDER: ReadonlyArray<string> = ['check', '10', '20', '25', '33', '50', '75', '125', 'ALLIN'];
+
+/**
+ * フロップ中級のベットサイズ標準配色 (6色ランプ)。
+ *   check=緑 / 33=アンバー / 50=コーラル / 75=赤 / 125=濃い赤 / ALLIN=紫。
+ */
+export const FLOP_SIZE_COLORS: Record<string, string> = {
+  check: '#3B8A1E',
+  '33': '#EF9F27',
+  '50': '#D85A30',
+  '75': '#E24B4A',
+  '125': '#A32D2D',
+  ALLIN: '#534AB7',
+};
+
+/** バケット → ランプ色。未定義サイズはコーラルにフォールバック。 */
+export function flopSizeColor(bucket: string): string {
+  return FLOP_SIZE_COLORS[bucket] ?? '#D85A30';
+}
 
 /** 選択肢ラベル。 */
 export function flopCbLabel(choice: string): string {
@@ -18,20 +34,16 @@ export function flopCbLabel(choice: string): string {
 }
 
 /**
- * 選択肢の配色。
- *   - check → 緑 (ACTION_BUTTON_COLORS.check)
- *   - ALLIN → 紫 (ACTION_BUTTON_COLORS.allin)
- *   - ベット → サイズ% で濃淡。枠線・色チップ・チェックボックスは barColor(= 頻度バーと同色)。
- *     ポットオーバー (125% 等, bp>1) は紫 (allin と同系)。地色/文字色は raise を流用。
+ * 選択肢ボタンの配色。枠線・色チップ・チェックボックスは6色ランプ (flopSizeColor)。
+ *   - check → 緑ボタン (ACTION_BUTTON_COLORS.check)
+ *   - ALLIN → 紫ボタン (ACTION_BUTTON_COLORS.allin)
+ *   - ベット → 地色は淡い暖色 / 枠+チップはランプ色 (アンバー→濃赤)。
  */
 export function flopCbColor(choice: string): ActionButtonColor {
   if (choice === 'check') return ACTION_BUTTON_COLORS.check;
   if (choice === 'ALLIN') return ACTION_BUTTON_COLORS.allin;
-  const pct = Number(choice);
-  if (!Number.isFinite(pct)) return ACTION_BUTTON_COLORS.raise;
-  const strong = barColor('R', pct / 100); // 薄赤→濃赤→(>100%)紫: 頻度バーと同一
-  if (strong === ACTION_COLOR.allin) return ACTION_BUTTON_COLORS.allin; // ポットオーバー → 紫
-  return { ...ACTION_BUTTON_COLORS.raise, border: strong, check: strong };
+  const ramp = flopSizeColor(choice);
+  return { bg: '#FBF7F1', border: ramp, text: '#3d2f1f', check: ramp };
 }
 
 /** availableActions に対応するラベル Record を作る。 */
