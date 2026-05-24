@@ -158,7 +158,7 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
             items={q.preflopActions}
             animate
             wide
-            involvedPositions={[q.hero, q.villain]}
+            instantLeadingFolds
             resetKey={state.current}
             onAnimationDone={() => setPhase('flop')}
           />

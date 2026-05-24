@@ -39,6 +39,11 @@ export interface ActionTableProps {
   wide?: boolean;
   /** 局面に関与する席 (それ以外を半透明に)。PokerTable へ素通し。 */
   involvedPositions?: ReadonlyArray<Position>;
+  /**
+   * 先頭の fold (= オープン前に降りた席) を待たずに即表示し、最初の非 fold (オープン) から
+   * アニメ開始する。待ち時間短縮用。preflop トレーニング等では未指定 (従来どおり先頭から)。
+   */
+  instantLeadingFolds?: boolean;
 }
 
 export function ActionTable({
@@ -51,6 +56,7 @@ export function ActionTable({
   centerSlot,
   wide = false,
   involvedPositions,
+  instantLeadingFolds = false,
 }: ActionTableProps) {
   // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
   const [items, setItems] = useState<ActionItem[] | null>(null);
@@ -91,14 +97,18 @@ export function ActionTable({
       doneRef.current?.();
       return;
     }
-    setRevealed(0);
     if (items.length === 0) {
+      setRevealed(0);
       doneRef.current?.();
       return;
     }
+    // instantLeadingFolds: 先頭の fold (オープン前に降りた席) は待たずに即表示し、
+    // 最初の非 fold (オープン) からアニメ開始する。
+    const startAt = instantLeadingFolds ? Math.max(0, items.findIndex((it) => it.kind !== 'fold')) : 0;
+    setRevealed(startAt);
     // 各アクションを表示する前に、そのアクション種別に応じた待ち時間を入れる
     // (fold=0.4秒 / それ以外=0.6秒)。setTimeout を連鎖させる。
-    let i = 0;
+    let i = startAt;
     let cancelled = false;
     let timer = 0;
     const scheduleNext = () => {
@@ -119,7 +129,7 @@ export function ActionTable({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [items, animate, resetKey]);
+  }, [items, animate, resetKey, instantLeadingFolds]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ブラインド (SB 0.5bb / BB 1bb) は最初から表示。アクションした SB/BB はそのラベルに差し替え。

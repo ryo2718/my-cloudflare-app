@@ -135,16 +135,6 @@ function poolFor(data: FlopTrainingData, pick: Pick): BoardRecord[] {
   return pick.type === 'donk' ? (data.donk[pick.band] ?? []) : (data.cb[pick.pot][pick.band] ?? []);
 }
 
-/**
- * プリフロップ再生の先頭 fold を省く (待ち時間短縮)。
- * 最初の非 fold アクション (= オープン) から開始する。
- * 例: BTN vs BB は UTG〜CO の fold を飛ばし、BTN のレイズから再生。
- */
-export function trimLeadingFolds(items: ReadonlyArray<ActionItem>): ActionItem[] {
-  const first = items.findIndex((it) => it.kind !== 'fold');
-  return first <= 0 ? items.slice() : items.slice(first);
-}
-
 /** ロード済みデータから20問を生成 (純粋関数)。同一 board は重複させない。 */
 export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
   const out: FlopQuestion[] = [];
@@ -177,7 +167,7 @@ export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
         threshold,
         correct: rec.rate >= threshold ? 'bet' : 'check',
         actions: rec.actions,
-        preflopActions: trimLeadingFolds(data.preflop?.[rec.variant] ?? []),
+        preflopActions: data.preflop?.[rec.variant] ?? [],
       });
     }
   }
