@@ -146,9 +146,24 @@ function buildPreflopSeq(variant, node) {
       }
     }
   }
-  const actors = new Set(toks.map((t) => t.pos));
-  const folds = POSITIONS.filter((p) => !actors.has(p)).map((p) => ({ position: p, kind: 'fold' }));
-  return [...folds, ...chain];
+  // チェーン (raise/call の時系列) に各座席の fold を席順で割り込ませる。
+  // 降りる席 = chain に出てこない席。オープン前に降りる席は先頭 (= 即表示)、レイザー以降に
+  // 降りる席 (例: BTN open に対する SB) はその raise の後に並ぶ。全員先頭 fold だと
+  // 「SB が BTN より先に降りる」ように見えるのを防ぐ。
+  const inChain = new Set(chain.map((c) => c.position));
+  const folded = new Set();
+  const seq = [];
+  let idx = 0;
+  let guard = 0;
+  for (let seat = 0; idx < chain.length && guard < 200; seat++, guard++) {
+    const pos = POSITIONS[seat % POSITIONS.length];
+    if (folded.has(pos)) continue;
+    if (chain[idx].position === pos) { seq.push(chain[idx]); idx++; continue; }
+    if (inChain.has(pos)) continue; // 参加者は降りない (席順で後で行動 / 既に行動済み)
+    folded.add(pos);
+    seq.push({ position: pos, kind: 'fold' });
+  }
+  return seq;
 }
 
 function main() {
