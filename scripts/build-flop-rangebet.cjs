@@ -19,7 +19,7 @@ const OUT_FILE = path.join(OUT_DIR, 'flop_rangebet_v1.json');
 const POSITIONS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN']; // earlier = OOP
 const OPEN_SIZE = 2.5;
-const PER_POT_CAP = 1600; // ポット種別ごとの最大ボード数 (出題に十分な多様性 + 軽量化)
+const PER_VARIANT_CAP = 120; // variant (matchup) ごとの最大ボード数。全 matchup を均等収録し hero 偏りを防ぐ
 const MIXED_MIN = 0.1; // CB「混合戦略」判定: この頻度以上のバケットが2つ以上
 
 // CB問題の選択肢 (全ポット共通)。125 = オーバーベット。
@@ -215,16 +215,18 @@ function main() {
     // CB問題: 全ポット。アグレッサーの c-bet ノード。hero=アグレッサー / villain=ディフェンダー。
     //   アグレッサー OOP→flop_root / IP→flop_<oop>_x (OOP チェック後の局面)。
     const pool = cb[potCat];
-    if (pool && pool.length < PER_POT_CAP) {
+    if (pool) {
       const cbFile = aggressorRole === 'OOP' ? 'flop_root.json' : `flop_${oop.toLowerCase()}_x.json`;
       const node = loadNode(variant, cbFile);
       if (node) {
         const flopPot = node.game_point?.game?.pot ?? 0;
+        let added = 0; // この variant からの収録数 (matchup ごとに上限 → 全 matchup を均等収録)
         for (const s of node.solutions) {
-          if (pool.length >= PER_POT_CAP) break;
+          if (added >= PER_VARIANT_CAP) break;
           const strat = bucketize(s.action_solutions, flopPot);
           if (!isMixed(strat)) continue; // 中級: 混合戦略ボードのみ
           pool.push({ variant, hero: aggressor, villain: defender, pot, board: s.name, strat });
+          added++;
         }
       }
     }

@@ -94,6 +94,18 @@ describe('中級レンジベット 出題生成', () => {
     }
   });
 
+  it('hero ポジションが多様に出題される (UTG/HJ も含む・1強にならない)', () => {
+    const heroes = new Map<string, number>();
+    for (let s = 0; s < 30; s++) {
+      for (const q of buildFlopRbQuestions(DATA)) heroes.set(q.hero, (heroes.get(q.hero) ?? 0) + 1);
+    }
+    expect(heroes.get('UTG') ?? 0).toBeGreaterThan(0);
+    expect(heroes.get('HJ') ?? 0).toBeGreaterThan(0);
+    const total = [...heroes.values()].reduce((a, b) => a + b, 0);
+    const max = Math.max(...heroes.values());
+    expect(max / total).toBeLessThan(0.6); // 1ポジションに偏りすぎない
+  });
+
   it('同一 variant:board は重複しない', () => {
     const qs = buildFlopRbQuestions(DATA);
     const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
