@@ -1,4 +1,4 @@
-// フロップ中級レンジベット: 出題生成 (25問: CB15/Donk10) + CB複数選択採点 + Donkスライダー採点。
+// フロップ中級レンジベット: 出題生成 (30問: SRP15/3bet10/4bet5bet5・全CB) + CB複数選択採点。
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -25,41 +25,43 @@ const board = (): [Card, Card, Card] => [
   { rank: '2', suit: 'c' },
 ];
 
+const dominant = (s: FlopCbStrat): string =>
+  Object.entries(s).reduce((best, [k, v]) => (v > (s[best] ?? -1) ? k : best), '');
+
 function counts(qs: FlopRbQuestion[]) {
-  const donk = qs.filter((q) => q.kind === 'donk');
   return {
     total: qs.length,
-    cb: qs.filter((q) => q.kind === 'cb').length,
-    donk: donk.length,
-    donkSRP: donk.filter((q) => q.pot === 'SRP').length,
-    donk3bet: donk.filter((q) => q.pot === '3bet').length,
-    donk4bet: donk.filter((q) => q.pot === '4bet').length,
+    srp: qs.filter((q) => q.pot === 'SRP').length,
+    threebet: qs.filter((q) => q.pot === '3bet').length,
+    fourfive: qs.filter((q) => q.pot === '4bet' || q.pot === '5bet').length,
   };
 }
 
 describe('中級レンジベット 出題生成', () => {
-  it('全25問・CB15(全SRP)/Donk10(SRP4/3bp3/4bp3) (50セッション安定)', () => {
+  it('全30問・SRP15 / 3bet10 / 4bet5bet5 (50セッション安定)', () => {
     for (let s = 0; s < 50; s++) {
       const c = counts(buildFlopRbQuestions(DATA));
       expect(c.total).toBe(FLOP_RB_COUNT);
-      expect(c.cb).toBe(15);
-      expect(c.donk).toBe(10);
-      expect(c.donkSRP).toBe(4);
-      expect(c.donk3bet).toBe(3);
-      expect(c.donk4bet).toBe(3);
+      expect(c.srp).toBe(15);
+      expect(c.threebet).toBe(10);
+      expect(c.fourfive).toBe(5);
     }
   });
 
-  it('CB問題は全SRP・選択肢 check/33/50/75/125 / Donk問題は donkRate を持つ', () => {
+  it('全問 CB: 選択肢 check/33/50/75/125・strat・似たボードを持つ', () => {
     for (const q of buildFlopRbQuestions(DATA)) {
       expect(q.board).toHaveLength(3);
-      if (q.kind === 'cb') {
-        expect(q.pot).toBe('SRP');
-        expect(q.choices).toEqual(['check', '33', '50', '75', '125']);
-      } else {
-        expect(q.donkRate).toBeGreaterThanOrEqual(0.05);
-        expect(['SRP', '3bet', '4bet']).toContain(q.pot);
-      }
+      expect(q.choices).toEqual(['check', '33', '50', '75', '125']);
+      expect(Object.keys(q.strat).length).toBeGreaterThan(0);
+      expect(q.similar.length).toBeGreaterThan(0);
+      for (const sim of q.similar) expect(sim.board).toHaveLength(3);
+    }
+  });
+
+  it('支配サイズが偏らない (毎回33%回避: 1セッション内で2種以上)', () => {
+    for (let s = 0; s < 20; s++) {
+      const doms = new Set(buildFlopRbQuestions(DATA).map((q) => dominant(q.strat)));
+      expect(doms.size).toBeGreaterThanOrEqual(2);
     }
   });
 
@@ -69,13 +71,14 @@ describe('中級レンジベット 出題生成', () => {
     expect(new Set(keys).size).toBe(qs.length);
   });
 
-  it('満点/クリア定数 (25問×2pt=50、クリア=45)', () => {
-    expect(FLOP_RB_MAX_SCORE).toBe(50);
-    expect(FLOP_RB_CLEAR_SCORE).toBe(45);
+  it('満点/クリア定数 (30問×2pt=60、クリア=54)', () => {
+    expect(FLOP_RB_COUNT).toBe(30);
+    expect(FLOP_RB_MAX_SCORE).toBe(60);
+    expect(FLOP_RB_CLEAR_SCORE).toBe(54);
   });
 });
 
-describe('flopCbBucket (SRP 丸め)', () => {
+describe('flopCbBucket (サイズ丸め)', () => {
   it('33/50/75/125 最近傍、allin→125', () => {
     expect(flopCbBucket(33)).toBe('33');
     expect(flopCbBucket(75)).toBe('75');
@@ -103,34 +106,25 @@ describe('CB問題 複数選択採点 (scoreFlopCb)', () => {
   });
 });
 
-describe('scoreFlopRb (CB=複数選択 / Donk=スライダー)', () => {
+describe('scoreFlopRb (CB=複数選択)', () => {
   const cbQ: FlopRbQuestion = {
-    kind: 'cb', id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
+    id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
     board: board(), choices: ['check', '33', '50', '75', '125'],
-    strat: { check: 0.1, '33': 0.6, '50': 0.3 }, preflopActions: [],
+    strat: { check: 0.1, '33': 0.6, '50': 0.3 }, preflopActions: [], similar: [],
   };
-  const donkQ: FlopRbQuestion = {
-    kind: 'donk', id: 2, pot: '3bet', variant: 'utgr_btnr_utgc', hero: 'UTG', villain: 'BTN',
-    board: board(), donkRate: 0.3, preflopActions: [],
-  };
-
-  it('CB: select で複数選択採点', () => {
+  it('select で複数選択採点', () => {
     expect(scoreFlopRb(cbQ, { kind: 'select', selections: ['33', '50'] })).toBe(2);
   });
-  it('Donk: slider で正解頻度との差で採点 (±10→2 / ±20→1 / それ以外-1)', () => {
-    expect(scoreFlopRb(donkQ, { kind: 'slider', pct: 30 })).toBe(2); // ぴったり
-    expect(scoreFlopRb(donkQ, { kind: 'slider', pct: 50 })).toBe(1); // ±20
-    expect(scoreFlopRb(donkQ, { kind: 'slider', pct: 80 })).toBe(-1); // 大外し
-  });
-  it('Donk: skip は 0', () => {
-    expect(scoreFlopRb(donkQ, { kind: 'skip' })).toBe(0);
+  it('無回答 (選択なし) は 0', () => {
+    expect(scoreFlopRb(cbQ, { kind: 'select', selections: [] })).toBe(0);
   });
 });
 
 describe('flopRbScenarioLabel', () => {
-  it('ポット種別タグ (srp/3bp/4bp)', () => {
+  it('ポット種別タグ (srp/3bp/4bp/5bp)', () => {
     expect(flopRbScenarioLabel({ pot: 'SRP', hero: 'CO', villain: 'BTN' })).toBe('srp CO vs BTN');
     expect(flopRbScenarioLabel({ pot: '3bet', hero: 'UTG', villain: 'BTN' })).toBe('3bp UTG vs BTN');
     expect(flopRbScenarioLabel({ pot: '4bet', hero: 'CO', villain: 'BTN' })).toBe('4bp CO vs BTN');
+    expect(flopRbScenarioLabel({ pot: '5bet', hero: 'BB', villain: 'BTN' })).toBe('5bp BB vs BTN');
   });
 });

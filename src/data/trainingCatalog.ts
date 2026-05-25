@@ -49,11 +49,9 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'フロップトレーニング',
     levels: [
       { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      // 中級レンジベット: CB(複数選択) + Donk(スライダー) 混在。best_score が finalSum
-      // (0-50, 1問 -1〜+2pt × 25問) を直接表す。 points=1 で累計と整合。
-      { key: 'flop_intermediate', label: '中級レンジベット', points: 1, questionCount: 25, timeLimitSec: 'none', implemented: true },
-      // 中級CB (個別ハンド): 30問・1問1pt (満点相当のみ加点)・満点30。best_score = 正解数。
-      { key: 'flop_intermediate_cb', label: '中級CB', points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      // 中級レンジベット: 全30問 CB(サイズ複数選択)。SRP15/3bet10/4bet5bet5。best_score が
+      // finalSum (0-60, 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
+      { key: 'flop_intermediate', label: '中級レンジベット', points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -77,7 +75,7 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
   }
-  // フロップ中級レンジベットは満点 50pt 表記 (1問 -1〜+2pt × 25問・制限時間なし)。
+  // フロップ中級レンジベットは満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
   if (level.key === 'flop_intermediate') {
     const qc = level.questionCount ?? 25;
     return `${qc}問・最大 ${qc * 2}pt・制限時間なし`;

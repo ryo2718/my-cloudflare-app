@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// admin デバッグ (共有 DebugAnswerBar + harness.debugComplete) がレンジベット (CB/Donk混在) で動くこと。
+// admin デバッグ (共有 DebugAnswerBar + harness.debugComplete) がレンジベット (全CB) で動くこと。
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, userEvent } from '../../test/ui';
@@ -33,12 +33,12 @@ const board = (): FlopRbQuestion['board'] => [
   { rank: 'A', suit: 's' }, { rank: 'K', suit: 'd' }, { rank: '2', suit: 'c' },
 ];
 
-// CB(主要 check/33) + Donk(donkRate 0.3) の混在。
+// 全 CB (SRP と 3bet の2問)。
 const QS: FlopRbQuestion[] = [
-  { kind: 'cb', id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN', board: board(),
-    choices: ['check', '33', '50', '75', '125'], strat: { check: 0.5, '33': 0.5, '50': 0, '75': 0, '125': 0 }, preflopActions: [] },
-  { kind: 'donk', id: 2, pot: '3bet', variant: 'utgr_btnr_utgc', hero: 'UTG', villain: 'BTN', board: board(),
-    donkRate: 0.3, preflopActions: [] },
+  { id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN', board: board(),
+    choices: ['check', '33', '50', '75', '125'], strat: { check: 0.5, '33': 0.5, '50': 0, '75': 0, '125': 0 }, preflopActions: [], similar: [] },
+  { id: 2, pot: '3bet', variant: 'utgr_btnr_utgc', hero: 'UTG', villain: 'BTN', board: board(),
+    choices: ['check', '33', '50', '75', '125'], strat: { check: 0.2, '33': 0.4, '50': 0.4, '75': 0, '125': 0 }, preflopActions: [], similar: [] },
 ];
 
 beforeEach(() => {
@@ -53,8 +53,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('TrainingPlayFlopIntermediate admin デバッグ (CB/Donk混在)', () => {
-  it('全問正解: CB=主要選択 / Donk=正解頻度 で全問 finalScore=2、満点へ', async () => {
+describe('TrainingPlayFlopIntermediate admin デバッグ (全CB)', () => {
+  it('全問正解: 主要サイズ選択で全問 finalScore=2、満点へ', async () => {
     const user = userEvent.setup();
     render(<TrainingPlayFlopIntermediate level={LEVEL} />);
     await user.click(await screen.findByRole('button', { name: '全問正解' }));
@@ -63,7 +63,7 @@ describe('TrainingPlayFlopIntermediate admin デバッグ (CB/Donk混在)', () =
     expect(records).toHaveLength(2);
     expect(records.every((r) => r.finalScore === 2)).toBe(true);
     expect(vi.mocked(navigate).mock.calls[0][0]).toContain('score=4'); // 2問×2pt
-    expect(vi.mocked(navigate).mock.calls[0][0]).toContain('total=50');
+    expect(vi.mocked(navigate).mock.calls[0][0]).toContain('total=60');
   });
 
   it('非 admin にはデバッグバーを出さない', async () => {

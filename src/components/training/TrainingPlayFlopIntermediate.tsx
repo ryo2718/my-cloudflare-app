@@ -1,8 +1,7 @@
 // フロップトレーニング「中級レンジベット」の問題画面。
-//   - 全25問・1問2pt・満点50・時間制限なし。
-//   - CB問題 (複数選択, SRP) と Donk問題 (スライダー, SRP/3bp/4bp) が混在。
-//   - テーブル図・カード・アニメは初級 (TrainingPlayFlop) を流用。
-//     CB=ChoiceButtons(中級CBから)、Donk=SliderChoice(プリフロ中級から) を流用。
+//   - 全30問・1問2pt・満点60・時間制限なし。全問 CB(サイズ複数選択, SRP/3bp/4bp5bp)。
+//   - テーブル図・カード・アニメは初級 (TrainingPlayFlop) を流用。CB=ChoiceButtons。
+//   - 即時フィードバックで GTO サイズ構成 + 「似た頻度のボード」を併せて表示。
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
@@ -26,9 +25,9 @@ import { ActionTable } from './ActionTable';
 import { PokerTable } from './PokerTable';
 import { FlopBoard } from './FlopBoard';
 import { ChoiceButtons } from './ChoiceButtons';
-import { SliderChoice } from './SliderChoice';
 import { DebugAnswerBar } from './DebugAnswerBar';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
+import { FlopSimilarBoards } from './FlopSimilarBoards';
 import { FLOP_CB_ORDER, flopCbLabels, flopCbColor } from './flopCbChoiceStyle';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
@@ -37,7 +36,7 @@ type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
 const FLOP_SETTLE_MS = 400;
 const CHECK_TO_TURN_MS = 200;
 
-const selOf = (r: FlopRbResponse | null): ReadonlyArray<string> => (r?.kind === 'select' ? r.selections : []);
+const selOf = (r: FlopRbResponse | null): ReadonlyArray<string> => r?.selections ?? [];
 
 export interface TrainingPlayFlopIntermediateProps {
   level: TrainingLevel;
@@ -74,33 +73,26 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
   };
 
   // デバッグ (admin 専用) picker。
-  const dbgCorrect = (q: FlopRbQuestion): FlopRbResponse =>
-    q.kind === 'cb'
-      ? { kind: 'select', selections: q.choices.filter((c) => (q.strat[c] ?? 0) >= 0.05) }
-      : { kind: 'slider', pct: Math.round(q.donkRate * 100) };
+  const dbgCorrect = (q: FlopRbQuestion): FlopRbResponse => ({
+    kind: 'select',
+    selections: q.choices.filter((c) => (q.strat[c] ?? 0) >= 0.05),
+  });
   const dbgWrong = (q: FlopRbQuestion): FlopRbResponse => {
-    if (q.kind === 'cb') {
-      let lo = q.choices[0];
-      for (const c of q.choices) if ((q.strat[c] ?? 0) < (q.strat[lo] ?? 0)) lo = c;
-      return { kind: 'select', selections: [lo] };
-    }
-    return { kind: 'slider', pct: Math.round(q.donkRate * 100) >= 50 ? 0 : 100 };
+    let lo = q.choices[0];
+    for (const c of q.choices) if ((q.strat[c] ?? 0) < (q.strat[lo] ?? 0)) lo = c;
+    return { kind: 'select', selections: [lo] };
   };
   const dbgRandom = (q: FlopRbQuestion): FlopRbResponse => {
-    if (q.kind === 'cb') {
-      const picks = q.choices.filter(() => Math.random() < 0.5);
-      return { kind: 'select', selections: picks.length ? picks : [q.choices[0]] };
-    }
-    return { kind: 'slider', pct: Math.floor(Math.random() * 11) * 10 };
+    const picks = q.choices.filter(() => Math.random() < 0.5);
+    return { kind: 'select', selections: picks.length ? picks : [q.choices[0]] };
   };
 
   // アニメの流れ。問題切替で preflop からやり直す。CB(ヒーローIP)のみ villain check を挟む。
   const currentIdx = state.kind === 'ready' ? state.current : -1;
   const currentQ = state.kind === 'ready' ? state.questions[state.current] : null;
-  const needsCheck =
-    currentQ?.kind === 'cb'
-      ? flopShowsVillainCheck({ type: 'cb', hero: currentQ.hero, villain: currentQ.villain })
-      : false;
+  const needsCheck = currentQ
+    ? flopShowsVillainCheck({ type: 'cb', hero: currentQ.hero, villain: currentQ.villain })
+    : false;
   const [phase, setPhase] = useState<FlopPhase>('preflop');
   const [phaseIdx, setPhaseIdx] = useState(currentIdx);
   if (phaseIdx !== currentIdx) {
@@ -172,7 +164,6 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
       <main style={mainStyle}>
         <div style={scenarioRowStyle}>
           <span style={scenarioPillStyle}>{scenarioLabel}</span>
-          <span style={kindPillStyle}>{q.kind === 'cb' ? 'CB' : 'ドンク'}</span>
         </div>
 
         {phase === 'preflop' ? (
@@ -199,16 +190,10 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
         {phase === 'question' &&
           (feedback ? (
             <InstantFeedback points={feedback.points} onNext={onProceed}>
-              {q.kind === 'cb' ? (
-                <FlopCbReviewDetail choices={q.choices} strat={q.strat} selections={selOf(lastRes)} />
-              ) : (
-                <div style={donkFbStyle}>
-                  ドンク正解 {Math.round(q.donkRate * 100)}% / あなた{' '}
-                  {lastRes?.kind === 'slider' ? `${lastRes.pct}%` : 'スキップ'}
-                </div>
-              )}
+              <FlopCbReviewDetail choices={q.choices} strat={q.strat} selections={selOf(lastRes)} />
+              <FlopSimilarBoards similar={q.similar} />
             </InstantFeedback>
-          ) : q.kind === 'cb' ? (
+          ) : (
             <ChoiceButtons
               key={`cb-${state.current}`}
               availableActions={q.choices}
@@ -218,13 +203,6 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
               showColorChip
               prompt="CBをどう打つ?(複数選択可)"
               onSubmit={(selections) => handleAnswer({ kind: 'select', selections: [...selections] })}
-            />
-          ) : (
-            <SliderChoice
-              key={`donk-${state.current}`}
-              actionLabel="ドンク"
-              onSubmit={(pct) => handleAnswer({ kind: 'slider', pct })}
-              onSkip={() => handleAnswer({ kind: 'skip' })}
             />
           ))}
       </main>
@@ -251,11 +229,6 @@ const scenarioPillStyle: CSSProperties = {
   fontSize: '0.78rem', fontWeight: 700, color: '#993C1D',
   background: '#FAEEDA', border: '1px solid #E5A551', borderRadius: '999px', padding: '0.2rem 0.7rem',
 };
-const kindPillStyle: CSSProperties = {
-  fontSize: '0.72rem', fontWeight: 800, color: '#fff', background: THEME.accent,
-  borderRadius: '999px', padding: '0.18rem 0.6rem',
-};
-const donkFbStyle: CSSProperties = { fontSize: '0.92rem', fontWeight: 700, color: THEME.textPrimary };
 const loadingStyle: CSSProperties = { margin: 'auto', fontSize: '0.95rem', color: THEME.textMuted };
 const errorStyle: CSSProperties = {
   margin: 'auto', fontSize: '0.92rem', color: THEME.errorText, background: THEME.errorBg,

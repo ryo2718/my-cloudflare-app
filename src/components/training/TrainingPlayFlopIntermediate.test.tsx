@@ -26,9 +26,9 @@ const LEVEL = TRAINING_CATALOG[1].levels[1]; // flop_intermediate (中級レン�
 
 function cbQ(): FlopRbQuestion {
   return {
-    kind: 'cb', id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
+    id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
     board: [{ rank: 'A', suit: 's' }, { rank: 'K', suit: 'd' }, { rank: '2', suit: 'c' }],
-    choices: ['check', '33', '50', '75', '125'], strat: { check: 0.4, '33': 0.4, '50': 0.2 }, preflopActions: [],
+    choices: ['check', '33', '50', '75', '125'], strat: { check: 0.4, '33': 0.4, '50': 0.2 }, preflopActions: [], similar: [],
   };
 }
 

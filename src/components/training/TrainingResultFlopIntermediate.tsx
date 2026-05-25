@@ -1,6 +1,6 @@
 // フロップ中級レンジベットの結果画面。プリフロ中級ポジション (TrainingResultPositional) と同じ構成:
 //   スコア + 達成率 / 内訳 (◎○△×) / 振り返り一覧 (各問タップで詳細)。
-//   CB問題は頻度詳細 + 自分の選択、Donk問題は正解ドンク頻度 vs 自分の回答。
+//   全問 CB: 頻度詳細 + 自分の選択 + 似た頻度のボード紹介。
 // best_score は POST /api/account/training-result で保存 (training_type=flop_intermediate)。
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -14,6 +14,7 @@ import { flopRbScenarioLabel, type FlopRbRecord } from '../../data/training/flop
 import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
 import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
+import { FlopSimilarBoards } from './FlopSimilarBoards';
 import { PlayingCard } from '../PlayingCard';
 import { THEME } from '../../styles/theme';
 
@@ -179,7 +180,6 @@ export function TrainingResultFlopIntermediate({ level }: TrainingResultFlopInte
                         {judgmentIcon(r.finalScore)}
                       </span>
                       <span style={scenarioPillStyle}>{flopRbScenarioLabel(r)}</span>
-                      <span style={kindTagStyle}>{r.kind === 'cb' ? 'CB' : 'ドンク'}</span>
                       <span style={boardStyle}>
                         {r.board.map((c, i) => (
                           <PlayingCard key={`${c.rank}${c.suit}-${i}`} rank={c.rank} suit={c.suit} size="sm" />
@@ -189,18 +189,12 @@ export function TrainingResultFlopIntermediate({ level }: TrainingResultFlopInte
                     </button>
                     {open && (
                       <div style={detailWrapStyle}>
-                        {r.kind === 'cb' ? (
-                          <FlopCbReviewDetail
-                            choices={r.choices}
-                            strat={r.strat}
-                            selections={r.response.kind === 'select' ? r.response.selections : []}
-                          />
-                        ) : (
-                          <div style={donkDetailStyle}>
-                            ドンク正解 {Math.round(r.donkRate * 100)}% / あなた{' '}
-                            {r.response.kind === 'slider' ? `${r.response.pct}%` : 'スキップ'}
-                          </div>
-                        )}
+                        <FlopCbReviewDetail
+                          choices={r.choices}
+                          strat={r.strat}
+                          selections={r.response.selections}
+                        />
+                        <FlopSimilarBoards similar={r.similar} />
                       </div>
                     )}
                   </li>
@@ -286,8 +280,6 @@ const scenarioPillStyle: CSSProperties = {
 const boardStyle: CSSProperties = { display: 'flex', gap: 3, marginLeft: 'auto' };
 const chevronStyle: CSSProperties = { fontSize: '0.75rem', color: THEME.textMuted };
 const detailWrapStyle: CSSProperties = { padding: '0.7rem', borderTop: `1px solid ${THEME.border}`, background: '#FCFBF8', display: 'flex', flexDirection: 'column', gap: '0.5rem' };
-const donkDetailStyle: CSSProperties = { fontSize: '0.88rem', fontWeight: 700, color: THEME.textPrimary };
-const kindTagStyle: CSSProperties = { fontSize: '0.62rem', fontWeight: 800, color: '#fff', background: THEME.accent, borderRadius: 999, padding: '0.02rem 0.4rem' };
 const btnRowStyle: CSSProperties = { display: 'flex', gap: '0.6rem', marginTop: '0.5rem' };
 const retryBtnStyle: CSSProperties = {
   flex: 1, padding: '0.8rem 1rem', background: THEME.accent, color: '#fff', border: 'none',
