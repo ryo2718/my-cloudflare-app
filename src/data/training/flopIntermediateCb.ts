@@ -371,10 +371,12 @@ function findSimilar(
   return picked.slice(0, k).map(({ b }) => ({ board: parseBoard(b.board), pot: b.pot, strat: b.strat }));
 }
 
-// オーバーベット(125)が実戦的 (= この頻度以上) とみなす閾値と、各ポットで最低確保する問数。
-// 125 は支配サイズになりにくく通常選抜では surface しづらいため、データのある局面を一定数確保する。
-const OVERBET_MIN = 0.2;
-const OVERBET_TARGET: Record<FlopPotCat, number> = { SRP: 3, '3bet': 1, '4bet5bet': 2 };
+// 「両極端」局面 (チェック主体 / オーバーベット) は支配サイズ均等選抜で薄まりやすいので、
+// 各ポットで先に一定数確保する (データ量で上限キャップ)。
+const CHECK_MIN = 0.5; // チェックが主体のボード
+const OVERBET_MIN = 0.2; // オーバーベット(125)が実戦的なボード
+const CHECK_TARGET: Record<FlopPotCat, number> = { SRP: 5, '3bet': 4, '4bet5bet': 1 };
+const OVERBET_TARGET: Record<FlopPotCat, number> = { SRP: 4, '3bet': 1, '4bet5bet': 3 };
 
 /** ロード済みデータから30問を生成 (純粋関数)。SRP15 / 3bet10 / 4bet5bet5、全問 CB。 */
 export function buildFlopRbQuestions(data: FlopRbData): FlopRbQuestion[] {
@@ -386,10 +388,14 @@ export function buildFlopRbQuestions(data: FlopRbData): FlopRbQuestion[] {
 
   for (const { cat, count } of FLOP_RB_DISTRIBUTION) {
     const pool = data.cb?.[cat] ?? [];
-    // まずオーバーベット局面を確保 (学習機会の偏り解消)、残りを支配サイズ多様で埋める。
-    const obTarget = Math.min(OVERBET_TARGET[cat], count);
-    const obPool = pool.filter((b) => (b.strat['125'] ?? 0) >= OVERBET_MIN);
-    const picks = sampleVaried(obPool, obTarget, seen);
+    // オーバーベット → チェック主体 の順で確保し、残りを支配サイズ多様で埋める。
+    const picks: CbBoard[] = [];
+    picks.push(
+      ...sampleVaried(pool.filter((b) => (b.strat['125'] ?? 0) >= OVERBET_MIN), Math.min(OVERBET_TARGET[cat], count - picks.length), seen),
+    );
+    picks.push(
+      ...sampleVaried(pool.filter((b) => (b.strat.check ?? 0) >= CHECK_MIN), Math.min(CHECK_TARGET[cat], count - picks.length), seen),
+    );
     picks.push(...sampleVaried(pool, count - picks.length, seen));
     for (const rec of picks) {
       id += 1;

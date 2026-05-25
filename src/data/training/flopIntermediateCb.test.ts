@@ -75,7 +75,15 @@ describe('中級レンジベット 出題生成', () => {
     for (let s = 0; s < 20; s++) {
       const qs = buildFlopRbQuestions(DATA);
       const ob = qs.filter((q) => (q.strat['125'] ?? 0) >= 0.2).length;
-      expect(ob).toBeGreaterThanOrEqual(5);
+      expect(ob).toBeGreaterThanOrEqual(7);
+    }
+  });
+
+  it('チェック主体(check>=50%)局面が一定数出題される (両極端の確保)', () => {
+    for (let s = 0; s < 20; s++) {
+      const qs = buildFlopRbQuestions(DATA);
+      const chk = qs.filter((q) => (q.strat.check ?? 0) >= 0.5).length;
+      expect(chk).toBeGreaterThanOrEqual(9);
     }
   });
 
