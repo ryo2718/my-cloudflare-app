@@ -65,6 +65,29 @@ function loadNode(variant, file) {
   return fs.existsSync(fp) ? JSON.parse(fs.readFileSync(fp, 'utf8')) : null;
 }
 
+/** ノードのゲーム状態から pos の preflop 投入額 (= 100 - 残スタック)。無ければ null。 */
+function investedFrom(node, pos) {
+  const players = node?.game_point?.game?.players ?? [];
+  const p = players.find((x) => x.position === pos);
+  return p ? Number((100 - parseFloat(p.current_stack)).toFixed(1)) : null;
+}
+
+/**
+ * 3bet サイズの参照表 (key=`{opener}>{3bettor}` → bb)。
+ * 3bet-call ライン (3bettor の最終投入 = 3bet サイズ) から作る。4bet/5bet ラインでも
+ * 3bet サイズは同じ matchup で一定なので、ここを参照して実額を表示する。
+ */
+function buildThreeBetSizes(variants) {
+  const map = {};
+  for (const variant of variants) {
+    const cls = classify(variant);
+    if (!cls || cls.pot !== '3bet') continue; // aggressor=3bettor, defender=opener
+    const size = investedFrom(loadNode(variant, 'flop_root.json'), cls.aggressor);
+    if (size != null) map[`${cls.defender}>${cls.aggressor}`] = size;
+  }
+  return map;
+}
+
 /** sizePct(整数) を最も近いアンカーに寄せる (同点は大きい方)。 */
 function nearestAnchor(pct, anchors) {
   let best = anchors[0];
@@ -108,8 +131,8 @@ function isMixed(strat) {
   return n >= 2;
 }
 
-/** プリフロップ アクション列 (アニメ用)。folds → chain(raises/call)。サイズは name/invested から最善推定。 */
-function buildPreflopSeq(variant, node) {
+/** プリフロップ アクション列 (アニメ用)。folds を席順で割り込ませ、raise 額は invested / 3bet表 から決定。 */
+function buildPreflopSeq(variant, node, threeBetSizes = {}) {
   const players = node?.game_point?.game?.players ?? [];
   const investedOf = (pos) => {
     const p = players.find((x) => x.position === pos);
@@ -141,8 +164,12 @@ function buildPreflopSeq(variant, node) {
       const laterRaise = chain.slice(i + 1).some((x) => x.kind === 'raise');
       if (!laterSame && !laterRaise) c.amount = investedOf(c.position);
       else {
+        // 後で再度動く中間レイズ (4bet ライン中の 3bet) は最終 invested から実額が取れないが、
+        // 3bet サイズは同 matchup で一定なので 3bet表 から実額を引く。無ければ直前レベルの約3倍で近似。
+        const opener = chain[0] ? chain[0].position : null;
+        const fromTable = opener ? threeBetSizes[`${opener}>${c.position}`] : null;
         const prevAmt = i > 0 ? chain[i - 1].amount ?? OPEN_SIZE : OPEN_SIZE;
-        c.amount = Number((prevAmt * 2.3).toFixed(1));
+        c.amount = fromTable != null ? fromTable : Number((prevAmt * 3).toFixed(1));
       }
     }
   }
@@ -173,6 +200,7 @@ function main() {
   }
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const variants = fs.readdirSync(DATA_ROOT).filter((d) => fs.statSync(path.join(DATA_ROOT, d)).isDirectory());
+  const threeBetSizes = buildThreeBetSizes(variants); // 4bet ライン中の 3bet 実額参照用
 
   const cb = { SRP: [], '3bet': [], '4bet5bet': [] }; // CB問題 (ポット別, 複数選択)
   const preflop = {};
@@ -182,7 +210,7 @@ function main() {
     if (!cls) continue;
     const { pot, potCat, aggressor, defender } = cls;
     const { oop, aggressorRole } = roles(aggressor, defender);
-    preflop[variant] = buildPreflopSeq(variant, loadNode(variant, 'flop_root.json'));
+    preflop[variant] = buildPreflopSeq(variant, loadNode(variant, 'flop_root.json'), threeBetSizes);
 
     // CB問題: 全ポット。アグレッサーの c-bet ノード。hero=アグレッサー / villain=ディフェンダー。
     //   アグレッサー OOP→flop_root / IP→flop_<oop>_x (OOP チェック後の局面)。

@@ -18,6 +18,9 @@ import {
 } from '../../data/training/actionHistory';
 import { PokerTable } from './PokerTable';
 
+// 最後のアクションを見せてから onAnimationDone する保持時間 (closing call が一瞬で消えるのを防ぐ)。
+const LAST_ACTION_HOLD_MS = 450;
+
 export interface ActionTableProps {
   /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null/未指定なら空テーブル (items 指定時は不要)。 */
   file?: string | null;
@@ -113,7 +116,11 @@ export function ActionTable({
     let timer = 0;
     const scheduleNext = () => {
       if (i >= items.length) {
-        doneRef.current?.();
+        // 最後のアクション (クロージングの call 等) を一拍見せてから完了通知する
+        // (即 done だと flop へ切り替わり call が描画されない)。
+        timer = window.setTimeout(() => {
+          if (!cancelled) doneRef.current?.();
+        }, LAST_ACTION_HOLD_MS);
         return;
       }
       const delay = getActionDelay(items[i].kind);
