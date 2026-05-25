@@ -58,6 +58,27 @@ describe('中級レンジベット 出題生成', () => {
     }
   });
 
+  it('似たボードは設問と酷似しない (同ランク多重集合・1枚違いを除外)', () => {
+    for (let s = 0; s < 20; s++) {
+      for (const q of buildFlopRbQuestions(DATA)) {
+        const qr = q.board.map((c) => c.rank);
+        for (const sim of q.similar) {
+          const sr = sim.board.map((c) => c.rank);
+          const shared = [...new Set(qr)].filter((r) => sr.includes(r)).length;
+          expect(shared).toBeLessThan(2); // ランク2枚以上共有 = ほぼ同じボード → 出さない
+        }
+      }
+    }
+  });
+
+  it('オーバーベット(125>=20%)局面が一定数出題される (学習機会の確保)', () => {
+    for (let s = 0; s < 20; s++) {
+      const qs = buildFlopRbQuestions(DATA);
+      const ob = qs.filter((q) => (q.strat['125'] ?? 0) >= 0.2).length;
+      expect(ob).toBeGreaterThanOrEqual(5);
+    }
+  });
+
   it('支配サイズが偏らない (毎回33%回避: 1セッション内で2種以上)', () => {
     for (let s = 0; s < 20; s++) {
       const doms = new Set(buildFlopRbQuestions(DATA).map((q) => dominant(q.strat)));

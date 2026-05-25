@@ -234,6 +234,57 @@ function stratDistance(a: FlopCbStrat, b: FlopCbStrat, choices: ReadonlyArray<st
   return d;
 }
 
+// --- ボードのテクスチャ (見た目) 特徴。似たボードを「見た目は多様」に選ぶための軸。 ---
+const RANK_ORDER = '23456789TJQKA';
+
+interface Texture {
+  rankKey: string; // ランク多重集合 (スート無視)。完全一致=スート違いだけ
+  ranks: number[]; // 3枚のランク値
+  pairing: string; // trips / paired / unpaired
+  suit: string; // mono / twotone / rainbow
+  high: string; // A / broadway / mid / low (最高位カード帯)
+  span: string; // paired / connected / gappy / wide (繋がり具合)
+}
+
+function textureOf(board: string): Texture {
+  const ranks = [RANK_ORDER.indexOf(board[0]), RANK_ORDER.indexOf(board[2]), RANK_ORDER.indexOf(board[4])];
+  const suits = [board[1], board[3], board[5]];
+  const sorted = [...ranks].sort((a, b) => a - b);
+  const nRank = new Set(ranks).size;
+  const nSuit = new Set(suits).size;
+  const top = Math.max(...ranks);
+  const pairing = nRank === 1 ? 'trips' : nRank === 2 ? 'paired' : 'unpaired';
+  const suit = nSuit === 1 ? 'mono' : nSuit === 2 ? 'twotone' : 'rainbow';
+  const high = top === 12 ? 'A' : top >= 8 ? 'broadway' : top >= 4 ? 'mid' : 'low';
+  const spanV = sorted[2] - sorted[0];
+  const span = pairing !== 'unpaired' ? 'paired' : spanV <= 4 ? 'connected' : spanV <= 8 ? 'gappy' : 'wide';
+  return { rankKey: sorted.join(','), ranks, pairing, suit, high, span };
+}
+
+/** カテゴリ特徴の相違数 (大きいほど見た目が違う)。 */
+function textureDistance(a: Texture, b: Texture): number {
+  return (
+    (a.pairing !== b.pairing ? 1 : 0) +
+    (a.suit !== b.suit ? 1 : 0) +
+    (a.high !== b.high ? 1 : 0) +
+    (a.span !== b.span ? 1 : 0)
+  );
+}
+
+/** 共有するランク数 (2以上 = ほぼ同じボード)。 */
+function rankOverlap(a: Texture, b: Texture): number {
+  const sb = new Set(b.ranks);
+  const counted = new Set<number>();
+  let n = 0;
+  for (const r of a.ranks) if (sb.has(r) && !counted.has(r)) { counted.add(r); n++; }
+  return n;
+}
+
+/** 酷似ボード判定: ランク多重集合が同じ (スート違いだけ) / 2枚以上ランク共有 (1枚違い)。 */
+function isNearDup(a: Texture, b: Texture): boolean {
+  return a.rankKey === b.rankKey || rankOverlap(a, b) >= 2;
+}
+
 /**
  * 支配サイズが偏らないよう、pool を支配バケット別にグループ化してラウンドロビンで count 件抽選。
  * 「毎回33%」のような偏りを避ける。variant:board 重複は seen で防ぐ。
@@ -267,21 +318,63 @@ function sampleVaried(pool: ReadonlyArray<CbBoard>, count: number, seen: Set<str
   return out;
 }
 
-/** target に正解サイズ構成が近いボードを pool から k 件 (自身は除く)。 */
+// 「サイズ構成が近い」上位プール幅。この中からテクスチャを散らして選ぶ。
+const SIMILAR_BAND = 120;
+
+/**
+ * target に「打ち方 (サイズ構成) は近いが見た目は異なる」ボードを k 件選ぶ。
+ *   1. サイズ構成 (strat) が近い上位 SIMILAR_BAND 件を母集団に (= 同じ打ち方)。
+ *   2. その中からテクスチャの最遠点サンプリングで見た目が散らばるよう貪欲選抜。
+ * 酷似ボード (同ランク・1枚違い) は除外し、「違う見た目でも同じ打ち方」を見せる。
+ */
 function findSimilar(
   pool: ReadonlyArray<CbBoard>,
   target: CbBoard,
   choices: ReadonlyArray<string>,
   k: number,
 ): SimilarBoard[] {
-  const scored: { b: CbBoard; d: number }[] = [];
-  for (const b of pool) {
-    if (b.variant === target.variant && b.board === target.board) continue;
-    scored.push({ b, d: stratDistance(target.strat, b.strat, choices) });
+  const targetTex = textureOf(target.board);
+  const band = pool
+    .filter((b) => !(b.variant === target.variant && b.board === target.board))
+    .map((b) => ({ b, d: stratDistance(target.strat, b.strat, choices), tex: textureOf(b.board) }))
+    .filter((x) => !isNearDup(x.tex, targetTex))
+    .sort((x, y) => x.d - y.d)
+    .slice(0, SIMILAR_BAND);
+
+  const picked: typeof band = [];
+  const refs: Texture[] = [targetTex];
+  const remaining = [...band];
+  while (picked.length < k && remaining.length > 0) {
+    let bestIdx = -1;
+    let bestDiv = -Infinity;
+    let bestStrat = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const t = remaining[i].tex;
+      if (refs.some((r) => isNearDup(t, r))) continue; // 既選択とも酷似は避ける
+      const minDiv = Math.min(...refs.map((r) => textureDistance(t, r))); // 既選択群から最も近い見た目差
+      if (minDiv > bestDiv || (minDiv === bestDiv && remaining[i].d < bestStrat)) {
+        bestDiv = minDiv;
+        bestStrat = remaining[i].d;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0) break; // 残りが全て既選択と酷似
+    const [chosen] = remaining.splice(bestIdx, 1);
+    picked.push(chosen);
+    refs.push(chosen.tex);
   }
-  scored.sort((x, y) => x.d - y.d);
-  return scored.slice(0, k).map(({ b }) => ({ board: parseBoard(b.board), pot: b.pot, strat: b.strat }));
+  // 不足時 (プールが小さい場合のみ) は strat 近い順で補完。
+  for (const x of remaining) {
+    if (picked.length >= k) break;
+    picked.push(x);
+  }
+  return picked.slice(0, k).map(({ b }) => ({ board: parseBoard(b.board), pot: b.pot, strat: b.strat }));
 }
+
+// オーバーベット(125)が実戦的 (= この頻度以上) とみなす閾値と、各ポットで最低確保する問数。
+// 125 は支配サイズになりにくく通常選抜では surface しづらいため、データのある局面を一定数確保する。
+const OVERBET_MIN = 0.2;
+const OVERBET_TARGET: Record<FlopPotCat, number> = { SRP: 3, '3bet': 1, '4bet5bet': 2 };
 
 /** ロード済みデータから30問を生成 (純粋関数)。SRP15 / 3bet10 / 4bet5bet5、全問 CB。 */
 export function buildFlopRbQuestions(data: FlopRbData): FlopRbQuestion[] {
@@ -293,7 +386,12 @@ export function buildFlopRbQuestions(data: FlopRbData): FlopRbQuestion[] {
 
   for (const { cat, count } of FLOP_RB_DISTRIBUTION) {
     const pool = data.cb?.[cat] ?? [];
-    for (const rec of sampleVaried(pool, count, seen)) {
+    // まずオーバーベット局面を確保 (学習機会の偏り解消)、残りを支配サイズ多様で埋める。
+    const obTarget = Math.min(OVERBET_TARGET[cat], count);
+    const obPool = pool.filter((b) => (b.strat['125'] ?? 0) >= OVERBET_MIN);
+    const picks = sampleVaried(obPool, obTarget, seen);
+    picks.push(...sampleVaried(pool, count - picks.length, seen));
+    for (const rec of picks) {
       id += 1;
       out.push({
         id,
