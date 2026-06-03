@@ -5,7 +5,7 @@ import { useAuth } from './hooks/useAuth';
 import { useIdleLogout } from './hooks/useIdleLogout';
 import { usePendingResultsFlush } from './hooks/usePendingResultsFlush';
 import { navigate, useRoute } from './router/router-core';
-import { TRAINING_CATALOG, isPlayable, type TrainingLevel } from './data/trainingCatalog';
+import { isPlayable } from './data/trainingCatalog';
 import { AccountPage } from './components/AccountPage';
 import { AchievementTierPage } from './components/AchievementTierPage';
 import type { TierId } from './data/achievements';
@@ -39,34 +39,7 @@ import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingRules } from './components/training/TrainingRules';
 
-const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
-
-type TrainingMatch =
-  | { level: TrainingLevel; screen: 'confirm' | 'play' | 'result' | 'rules' }
-  | { level: TrainingLevel; screen: 'review'; index: number };
-
-function matchTrainingRoute(path: string): TrainingMatch | null {
-  // /training/<slug>/review/<n>
-  const review = path.match(/^\/training\/([a-z_-]+)\/review\/(\d+)\/?$/);
-  if (review) {
-    const slug = review[1];
-    const index = Number(review[2]);
-    if (!Number.isFinite(index) || index < 1) return null;
-    const key = slug.replace(/-/g, '_');
-    const level = TRAINING_LEVELS_FLAT.find((lv) => lv.key === key);
-    if (!level) return null;
-    return { level, screen: 'review', index };
-  }
-  // /training/<slug>/<screen>
-  const m = path.match(/^\/training\/([a-z_-]+)\/(confirm|play|result|rules)\/?$/);
-  if (!m) return null;
-  const slug = m[1];
-  const screen = m[2] as 'confirm' | 'play' | 'result' | 'rules';
-  const key = slug.replace(/-/g, '_');
-  const level = TRAINING_LEVELS_FLAT.find((lv) => lv.key === key);
-  if (!level) return null;
-  return { level, screen };
-}
+import { matchTrainingRoute } from './router/trainingRoute';
 
 export default function App() {
   const path = useRoute();
