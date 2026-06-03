@@ -18,6 +18,8 @@ import type { ActionItem } from './actionHistory';
 export type FlopRbPot = 'SRP' | '3bet' | '4bet' | '5bet';
 /** 出題プールのカテゴリ (4bet+5bet は統合)。 */
 export type FlopPotCat = 'SRP' | '3bet' | '4bet5bet';
+/** 設問の種類。cb=アグレッサーのCB / donk=OOPリード / bmcb=相手チェック後IPスタブ。 */
+export type FlopCbKind = 'cb' | 'donk' | 'bmcb';
 
 /** バケット別頻度 (0..1)。キー = CB 選択肢ラベル (check / 各サイズ)。 */
 export type FlopCbStrat = Record<string, number>;
@@ -29,6 +31,7 @@ interface CbBoard {
   pot: FlopRbPot;
   board: string;
   strat: FlopCbStrat;
+  kind?: FlopCbKind;
 }
 
 export interface FlopRbData {
@@ -37,14 +40,27 @@ export interface FlopRbData {
   cb_choices_by_pot?: Record<string, string[]>;
   preflop: Record<string, ActionItem[]>;
   cb: Record<FlopPotCat, CbBoard[]>;
+  /** ドンク問題 (OOP ディフェンダーが先にリード)。 */
+  donk?: CbBoard[];
+  /** BMCB問題 (アグレッサーがチェック後、IP ディフェンダーがスタブ)。 */
+  bmcb?: CbBoard[];
 }
 
-/** 出題モード。CB SRP / CB 3BP・4BP・5BP。 */
-export type FlopRbMode = 'srp' | '3bp';
+/** 出題モード。CB SRP / CB 3BP・4BP・5BP / ドンク・BMCB。 */
+export type FlopRbMode = 'srp' | '3bp' | 'donkbmcb';
 
 /** level.key → 出題モード。 */
 export function flopRbModeOf(levelKey: string): FlopRbMode {
-  return levelKey === 'flop_cb_srp' ? 'srp' : '3bp';
+  if (levelKey === 'flop_cb_srp') return 'srp';
+  if (levelKey === 'flop_donk_bmcb') return 'donkbmcb';
+  return '3bp';
+}
+
+/** 設問種類ごとの出題プロンプト。 */
+export function flopRbPrompt(kind: FlopCbKind): string {
+  if (kind === 'donk') return 'ドンクする?(複数選択可)';
+  if (kind === 'bmcb') return 'ベットする?(相手チェック・複数選択可)';
+  return 'CBをどう打つ?(複数選択可)';
 }
 
 /** 似たサイズ構成のボード (即時FB/答え合わせで紹介)。 */
@@ -58,6 +74,7 @@ export interface SimilarBoard {
 export interface FlopRbQuestion {
   id: number;
   pot: FlopRbPot;
+  kind: FlopCbKind;
   variant: string;
   hero: Position;
   villain: Position;
@@ -81,11 +98,16 @@ export type FlopRbRecord = FlopRbQuestion & {
 
 export const FLOP_RB_POINTS_PER_Q = 2;
 
-/** 1 出題セグメント。pool = data.cb のカテゴリ、pot 指定時はその実ポットだけに絞る。 */
+/** 1 出題セグメント。source でプール元 (cb/donk/bmcb) を選ぶ。 */
 interface FlopRbSegment {
-  cat: FlopPotCat;
-  /** pool 内をさらに実ポットで絞る (4bet5bet を 4bet/5bet に分ける用)。 */
+  source: 'cb' | 'donk' | 'bmcb';
+  kind: FlopCbKind;
+  /** source=cb のときのプールキー。 */
+  cat?: FlopPotCat;
+  /** cb プール内をさらに実ポットで絞る (4bet5bet を 4bet/5bet に分ける用)。 */
   pot?: FlopRbPot;
+  /** donk/bmcb で出題対象とする実ポット。 */
+  pots?: ReadonlyArray<FlopRbPot>;
   count: number;
   /** 先に確保する「オーバーベット/オールイン主体」ボード数。 */
   overbet: number;
@@ -93,13 +115,19 @@ interface FlopRbSegment {
   check: number;
 }
 
-/** モード別の出題内訳 (各合計30)。3bp は 3bet:4bet:5bet = 21:6:3 (= 7:2:1)。 */
+/** モード別の出題内訳 (各合計30)。 */
 export const FLOP_RB_MODE_SEGMENTS: Record<FlopRbMode, ReadonlyArray<FlopRbSegment>> = {
-  srp: [{ cat: 'SRP', count: 30, overbet: 6, check: 8 }],
+  srp: [{ source: 'cb', kind: 'cb', cat: 'SRP', count: 30, overbet: 6, check: 8 }],
+  // 3bet:4bet:5bet = 21:6:3 (= 7:2:1)。
   '3bp': [
-    { cat: '3bet', count: 21, overbet: 3, check: 7 },
-    { cat: '4bet5bet', pot: '4bet', count: 6, overbet: 2, check: 1 },
-    { cat: '4bet5bet', pot: '5bet', count: 3, overbet: 1, check: 0 },
+    { source: 'cb', kind: 'cb', cat: '3bet', count: 21, overbet: 3, check: 7 },
+    { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '4bet', count: 6, overbet: 2, check: 1 },
+    { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '5bet', count: 3, overbet: 1, check: 0 },
+  ],
+  // ドンク 15 / BMCB 15 (= 5:5)。SRP+3bet ポットから出題。
+  donkbmcb: [
+    { source: 'donk', kind: 'donk', pots: ['SRP', '3bet'], count: 15, overbet: 2, check: 6 },
+    { source: 'bmcb', kind: 'bmcb', pots: ['SRP', '3bet'], count: 15, overbet: 2, check: 6 },
   ],
 };
 
@@ -413,6 +441,17 @@ function bigSizeFreq(strat: FlopCbStrat): number {
   return Math.max(strat['125'] ?? 0, strat.ALLIN ?? 0);
 }
 
+/** セグメントの母集団プールを取得。 */
+function poolForSegment(data: FlopRbData, seg: FlopRbSegment): CbBoard[] {
+  if (seg.source === 'cb') {
+    let pool = data.cb?.[seg.cat ?? 'SRP'] ?? [];
+    if (seg.pot) pool = pool.filter((b) => b.pot === seg.pot);
+    return pool;
+  }
+  const pool = (seg.source === 'donk' ? data.donk : data.bmcb) ?? [];
+  return seg.pots ? pool.filter((b) => seg.pots!.includes(b.pot)) : pool;
+}
+
 /** ロード済みデータから 1 モード分 (30問) を生成 (純粋関数)。 */
 export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp'): FlopRbQuestion[] {
   const out: FlopRbQuestion[] = [];
@@ -424,8 +463,7 @@ export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp')
   let id = 0;
 
   for (const seg of FLOP_RB_MODE_SEGMENTS[mode]) {
-    let pool = data.cb?.[seg.cat] ?? [];
-    if (seg.pot) pool = pool.filter((b) => b.pot === seg.pot);
+    const pool = poolForSegment(data, seg);
     // オーバーベット/オールイン → チェック主体 の順で確保し、残りを支配サイズ多様で埋める。
     const picks: CbBoard[] = [];
     picks.push(
@@ -441,6 +479,7 @@ export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp')
       out.push({
         id,
         pot: rec.pot,
+        kind: seg.kind,
         variant: rec.variant,
         hero: rec.hero as Position,
         villain: rec.villain as Position,
@@ -460,10 +499,11 @@ export async function generateFlopRbQuestions(mode: FlopRbMode = 'srp'): Promise
   return buildFlopRbQuestions(await loadFlopRbData(), mode);
 }
 
-/** シナリオラベル: 「{srp|3bp|4bp|5bp} {ヒーロー} vs {相手}」。 */
-export function flopRbScenarioLabel(q: { pot: FlopRbPot; hero: Position; villain: Position }): string {
+/** シナリオラベル: 「[donk|bmcb ]{srp|3bp|4bp|5bp} {ヒーロー} vs {相手}」。 */
+export function flopRbScenarioLabel(q: { pot: FlopRbPot; hero: Position; villain: Position; kind?: FlopCbKind }): string {
   const tag = q.pot === 'SRP' ? 'srp' : q.pot === '3bet' ? '3bp' : q.pot === '4bet' ? '4bp' : '5bp';
-  return `${tag} ${q.hero} vs ${q.villain}`;
+  const prefix = q.kind === 'donk' ? 'donk ' : q.kind === 'bmcb' ? 'bmcb ' : '';
+  return `${prefix}${tag} ${q.hero} vs ${q.villain}`;
 }
 
 /** テスト用: キャッシュ注入 / クリア。 */

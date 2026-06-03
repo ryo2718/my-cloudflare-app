@@ -8,6 +8,7 @@ import { navigate } from '../../router/router-core';
 import {
   generateFlopRbQuestions,
   flopRbModeOf,
+  flopRbPrompt,
   scoreFlopRb,
   flopRbScenarioLabel,
   FLOP_RB_MAX_SCORE,
@@ -202,7 +203,7 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
               order={FLOP_CB_ORDER}
               resolveColor={flopCbColor}
               showColorChip
-              prompt="CBをどう打つ?(複数選択可)"
+              prompt={flopRbPrompt(q.kind)}
               onSubmit={(selections) => handleAnswer({ kind: 'select', selections: [...selections] })}
             />
           ))}

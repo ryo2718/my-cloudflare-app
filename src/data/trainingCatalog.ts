@@ -55,6 +55,8 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       //   CB 3BP/4BP/5BP: 3bet21 / 4bet6 / 5bet3 (= 7:2:1)。
       { key: 'flop_cb_srp', label: 'CB SRP',          points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_cb_3bp', label: 'CB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      // ドンク/BMCB: ドンク15 (OOPリード) + BMCB15 (相手チェック後IPスタブ)。SRP+3bet。
+      { key: 'flop_donk_bmcb', label: 'ドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -78,8 +80,8 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
   }
-  // フロップ CB (レンジベット) は満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
-  if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp') {
+  // フロップ CB/ドンクBMCB は満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
+  if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
     const qc = level.questionCount ?? 30;
     return `${qc}問・最大 ${qc * 2}pt・制限時間なし`;
   }
@@ -113,7 +115,12 @@ export function formatLevelInfo(level: TrainingLevel): string {
  */
 export function maxScoreFor(level: TrainingLevel): number {
   if (level.questionCount === null) return 0;
-  if (level.key === 'preflop_intermediate' || level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp')
+  if (
+    level.key === 'preflop_intermediate' ||
+    level.key === 'flop_cb_srp' ||
+    level.key === 'flop_cb_3bp' ||
+    level.key === 'flop_donk_bmcb'
+  )
     return level.questionCount * 2;
   return level.questionCount;
 }

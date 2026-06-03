@@ -203,9 +203,9 @@ function buildPreflopSeq(variant, node, threeBetSizes = {}) {
  * バケットだけ採用 (check は常に含む)。例: 4bet は 125 が実在しない→[check,33,50,75,ALLIN]、
  * 5bet は 75/125 も無い→[check,33,50,ALLIN]。SRP/3bet は 125 オーバーベットが実在。
  */
-function computeChoicesByPot(cb) {
+function computeChoicesByPot(pools) {
   const present = {};
-  for (const pool of Object.values(cb)) {
+  for (const pool of pools) {
     for (const b of pool) {
       const set = present[b.pot] ?? (present[b.pot] = new Set());
       for (const [k, v] of Object.entries(b.strat)) if (v >= CHOICE_MIN) set.add(k);
@@ -230,7 +230,23 @@ function main() {
   const threeBetSizes = buildThreeBetSizes(variants); // 4bet ライン中の 3bet 実額参照用
 
   const cb = { SRP: [], '3bet': [], '4bet5bet': [] }; // CB問題 (ポット別, 複数選択)
+  const donk = []; // ドンク (OOP ディフェンダーが flop_root で先にリード)
+  const bmcb = []; // BMCB (アグレッサーがチェック後、IP ディフェンダーがスタブ)
   const preflop = {};
+
+  // ノードの混合戦略ボードを out に収集 (kind/hero/villain を付与)。
+  const collectBoards = (out, node, meta) => {
+    if (!node) return;
+    const flopPot = node.game_point?.game?.pot ?? 0;
+    let added = 0;
+    for (const s of node.solutions) {
+      if (added >= PER_VARIANT_CAP) break;
+      const strat = bucketize(s.action_solutions, flopPot);
+      if (!isMixed(strat)) continue;
+      out.push({ variant: meta.variant, hero: meta.hero, villain: meta.villain, pot: meta.pot, kind: meta.kind, board: s.name, strat });
+      added++;
+    }
+  };
 
   for (const variant of variants) {
     const cls = classify(variant);
@@ -244,36 +260,41 @@ function main() {
     const pool = cb[potCat];
     if (pool) {
       const cbFile = aggressorRole === 'OOP' ? 'flop_root.json' : `flop_${oop.toLowerCase()}_x.json`;
-      const node = loadNode(variant, cbFile);
-      if (node) {
-        const flopPot = node.game_point?.game?.pot ?? 0;
-        let added = 0; // この variant からの収録数 (matchup ごとに上限 → 全 matchup を均等収録)
-        for (const s of node.solutions) {
-          if (added >= PER_VARIANT_CAP) break;
-          const strat = bucketize(s.action_solutions, flopPot);
-          if (!isMixed(strat)) continue; // 中級: 混合戦略ボードのみ
-          pool.push({ variant, hero: aggressor, villain: defender, pot, board: s.name, strat });
-          added++;
-        }
-      }
+      collectBoards(pool, loadNode(variant, cbFile), { variant, hero: aggressor, villain: defender, pot, kind: 'cb' });
+    }
+
+    // ドンク: アグレッサーが IP のとき、OOP ディフェンダーが flop_root で先にリードする局面。
+    //   hero=ディフェンダー(OOP) / villain=アグレッサー(IP)。
+    if (aggressorRole === 'IP') {
+      collectBoards(donk, loadNode(variant, 'flop_root.json'), { variant, hero: defender, villain: aggressor, pot, kind: 'donk' });
+    }
+    // BMCB: アグレッサーが OOP でチェック (flop_<oop>_x) → IP ディフェンダーがスタブする局面。
+    //   hero=ディフェンダー(IP) / villain=アグレッサー(OOP, チェック済)。
+    if (aggressorRole === 'OOP') {
+      collectBoards(bmcb, loadNode(variant, `flop_${oop.toLowerCase()}_x.json`), { variant, hero: defender, villain: aggressor, pot, kind: 'bmcb' });
     }
   }
 
-  const cbChoicesByPot = computeChoicesByPot(cb);
+  const cbChoicesByPot = computeChoicesByPot([...Object.values(cb), donk, bmcb]);
 
   const out = {
     config: CONFIG,
     generated_at: new Date().toISOString(),
-    note: 'Flop range-bet. cb = aggressor c-bet size mix by pot (multi-select). RAI=ALLIN.',
+    note: 'Flop range-bet. cb=aggressor c-bet, donk=OOP lead, bmcb=IP stab vs missed c-bet. RAI=ALLIN.',
     cb_choices: CB_CHOICES,
     cb_choices_by_pot: cbChoicesByPot,
     preflop,
     cb,
+    donk,
+    bmcb,
   };
   fs.writeFileSync(OUT_FILE, JSON.stringify(out));
+  const byPot = (arr) => ['SRP', '3bet', '4bet', '5bet'].map((p) => `${p}:${arr.filter((b) => b.pot === p).length}`).join(' ');
   console.log('CB SRP      :', cb.SRP.length);
   console.log('CB 3bet     :', cb['3bet'].length);
   console.log('CB 4bet5bet :', cb['4bet5bet'].length, '(4bet/5bet)');
+  console.log('DONK        :', donk.length, '(', byPot(donk), ')');
+  console.log('BMCB        :', bmcb.length, '(', byPot(bmcb), ')');
   console.log('choices/pot :', JSON.stringify(cbChoicesByPot));
   console.log(`Wrote ${path.relative(process.cwd(), OUT_FILE)} (${(fs.statSync(OUT_FILE).size / 1024).toFixed(1)}KB)`);
 }

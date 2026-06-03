@@ -90,8 +90,34 @@ describe('CB 3BP/4BP/5BP (flop_cb_3bp) 出題生成', () => {
   });
 });
 
-describe('共通 出題性質 (両モード)', () => {
-  for (const mode of ['srp', '3bp'] as const) {
+describe('ドンク/BMCB (flop_donk_bmcb) 出題生成', () => {
+  it('全30問・ドンク15 / BMCB15 (50セッション安定)', () => {
+    for (let s = 0; s < 50; s++) {
+      const qs = buildFlopRbQuestions(DATA, 'donkbmcb');
+      expect(qs.length).toBe(FLOP_RB_COUNT);
+      expect(qs.filter((q) => q.kind === 'donk').length).toBe(15);
+      expect(qs.filter((q) => q.kind === 'bmcb').length).toBe(15);
+    }
+  });
+
+  it('SRP/3bet ポットのみ (4bet/5bet を含まない)', () => {
+    for (const q of buildFlopRbQuestions(DATA, 'donkbmcb')) {
+      expect(['SRP', '3bet']).toContain(q.pot);
+      expect(q.similar.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('kind に応じてシナリオラベルが prefix される', () => {
+    for (const q of buildFlopRbQuestions(DATA, 'donkbmcb')) {
+      const label = flopRbScenarioLabel(q);
+      if (q.kind === 'donk') expect(label.startsWith('donk ')).toBe(true);
+      if (q.kind === 'bmcb') expect(label.startsWith('bmcb ')).toBe(true);
+    }
+  });
+});
+
+describe('共通 出題性質 (全モード)', () => {
+  for (const mode of ['srp', '3bp', 'donkbmcb'] as const) {
     it(`[${mode}] 似たボードは設問と酷似しない (同ランク多重集合・1枚違いを除外)`, () => {
       for (let s = 0; s < 20; s++) {
         for (const q of buildFlopRbQuestions(DATA, mode)) {
@@ -166,7 +192,7 @@ describe('CB問題 複数選択採点 (scoreFlopCb)', () => {
 
 describe('scoreFlopRb (CB=複数選択)', () => {
   const cbQ: FlopRbQuestion = {
-    id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
+    id: 1, pot: 'SRP', kind: 'cb', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
     board: board(), choices: ['check', '33', '50', '75', '125'],
     strat: { check: 0.1, '33': 0.6, '50': 0.3 }, preflopActions: [], similar: [],
   };

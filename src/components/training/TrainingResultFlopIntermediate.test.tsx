@@ -26,7 +26,7 @@ const board = (): FlopRbRecord['board'] => [
 
 function cbRec(recordId: number, finalScore: number): FlopRbRecord {
   return {
-    id: recordId, recordId, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
+    id: recordId, recordId, pot: 'SRP', kind: 'cb', variant: 'cor_btnc', hero: 'CO', villain: 'BTN',
     board: board(), choices: ['check', '33', '50', '75', '125'],
     strat: { check: 0.4, '33': 0.4, '50': 0.2, '75': 0, '125': 0 },
     preflopActions: [],

@@ -14,13 +14,14 @@ describe('TRAINING_CATALOG', () => {
     expect(TRAINING_CATALOG.map((c) => c.key)).toEqual(['preflop', 'flop']);
   });
 
-  it('preflop 7 レベル, flop 5 レベル (初級/CB SRP/CB 3BP4BP5BP/上級/超上級)', () => {
+  it('preflop 7 レベル, flop 6 レベル (初級/CB SRP/CB 3BP4BP5BP/ドンクBMCB/上級/超上級)', () => {
     expect(TRAINING_CATALOG[0].levels).toHaveLength(7);
-    expect(TRAINING_CATALOG[1].levels).toHaveLength(5);
+    expect(TRAINING_CATALOG[1].levels).toHaveLength(6);
     expect(TRAINING_CATALOG[1].levels.map((l) => l.key)).toEqual([
       'flop_beginner',
       'flop_cb_srp',
       'flop_cb_3bp',
+      'flop_donk_bmcb',
       'flop_advanced',
       'flop_expert',
     ]);
@@ -76,14 +77,16 @@ describe('TRAINING_CATALOG', () => {
     expect(TRAINING_CATALOG[1].levels[0].implemented).toBe(true);  // フロップ初級
     expect(TRAINING_CATALOG[1].levels[1].implemented).toBe(true);  // CB SRP
     expect(TRAINING_CATALOG[1].levels[2].implemented).toBe(true);  // CB 3BP/4BP/5BP
-    expect(TRAINING_CATALOG[1].levels.slice(3).every((l) => l.implemented === false)).toBe(true);
+    expect(TRAINING_CATALOG[1].levels[3].implemented).toBe(true);  // ドンク/BMCB
+    expect(TRAINING_CATALOG[1].levels.slice(4).every((l) => l.implemented === false)).toBe(true);
   });
 
-  it('flop: 初級20問 / CB SRP・CB 3BP は各30問、上級以降は questionCount=null', () => {
+  it('flop: 初級20問 / CB SRP・CB 3BP・ドンクBMCB は各30問、上級以降は questionCount=null', () => {
     expect(TRAINING_CATALOG[1].levels[0].questionCount).toBe(20); // 初級
     expect(TRAINING_CATALOG[1].levels[1].questionCount).toBe(30); // CB SRP
     expect(TRAINING_CATALOG[1].levels[2].questionCount).toBe(30); // CB 3BP/4BP/5BP
-    expect(TRAINING_CATALOG[1].levels.slice(3).every((l) => l.questionCount === null)).toBe(true);
+    expect(TRAINING_CATALOG[1].levels[3].questionCount).toBe(30); // ドンク/BMCB
+    expect(TRAINING_CATALOG[1].levels.slice(4).every((l) => l.questionCount === null)).toBe(true);
   });
 });
 
@@ -95,7 +98,7 @@ describe('helpers', () => {
     expect(isPlanned(TRAINING_CATALOG[0].levels[5])).toBe(false); // 上級 (未計画)
     expect(isPlanned(TRAINING_CATALOG[1].levels[0])).toBe(true);  // フロップ初級 (計画済)
     expect(isPlanned(TRAINING_CATALOG[1].levels[1])).toBe(true);  // CB SRP (計画済)
-    expect(isPlanned(TRAINING_CATALOG[1].levels[3])).toBe(false); // フロップ上級 (未計画)
+    expect(isPlanned(TRAINING_CATALOG[1].levels[4])).toBe(false); // フロップ上級 (未計画)
   });
 
   it('isPlayable: implemented=true かつ pt/問数あり', () => {
@@ -105,7 +108,7 @@ describe('helpers', () => {
     expect(isPlayable(TRAINING_CATALOG[0].levels[5])).toBe(false); // 上級 (未実装)
     expect(isPlayable(TRAINING_CATALOG[1].levels[0])).toBe(true);  // フロップ初級 (実装済)
     expect(isPlayable(TRAINING_CATALOG[1].levels[1])).toBe(true);  // CB SRP (実装済)
-    expect(isPlayable(TRAINING_CATALOG[1].levels[3])).toBe(false); // フロップ上級 (未実装)
+    expect(isPlayable(TRAINING_CATALOG[1].levels[4])).toBe(false); // フロップ上級 (未実装)
   });
 
   it('formatLevelInfo: "1pt × 20問・制限時間なし"', () => {
@@ -116,9 +119,10 @@ describe('helpers', () => {
     expect(formatLevelInfo(TRAINING_CATALOG[0].levels[1])).toBe('20問・最大 40pt・制限時間 20s');
   });
 
-  it('formatLevelInfo: フロップ CB SRP/CB 3BP は "30問・最大 60pt・制限時間なし"', () => {
+  it('formatLevelInfo: フロップ CB SRP/CB 3BP/ドンクBMCB は "30問・最大 60pt・制限時間なし"', () => {
     expect(formatLevelInfo(TRAINING_CATALOG[1].levels[1])).toBe('30問・最大 60pt・制限時間なし');
     expect(formatLevelInfo(TRAINING_CATALOG[1].levels[2])).toBe('30問・最大 60pt・制限時間なし');
+    expect(formatLevelInfo(TRAINING_CATALOG[1].levels[3])).toBe('30問・最大 60pt・制限時間なし');
   });
 
   it('trainingPath: snake_case → kebab-case slug', () => {
@@ -140,13 +144,14 @@ describe('maxScoreFor', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[3])).toBe(20); // LP
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[4])).toBe(30); // Blind
   });
-  it('フロップ CB SRP/CB 3BP: 60 (questionCount * 2)', () => {
+  it('フロップ CB SRP/CB 3BP/ドンクBMCB: 60 (questionCount * 2)', () => {
     expect(maxScoreFor(TRAINING_CATALOG[1].levels[1])).toBe(60);
     expect(maxScoreFor(TRAINING_CATALOG[1].levels[2])).toBe(60);
+    expect(maxScoreFor(TRAINING_CATALOG[1].levels[3])).toBe(60);
   });
   it('未計画 (questionCount=null) → 0', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[5])).toBe(0); // 上級
-    expect(maxScoreFor(TRAINING_CATALOG[1].levels[3])).toBe(0); // フロップ上級 (未計画)
+    expect(maxScoreFor(TRAINING_CATALOG[1].levels[4])).toBe(0); // フロップ上級 (未計画)
   });
 });
 

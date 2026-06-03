@@ -35,9 +35,9 @@ const board = (): FlopRbQuestion['board'] => [
 
 // 全 CB (SRP と 3bet の2問)。
 const QS: FlopRbQuestion[] = [
-  { id: 1, pot: 'SRP', variant: 'cor_btnc', hero: 'CO', villain: 'BTN', board: board(),
+  { id: 1, pot: 'SRP', kind: 'cb', variant: 'cor_btnc', hero: 'CO', villain: 'BTN', board: board(),
     choices: ['check', '33', '50', '75', '125'], strat: { check: 0.5, '33': 0.5, '50': 0, '75': 0, '125': 0 }, preflopActions: [], similar: [] },
-  { id: 2, pot: '3bet', variant: 'utgr_btnr_utgc', hero: 'UTG', villain: 'BTN', board: board(),
+  { id: 2, pot: '3bet', kind: 'cb', variant: 'utgr_btnr_utgc', hero: 'UTG', villain: 'BTN', board: board(),
     choices: ['check', '33', '50', '75', '125'], strat: { check: 0.2, '33': 0.4, '50': 0.4, '75': 0, '125': 0 }, preflopActions: [], similar: [] },
 ];
 

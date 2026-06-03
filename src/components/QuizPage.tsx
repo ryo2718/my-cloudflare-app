@@ -48,8 +48,8 @@ const TIER_ORDER: ReadonlyArray<TierId> = ['初級', '中級', '上級', '超上
 
 /** level.key → 難易度 tier。 */
 function tierOf(key: string): TierId {
-  // フロップ CB (flop_cb_srp / flop_cb_3bp) は中級枠。
-  if (key.includes('intermediate') || key.startsWith('flop_cb')) return '中級';
+  // フロップ CB / ドンクBMCB (flop_cb_* / flop_donk_bmcb) は中級枠。
+  if (key.includes('intermediate') || key.startsWith('flop_cb') || key === 'flop_donk_bmcb') return '中級';
   if (key.includes('advanced')) return '上級';
   if (key.includes('expert')) return '超上級';
   return '初級';
@@ -59,8 +59,8 @@ export function QuizPage() {
   const auth = useAuth();
   const [instant, setInstant] = useInstantFeedback();
   const [records, setRecords] = useState<TrainingResult[]>([]);
-  // 既定で「プリフロップ 中級」を開いておく。
-  const [openTiers, setOpenTiers] = useState<Set<string>>(() => new Set(['preflop:中級']));
+  // 既定でプリフロップ/フロップの「中級」アコーディオンを開いておく。
+  const [openTiers, setOpenTiers] = useState<Set<string>>(() => new Set(['preflop:中級', 'flop:中級']));
 
   useEffect(() => {
     if (!auth.sessionId) return;
