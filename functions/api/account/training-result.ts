@@ -36,6 +36,9 @@ const TRAINING_TYPES = new Set<string>([
   'flop_beginner',
   'flop_intermediate',
   'flop_intermediate_cb',
+  // CB レンジベット (SRP / 3BP4BP5BP)
+  'flop_cb_srp',
+  'flop_cb_3bp',
   'flop_advanced',
   'flop_expert',
 ]);

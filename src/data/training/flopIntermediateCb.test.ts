@@ -1,4 +1,4 @@
-// フロップ中級レンジベット: 出題生成 (30問: SRP15/3bet10/4bet5bet5・全CB) + CB複数選択採点。
+// フロップ CB レンジベット: 出題生成 (CB SRP=SRP30 / CB 3BP=3bet21,4bet6,5bet3) + CB複数選択採点。
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -33,23 +33,23 @@ function counts(qs: FlopRbQuestion[]) {
     total: qs.length,
     srp: qs.filter((q) => q.pot === 'SRP').length,
     threebet: qs.filter((q) => q.pot === '3bet').length,
-    fourfive: qs.filter((q) => q.pot === '4bet' || q.pot === '5bet').length,
+    fourbet: qs.filter((q) => q.pot === '4bet').length,
+    fivebet: qs.filter((q) => q.pot === '5bet').length,
   };
 }
 
-describe('中級レンジベット 出題生成', () => {
-  it('全30問・SRP15 / 3bet10 / 4bet5bet5 (50セッション安定)', () => {
+describe('CB SRP (flop_cb_srp) 出題生成', () => {
+  it('全30問・全て SRP (50セッション安定)', () => {
     for (let s = 0; s < 50; s++) {
-      const c = counts(buildFlopRbQuestions(DATA));
+      const c = counts(buildFlopRbQuestions(DATA, 'srp'));
       expect(c.total).toBe(FLOP_RB_COUNT);
-      expect(c.srp).toBe(15);
-      expect(c.threebet).toBe(10);
-      expect(c.fourfive).toBe(5);
+      expect(c.srp).toBe(30);
+      expect(c.threebet + c.fourbet + c.fivebet).toBe(0);
     }
   });
 
-  it('全問 CB: 選択肢 check/33/50/75/125・strat・似たボードを持つ', () => {
-    for (const q of buildFlopRbQuestions(DATA)) {
+  it('選択肢は SRP のポット別 (check/33/50/75/125・ALLIN無し)・strat・似たボードを持つ', () => {
+    for (const q of buildFlopRbQuestions(DATA, 'srp')) {
       expect(q.board).toHaveLength(3);
       expect(q.choices).toEqual(['check', '33', '50', '75', '125']);
       expect(Object.keys(q.strat).length).toBeGreaterThan(0);
@@ -57,60 +57,77 @@ describe('中級レンジベット 出題生成', () => {
       for (const sim of q.similar) expect(sim.board).toHaveLength(3);
     }
   });
+});
 
-  it('似たボードは設問と酷似しない (同ランク多重集合・1枚違いを除外)', () => {
-    for (let s = 0; s < 20; s++) {
-      for (const q of buildFlopRbQuestions(DATA)) {
-        const qr = q.board.map((c) => c.rank);
-        for (const sim of q.similar) {
-          const sr = sim.board.map((c) => c.rank);
-          const shared = [...new Set(qr)].filter((r) => sr.includes(r)).length;
-          expect(shared).toBeLessThan(2); // ランク2枚以上共有 = ほぼ同じボード → 出さない
-        }
+describe('CB 3BP/4BP/5BP (flop_cb_3bp) 出題生成', () => {
+  it('全30問・3bet21 / 4bet6 / 5bet3 (= 7:2:1) (50セッション安定)', () => {
+    for (let s = 0; s < 50; s++) {
+      const c = counts(buildFlopRbQuestions(DATA, '3bp'));
+      expect(c.total).toBe(FLOP_RB_COUNT);
+      expect(c.srp).toBe(0);
+      expect(c.threebet).toBe(21);
+      expect(c.fourbet).toBe(6);
+      expect(c.fivebet).toBe(3);
+    }
+  });
+
+  it('ポット別選択肢: 5bet は check/33/50/ALLIN、4bet は 125 を含まない', () => {
+    for (const q of buildFlopRbQuestions(DATA, '3bp')) {
+      if (q.pot === '5bet') expect(q.choices).toEqual(['check', '33', '50', 'ALLIN']);
+      if (q.pot === '4bet') {
+        expect(q.choices).toContain('ALLIN');
+        expect(q.choices).not.toContain('125');
       }
     }
   });
 
-  it('オーバーベット(125>=20%)局面が一定数出題される (学習機会の確保)', () => {
+  it('オールイン主体(ALLIN>=20%)局面が出題される (ショートスタックの学習機会)', () => {
+    let withAllin = 0;
     for (let s = 0; s < 20; s++) {
-      const qs = buildFlopRbQuestions(DATA);
-      const ob = qs.filter((q) => (q.strat['125'] ?? 0) >= 0.2).length;
-      expect(ob).toBeGreaterThanOrEqual(7);
+      withAllin += buildFlopRbQuestions(DATA, '3bp').filter((q) => (q.strat.ALLIN ?? 0) >= 0.2).length;
     }
+    expect(withAllin).toBeGreaterThan(0);
   });
+});
 
-  it('チェック主体(check>=50%)局面が一定数出題される (両極端の確保)', () => {
-    for (let s = 0; s < 20; s++) {
-      const qs = buildFlopRbQuestions(DATA);
-      const chk = qs.filter((q) => (q.strat.check ?? 0) >= 0.5).length;
-      expect(chk).toBeGreaterThanOrEqual(9);
-    }
-  });
+describe('共通 出題性質 (両モード)', () => {
+  for (const mode of ['srp', '3bp'] as const) {
+    it(`[${mode}] 似たボードは設問と酷似しない (同ランク多重集合・1枚違いを除外)`, () => {
+      for (let s = 0; s < 20; s++) {
+        for (const q of buildFlopRbQuestions(DATA, mode)) {
+          const qr = q.board.map((c) => c.rank);
+          for (const sim of q.similar) {
+            const sr = sim.board.map((c) => c.rank);
+            const shared = [...new Set(qr)].filter((r) => sr.includes(r)).length;
+            expect(shared).toBeLessThan(2);
+          }
+        }
+      }
+    });
 
-  it('支配サイズが偏らない (毎回33%回避: 1セッション内で2種以上)', () => {
-    for (let s = 0; s < 20; s++) {
-      const doms = new Set(buildFlopRbQuestions(DATA).map((q) => dominant(q.strat)));
-      expect(doms.size).toBeGreaterThanOrEqual(2);
-    }
-  });
+    it(`[${mode}] 支配サイズが偏らない (1セッション内で2種以上)`, () => {
+      for (let s = 0; s < 20; s++) {
+        const doms = new Set(buildFlopRbQuestions(DATA, mode).map((q) => dominant(q.strat)));
+        expect(doms.size).toBeGreaterThanOrEqual(2);
+      }
+    });
 
-  it('hero ポジションが多様に出題される (UTG/HJ も含む・1強にならない)', () => {
-    const heroes = new Map<string, number>();
-    for (let s = 0; s < 30; s++) {
-      for (const q of buildFlopRbQuestions(DATA)) heroes.set(q.hero, (heroes.get(q.hero) ?? 0) + 1);
-    }
-    expect(heroes.get('UTG') ?? 0).toBeGreaterThan(0);
-    expect(heroes.get('HJ') ?? 0).toBeGreaterThan(0);
-    const total = [...heroes.values()].reduce((a, b) => a + b, 0);
-    const max = Math.max(...heroes.values());
-    expect(max / total).toBeLessThan(0.6); // 1ポジションに偏りすぎない
-  });
+    it(`[${mode}] hero ポジションが多様 (1強にならない)`, () => {
+      const heroes = new Map<string, number>();
+      for (let s = 0; s < 30; s++) {
+        for (const q of buildFlopRbQuestions(DATA, mode)) heroes.set(q.hero, (heroes.get(q.hero) ?? 0) + 1);
+      }
+      const total = [...heroes.values()].reduce((a, b) => a + b, 0);
+      const max = Math.max(...heroes.values());
+      expect(max / total).toBeLessThan(0.6);
+    });
 
-  it('同一 variant:board は重複しない', () => {
-    const qs = buildFlopRbQuestions(DATA);
-    const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
-    expect(new Set(keys).size).toBe(qs.length);
-  });
+    it(`[${mode}] 同一 variant:board は重複しない`, () => {
+      const qs = buildFlopRbQuestions(DATA, mode);
+      const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
+      expect(new Set(keys).size).toBe(qs.length);
+    });
+  }
 
   it('満点/クリア定数 (30問×2pt=60、クリア=54)', () => {
     expect(FLOP_RB_COUNT).toBe(30);
@@ -120,11 +137,11 @@ describe('中級レンジベット 出題生成', () => {
 });
 
 describe('flopCbBucket (サイズ丸め)', () => {
-  it('33/50/75/125 最近傍、allin→125', () => {
+  it('33/50/75/125 最近傍、allin→ALLIN', () => {
     expect(flopCbBucket(33)).toBe('33');
     expect(flopCbBucket(75)).toBe('75');
     expect(flopCbBucket(60)).toBe('50');
-    expect(flopCbBucket(0, true)).toBe('125');
+    expect(flopCbBucket(0, true)).toBe('ALLIN');
   });
 });
 

@@ -157,8 +157,8 @@ export default function App() {
       if (level.key === 'flop_beginner') {
         return <TrainingPlayFlop level={level} />;
       }
-      // フロップ中級レンジベット (CB=複数選択 / Donk=スライダー 混在)
-      if (level.key === 'flop_intermediate') {
+      // フロップ CB レンジベット (CB SRP / CB 3BP4BP5BP, ともにサイズ複数選択)
+      if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp') {
         return <TrainingPlayFlopIntermediate level={level} />;
       }
       // フロップ中級CB (個別ハンド: ボード×ハンドで c-bet サイズを複数選択)
@@ -181,7 +181,7 @@ export default function App() {
       if (level.key === 'flop_beginner') {
         return <TrainingResultFlop level={level} />;
       }
-      if (level.key === 'flop_intermediate') {
+      if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp') {
         return <TrainingResultFlopIntermediate level={level} />;
       }
       if (level.key === 'flop_intermediate_cb') {

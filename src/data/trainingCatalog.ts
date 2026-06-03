@@ -49,9 +49,12 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'フロップトレーニング',
     levels: [
       { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      // 中級レンジベット: 全30問 CB(サイズ複数選択)。SRP15/3bet10/4bet5bet5。best_score が
-      // finalSum (0-60, 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
-      { key: 'flop_intermediate', label: '中級レンジベット', points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      // CB (レンジベット): 全30問 CB(サイズ複数選択)。best_score が finalSum (0-60,
+      // 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
+      //   CB SRP        : SRP 30 (ランダム)。
+      //   CB 3BP/4BP/5BP: 3bet21 / 4bet6 / 5bet3 (= 7:2:1)。
+      { key: 'flop_cb_srp', label: 'CB SRP',          points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_cb_3bp', label: 'CB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -75,9 +78,9 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
   }
-  // フロップ中級レンジベットは満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
-  if (level.key === 'flop_intermediate') {
-    const qc = level.questionCount ?? 25;
+  // フロップ CB (レンジベット) は満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
+  if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp') {
+    const qc = level.questionCount ?? 30;
     return `${qc}問・最大 ${qc * 2}pt・制限時間なし`;
   }
   // 中級ポジション別 (EP/LP/Blind) は満点 = questionCount (素点÷2)。
@@ -110,7 +113,8 @@ export function formatLevelInfo(level: TrainingLevel): string {
  */
 export function maxScoreFor(level: TrainingLevel): number {
   if (level.questionCount === null) return 0;
-  if (level.key === 'preflop_intermediate' || level.key === 'flop_intermediate') return level.questionCount * 2;
+  if (level.key === 'preflop_intermediate' || level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp')
+    return level.questionCount * 2;
   return level.questionCount;
 }
 

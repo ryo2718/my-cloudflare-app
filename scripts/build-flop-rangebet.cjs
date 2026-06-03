@@ -22,8 +22,13 @@ const OPEN_SIZE = 2.5;
 const PER_VARIANT_CAP = 120; // variant (matchup) ごとの最大ボード数。全 matchup を均等収録し hero 偏りを防ぐ
 const MIXED_MIN = 0.1; // CB「混合戦略」判定: この頻度以上のバケットが2つ以上
 
-// CB問題の選択肢 (全ポット共通)。125 = オーバーベット。
-const CB_CHOICES = ['check', '33', '50', '75', '125'];
+// CB問題の選択肢 (全ポット共通の上位集合)。125 = オーバーベット, ALLIN = オールイン。
+// 実際に表示する選択肢はポット別 (cb_choices_by_pot) に出し分ける。
+const CB_CHOICES = ['check', '33', '50', '75', '125', 'ALLIN'];
+// ポット別選択肢の正準順 (check → 小 → 大 → ALLIN)。実データに出現したバケットのみ採用。
+const BUCKET_ORDER = ['check', '33', '50', '75', '125', 'ALLIN'];
+const POT_ORDER = ['SRP', '3bet', '4bet', '5bet'];
+const CHOICE_MIN = 0.02; // この頻度以上で出現したバケットのみ選択肢に出す (微小頻度の幻バケットを除外)
 
 function parseVariant(name) {
   const seq = [];
@@ -99,9 +104,9 @@ function nearestAnchor(pct, anchors) {
   return String(best);
 }
 
-/** action_code を SRP の CB バケット (33/50/75/125) に寄せる。RAI→125。X はここでは扱わない。 */
+/** action_code を CB バケット (33/50/75/125) に寄せる。RAI→ALLIN (オールイン)。X はここでは扱わない。 */
 function bucketSrp(code, pot) {
-  if (code === 'RAI') return '125';
+  if (code === 'RAI') return 'ALLIN';
   if (code[0] !== 'R') return null;
   const n = parseFloat(code.slice(1));
   if (!Number.isFinite(n) || !pot) return null;
@@ -193,6 +198,28 @@ function buildPreflopSeq(variant, node, threeBetSizes = {}) {
   return seq;
 }
 
+/**
+ * ポット別の表示選択肢を実データから導出。各ポットで CHOICE_MIN 以上の頻度を持つ
+ * バケットだけ採用 (check は常に含む)。例: 4bet は 125 が実在しない→[check,33,50,75,ALLIN]、
+ * 5bet は 75/125 も無い→[check,33,50,ALLIN]。SRP/3bet は 125 オーバーベットが実在。
+ */
+function computeChoicesByPot(cb) {
+  const present = {};
+  for (const pool of Object.values(cb)) {
+    for (const b of pool) {
+      const set = present[b.pot] ?? (present[b.pot] = new Set());
+      for (const [k, v] of Object.entries(b.strat)) if (v >= CHOICE_MIN) set.add(k);
+    }
+  }
+  const out = {};
+  for (const pot of POT_ORDER) {
+    const set = present[pot];
+    if (!set) continue;
+    out[pot] = BUCKET_ORDER.filter((k) => k === 'check' || set.has(k));
+  }
+  return out;
+}
+
 function main() {
   if (!fs.existsSync(DATA_ROOT)) {
     console.error(`Missing flop tree data: ${DATA_ROOT} (R2 mirror 必要)`);
@@ -232,18 +259,22 @@ function main() {
     }
   }
 
+  const cbChoicesByPot = computeChoicesByPot(cb);
+
   const out = {
     config: CONFIG,
     generated_at: new Date().toISOString(),
-    note: 'Flop intermediate range-bet. cb = aggressor c-bet size mix by pot (multi-select).',
+    note: 'Flop range-bet. cb = aggressor c-bet size mix by pot (multi-select). RAI=ALLIN.',
     cb_choices: CB_CHOICES,
+    cb_choices_by_pot: cbChoicesByPot,
     preflop,
     cb,
   };
   fs.writeFileSync(OUT_FILE, JSON.stringify(out));
   console.log('CB SRP      :', cb.SRP.length);
   console.log('CB 3bet     :', cb['3bet'].length);
-  console.log('CB 4bet5bet :', cb['4bet5bet'].length);
+  console.log('CB 4bet5bet :', cb['4bet5bet'].length, '(4bet/5bet)');
+  console.log('choices/pot :', JSON.stringify(cbChoicesByPot));
   console.log(`Wrote ${path.relative(process.cwd(), OUT_FILE)} (${(fs.statSync(OUT_FILE).size / 1024).toFixed(1)}KB)`);
 }
 

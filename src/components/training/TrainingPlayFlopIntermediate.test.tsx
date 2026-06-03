@@ -22,7 +22,7 @@ vi.mock('../../data/training/flopIntermediateCb', async (orig) => ({
 import { generateFlopRbQuestions } from '../../data/training/flopIntermediateCb';
 import { TrainingPlayFlopIntermediate } from './TrainingPlayFlopIntermediate';
 
-const LEVEL = TRAINING_CATALOG[1].levels[1]; // flop_intermediate (中級レンジベット)
+const LEVEL = TRAINING_CATALOG[1].levels[1]; // flop_cb_srp (CB SRP)
 
 function cbQ(): FlopRbQuestion {
   return {
@@ -46,6 +46,6 @@ describe('TrainingPlayFlopIntermediate', () => {
     render(<TrainingPlayFlopIntermediate level={LEVEL} />);
     expect(await screen.findByText('srp CO vs BTN')).toBeTruthy();
     expect(screen.getByText('1 / 2')).toBeTruthy();
-    expect(screen.getByText('中級レンジベット')).toBeTruthy();
+    expect(screen.getByText('CB SRP')).toBeTruthy();
   });
 });

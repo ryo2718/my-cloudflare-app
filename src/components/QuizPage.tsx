@@ -48,7 +48,8 @@ const TIER_ORDER: ReadonlyArray<TierId> = ['初級', '中級', '上級', '超上
 
 /** level.key → 難易度 tier。 */
 function tierOf(key: string): TierId {
-  if (key.includes('intermediate')) return '中級';
+  // フロップ CB (flop_cb_srp / flop_cb_3bp) は中級枠。
+  if (key.includes('intermediate') || key.startsWith('flop_cb')) return '中級';
   if (key.includes('advanced')) return '上級';
   if (key.includes('expert')) return '超上級';
   return '初級';

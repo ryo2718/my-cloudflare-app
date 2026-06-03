@@ -1,5 +1,5 @@
-// フロップトレーニング「中級レンジベット」の問題画面。
-//   - 全30問・1問2pt・満点60・時間制限なし。全問 CB(サイズ複数選択, SRP/3bp/4bp5bp)。
+// フロップトレーニング「CB」(レンジベット) の問題画面。CB SRP / CB 3BP4BP5BP 共用。
+//   - 全30問・1問2pt・満点60・時間制限なし。全問 CB(サイズ複数選択)。モードは level.key で決定。
 //   - テーブル図・カード・アニメは初級 (TrainingPlayFlop) を流用。CB=ChoiceButtons。
 //   - 即時フィードバックで GTO サイズ構成 + 「似た頻度のボード」を併せて表示。
 
@@ -7,6 +7,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import {
   generateFlopRbQuestions,
+  flopRbModeOf,
   scoreFlopRb,
   flopRbScenarioLabel,
   FLOP_RB_MAX_SCORE,
@@ -58,7 +59,7 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
     FlopRbResponse,
     FlopRbRecord
   >({
-    load: () => generateFlopRbQuestions(),
+    load: () => generateFlopRbQuestions(flopRbModeOf(level.key)),
     onLoadStart: () => clearFlopRbRecords(level.key),
     reloadKey: level.key,
     instant,

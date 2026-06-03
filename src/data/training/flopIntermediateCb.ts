@@ -1,10 +1,13 @@
-// フロップトレーニング「中級レンジベット」の出題・採点ロジック。
-//   - 全30問・1問2pt・満点60・クリア90% (54pt)。全問 CB(サイズ複数選択)。
-//       内訳: SRP 15 / 3bet 10 / 4bet5bet 5 (4bp+5bp 統合)。
+// フロップトレーニング「CB」(レンジベット) の出題・採点ロジック。
+//   - 2モードに分割。各 全30問・1問2pt・満点60・クリア90% (54pt)。全問 CB(サイズ複数選択)。
+//       CB SRP        (flop_cb_srp): SRP 30 (ランダム抽選)。
+//       CB 3BP/4BP/5BP (flop_cb_3bp): 3bet 21 / 4bet 6 / 5bet 3 (= 7:2:1)。
 //   - コンセプト = ボード × ベット頻度。支配サイズが偏らないよう多様に出題し、
 //     即時フィードバック/答え合わせで「正解サイズ構成が近いボード」を併せて紹介する。
+//   - 選択肢はポット別 (cb_choices_by_pot)。4bp/5bp は実体がオールインのため ALLIN を表示
+//     (5bp は check/33/50/ALLIN, 4bp は check/33/50/75/ALLIN)。
 //   - データ: public/data/flop/flop_rangebet_v1.json (scripts/build-flop-rangebet.cjs 生成)。
-//   - training_type は既存の flop_intermediate をそのまま流用 (サーバ変更不要)。
+//   - training_type は level.key (flop_cb_srp / flop_cb_3bp) をそのまま使用。
 // ※ファイル名は履歴上 *Cb のまま。採点 (scoreFlopCb 等) は中級CB(個別ハンド) と共用。
 
 import type { Rank, Suit, Card } from '../../types/card';
@@ -30,8 +33,18 @@ interface CbBoard {
 
 export interface FlopRbData {
   cb_choices: string[];
+  /** ポット別の表示選択肢 (例: 5bet=check/33/50/ALLIN)。無い場合は cb_choices にフォールバック。 */
+  cb_choices_by_pot?: Record<string, string[]>;
   preflop: Record<string, ActionItem[]>;
   cb: Record<FlopPotCat, CbBoard[]>;
+}
+
+/** 出題モード。CB SRP / CB 3BP・4BP・5BP。 */
+export type FlopRbMode = 'srp' | '3bp';
+
+/** level.key → 出題モード。 */
+export function flopRbModeOf(levelKey: string): FlopRbMode {
+  return levelKey === 'flop_cb_srp' ? 'srp' : '3bp';
 }
 
 /** 似たサイズ構成のボード (即時FB/答え合わせで紹介)。 */
@@ -67,13 +80,30 @@ export type FlopRbRecord = FlopRbQuestion & {
 };
 
 export const FLOP_RB_POINTS_PER_Q = 2;
-/** 出題内訳 (合計30)。 */
-export const FLOP_RB_DISTRIBUTION: ReadonlyArray<{ cat: FlopPotCat; count: number }> = [
-  { cat: 'SRP', count: 15 },
-  { cat: '3bet', count: 10 },
-  { cat: '4bet5bet', count: 5 },
-];
-export const FLOP_RB_COUNT = FLOP_RB_DISTRIBUTION.reduce((s, d) => s + d.count, 0); // 30
+
+/** 1 出題セグメント。pool = data.cb のカテゴリ、pot 指定時はその実ポットだけに絞る。 */
+interface FlopRbSegment {
+  cat: FlopPotCat;
+  /** pool 内をさらに実ポットで絞る (4bet5bet を 4bet/5bet に分ける用)。 */
+  pot?: FlopRbPot;
+  count: number;
+  /** 先に確保する「オーバーベット/オールイン主体」ボード数。 */
+  overbet: number;
+  /** 先に確保する「チェック主体」ボード数。 */
+  check: number;
+}
+
+/** モード別の出題内訳 (各合計30)。3bp は 3bet:4bet:5bet = 21:6:3 (= 7:2:1)。 */
+export const FLOP_RB_MODE_SEGMENTS: Record<FlopRbMode, ReadonlyArray<FlopRbSegment>> = {
+  srp: [{ cat: 'SRP', count: 30, overbet: 6, check: 8 }],
+  '3bp': [
+    { cat: '3bet', count: 21, overbet: 3, check: 7 },
+    { cat: '4bet5bet', pot: '4bet', count: 6, overbet: 2, check: 1 },
+    { cat: '4bet5bet', pot: '5bet', count: 3, overbet: 1, check: 0 },
+  ],
+};
+
+export const FLOP_RB_COUNT = 30;
 export const FLOP_RB_MAX_SCORE = FLOP_RB_COUNT * FLOP_RB_POINTS_PER_Q; // 60
 /** クリア = 満点の 90% (= 54pt)。 */
 export const FLOP_RB_CLEAR_SCORE = Math.ceil(FLOP_RB_MAX_SCORE * 0.9); // 54
@@ -97,9 +127,9 @@ function nearestAnchor(pct: number, anchors: number[]): string {
   return String(best);
 }
 
-/** ベットサイズ(%pot) を選択肢バケット (33/50/75/125) に丸める。allin/RAI→125。 */
+/** ベットサイズ(%pot) を選択肢バケット (33/50/75/125) に丸める。allin/RAI→ALLIN。 */
 export function flopCbBucket(sizePct: number, allin = false): string {
-  if (allin) return '125';
+  if (allin) return 'ALLIN';
   return nearestAnchor(sizePct, [33, 50, 75, 125]);
 }
 
@@ -371,34 +401,43 @@ function findSimilar(
   return picked.slice(0, k).map(({ b }) => ({ board: parseBoard(b.board), pot: b.pot, strat: b.strat }));
 }
 
-// 「両極端」局面 (チェック主体 / オーバーベット) は支配サイズ均等選抜で薄まりやすいので、
-// 各ポットで先に一定数確保する (データ量で上限キャップ)。
+// 「両極端」局面 (チェック主体 / オーバーベット・オールイン) は支配サイズ均等選抜で薄まりやすいので、
+// 各セグメントで先に一定数確保する (データ量で上限キャップ)。
 const CHECK_MIN = 0.5; // チェックが主体のボード
-const OVERBET_MIN = 0.2; // オーバーベット(125)が実戦的なボード
-const CHECK_TARGET: Record<FlopPotCat, number> = { SRP: 5, '3bet': 4, '4bet5bet': 1 };
-const OVERBET_TARGET: Record<FlopPotCat, number> = { SRP: 4, '3bet': 1, '4bet5bet': 3 };
+const OVERBET_MIN = 0.2; // オーバーベット(125)/オールインが実戦的なボード
 
-/** ロード済みデータから30問を生成 (純粋関数)。SRP15 / 3bet10 / 4bet5bet5、全問 CB。 */
-export function buildFlopRbQuestions(data: FlopRbData): FlopRbQuestion[] {
+const DEFAULT_CHOICES = ['check', '33', '50', '75', '125', 'ALLIN'];
+
+/** ボードの「大きいサイズ」(オーバーベット 125 or オールイン) 頻度。 */
+function bigSizeFreq(strat: FlopCbStrat): number {
+  return Math.max(strat['125'] ?? 0, strat.ALLIN ?? 0);
+}
+
+/** ロード済みデータから 1 モード分 (30問) を生成 (純粋関数)。 */
+export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp'): FlopRbQuestion[] {
   const out: FlopRbQuestion[] = [];
   const seen = new Set<string>();
-  const choices = data.cb_choices ?? ['check', '33', '50', '75', '125'];
+  const choicesByPot = data.cb_choices_by_pot ?? {};
+  const fallbackChoices = data.cb_choices ?? DEFAULT_CHOICES;
+  const choicesFor = (pot: FlopRbPot) => choicesByPot[pot] ?? fallbackChoices;
   const preflopOf = (v: string) => data.preflop?.[v] ?? [];
   let id = 0;
 
-  for (const { cat, count } of FLOP_RB_DISTRIBUTION) {
-    const pool = data.cb?.[cat] ?? [];
-    // オーバーベット → チェック主体 の順で確保し、残りを支配サイズ多様で埋める。
+  for (const seg of FLOP_RB_MODE_SEGMENTS[mode]) {
+    let pool = data.cb?.[seg.cat] ?? [];
+    if (seg.pot) pool = pool.filter((b) => b.pot === seg.pot);
+    // オーバーベット/オールイン → チェック主体 の順で確保し、残りを支配サイズ多様で埋める。
     const picks: CbBoard[] = [];
     picks.push(
-      ...sampleVaried(pool.filter((b) => (b.strat['125'] ?? 0) >= OVERBET_MIN), Math.min(OVERBET_TARGET[cat], count - picks.length), seen),
+      ...sampleVaried(pool.filter((b) => bigSizeFreq(b.strat) >= OVERBET_MIN), Math.min(seg.overbet, seg.count - picks.length), seen),
     );
     picks.push(
-      ...sampleVaried(pool.filter((b) => (b.strat.check ?? 0) >= CHECK_MIN), Math.min(CHECK_TARGET[cat], count - picks.length), seen),
+      ...sampleVaried(pool.filter((b) => (b.strat.check ?? 0) >= CHECK_MIN), Math.min(seg.check, seg.count - picks.length), seen),
     );
-    picks.push(...sampleVaried(pool, count - picks.length, seen));
+    picks.push(...sampleVaried(pool, seg.count - picks.length, seen));
     for (const rec of picks) {
       id += 1;
+      const choices = choicesFor(rec.pot);
       out.push({
         id,
         pot: rec.pot,
@@ -417,8 +456,8 @@ export function buildFlopRbQuestions(data: FlopRbData): FlopRbQuestion[] {
   return shuffle(out);
 }
 
-export async function generateFlopRbQuestions(): Promise<FlopRbQuestion[]> {
-  return buildFlopRbQuestions(await loadFlopRbData());
+export async function generateFlopRbQuestions(mode: FlopRbMode = 'srp'): Promise<FlopRbQuestion[]> {
+  return buildFlopRbQuestions(await loadFlopRbData(), mode);
 }
 
 /** シナリオラベル: 「{srp|3bp|4bp|5bp} {ヒーロー} vs {相手}」。 */
