@@ -11,7 +11,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { HandRangeMatrix } from './HandRangeMatrix';
+import { HandGrid } from '../HandGrid';
 import { ActionTable } from './ActionTable';
+import { FLOP_CB_ORDER, flopSizeColor, flopCbLabel } from './flopCbChoiceStyle';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
 import type { Rank, Suit } from '../../types/card';
@@ -54,7 +56,88 @@ export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_intermediate_ep') return <PositionalRule mode="ep" />;
   if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
   if (levelKey === 'preflop_intermediate_blind') return <PositionalRule mode="blind" />;
+  if (levelKey === 'flop_cb_srp' || levelKey === 'flop_cb_3bp' || levelKey === 'flop_donk_bmcb')
+    return <PostflopRule />;
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// ポストフロップ (レンジCB / レンジドンク・BMCB)
+//
+// プリフロップと根本的に異なる「自分のハンドではなく、ボードに対してレンジ全体で
+// どう打つか」を、6色グラデーションのミニチュアレンジビューで視覚的に伝える。
+// ※ ここで示すレンジ分布は説明用のサンプル (典型的な分布イメージ) であり、実データではない。
+// ---------------------------------------------------------------------------
+
+function PostflopRule() {
+  return (
+    <div>
+      <SectionTitle>ポストフロップの考え方</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          プリフロップは「自分の2枚のハンド」でどう打つかを答えました。
+          ポストフロップは、自分のハンドではなく、<strong>ボード(フロップ3枚)に対して
+          ハンドレンジ全体としてどう打つか</strong>を答えます。
+        </p>
+        <p style={bodyTextStyle}>
+          例えば「このボードで、レンジ全体としてどのサイズでどれくらいCBを打つか」を考えます。
+          個別の手札の判断ではなく、下のようにレンジ全体の戦略(色の分布)を答えるイメージです。
+        </p>
+      </Card>
+
+      <SectionTitle>レンジ全体の分布(例)</SectionTitle>
+      <Card>
+        <PostflopRangePreview />
+        <PostflopRampLegend />
+        <p style={mutedSmallStyle}>
+          ※ これは説明用のサンプル分布です。実際の出題ではボードごとに分布が変わります。
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+// 13×13 ミニチュアレンジビュー。各セルを6色ランプ (flopSizeColor) で塗り、
+// 「強いハンドほど大きいサイズ/オールイン、弱いハンドほどチェック寄り」という
+// 典型的なレンジ分布のイメージを色で示す (サンプル)。
+function PostflopRangePreview() {
+  return (
+    <div style={rangePreviewWrapStyle}>
+      <HandGrid
+        role="grid"
+        gridStyle={rangeGridStyle}
+        renderCell={(_hand, row, col) => (
+          <div style={{ ...rangeCellStyle, background: flopSizeColor(sampleBucket(row, col)) }} aria-hidden />
+        )}
+      />
+    </div>
+  );
+}
+
+// 行/列インデックス (0=A … 12=2) からサンプルのベットサイズ・バケットを返す。
+// 上三角 = suited を1段強気に。強い (インデックス和が小さい) ほど大きいサイズ。
+function sampleBucket(row: number, col: number): string {
+  const suited = col > row;
+  const t = row + col - (suited ? 2 : 0);
+  if (t <= 2) return 'ALLIN';
+  if (t <= 6) return '125';
+  if (t <= 10) return '75';
+  if (t <= 14) return '50';
+  if (t <= 18) return '33';
+  return 'check';
+}
+
+function PostflopRampLegend() {
+  return (
+    <div style={legendRowStyle} aria-label="色の凡例">
+      {FLOP_CB_ORDER.filter((c) => c !== '10' && c !== '20' && c !== '25').map((c) => (
+        <span key={c} style={legendItemStyle}>
+          <span style={{ ...legendSwatchStyle, background: flopSizeColor(c) }} aria-hidden />
+          {flopCbLabel(c)}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -756,4 +839,41 @@ const ptGreenStyle: CSSProperties = {
 const ptRedStyle: CSSProperties = {
   color: '#A32D2D',
   fontWeight: 700,
+};
+
+// ポストフロップ ミニチュアレンジビュー
+const rangePreviewWrapStyle: CSSProperties = {
+  width: '100%',
+  maxWidth: 280,
+  margin: '0 auto',
+};
+const rangeGridStyle: CSSProperties = {
+  gap: '1px',
+  border: '1px solid #D3D1C7',
+  borderRadius: '4px',
+  overflow: 'hidden',
+  background: '#D3D1C7',
+};
+const rangeCellStyle: CSSProperties = {
+  aspectRatio: '1 / 1',
+  width: '100%',
+};
+const legendRowStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '8px',
+  marginTop: '8px',
+};
+const legendItemStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  fontSize: '11px',
+  color: '#2C2C2A',
+};
+const legendSwatchStyle: CSSProperties = {
+  width: 12,
+  height: 12,
+  borderRadius: '3px',
+  display: 'inline-block',
 };

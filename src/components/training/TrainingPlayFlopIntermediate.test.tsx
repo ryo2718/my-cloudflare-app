@@ -46,6 +46,6 @@ describe('TrainingPlayFlopIntermediate', () => {
     render(<TrainingPlayFlopIntermediate level={LEVEL} />);
     expect(await screen.findByText('srp CO vs BTN')).toBeTruthy();
     expect(screen.getByText('1 / 2')).toBeTruthy();
-    expect(screen.getByText('CB SRP')).toBeTruthy();
+    expect(screen.getByText('レンジCB SRP')).toBeTruthy();
   });
 });

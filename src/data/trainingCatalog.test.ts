@@ -14,6 +14,14 @@ describe('TRAINING_CATALOG', () => {
     expect(TRAINING_CATALOG.map((c) => c.key)).toEqual(['preflop', 'flop']);
   });
 
+  it('flop カテゴリは「ポストフロップトレーニング」表記, CB/ドンクは「レンジ〜」表記', () => {
+    expect(TRAINING_CATALOG[1].label).toBe('ポストフロップトレーニング');
+    const byKey = (k: string) => TRAINING_CATALOG[1].levels.find((l) => l.key === k);
+    expect(byKey('flop_cb_srp')?.label).toBe('レンジCB SRP');
+    expect(byKey('flop_cb_3bp')?.label).toBe('レンジCB 3BP/4BP/5BP');
+    expect(byKey('flop_donk_bmcb')?.label).toBe('レンジドンク/BMCB');
+  });
+
   it('preflop 7 レベル, flop 6 レベル (初級/CB SRP/CB 3BP4BP5BP/ドンクBMCB/上級/超上級)', () => {
     expect(TRAINING_CATALOG[0].levels).toHaveLength(7);
     expect(TRAINING_CATALOG[1].levels).toHaveLength(6);

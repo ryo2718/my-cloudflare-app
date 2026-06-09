@@ -1,9 +1,9 @@
 // QuizPage 下部の「間違えた問題」セクション。
-// 「プリフロップトレーニング」配下に初級 / 中級 / 上級 (未実装) をネスト。
-// 将来「単語トレーニング」等のカテゴリを並列で追加できる構造。
-// タップで /quiz/review/preflop/{level} へ遷移。
+// 「プリフロップトレーニング」「ポストフロップトレーニング」をカテゴリ別に折りたたみ表示。
+// 各カテゴリ配下にモード一覧をネスト。タップで /quiz/review/preflop/{level} へ遷移。
+// ※ ポストフロップは現状「間違えた問題」の収集が無いため件数は 0 固定 (集計は後続対応)。
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { apiGetMissedProblems } from '../../api/missedProblems';
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
@@ -13,19 +13,28 @@ type CountKey = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
 type Counts = Partial<Record<CountKey, number | null>>;
 
 interface LevelEntry {
-  key: CountKey | 'advanced';
+  key: string;
   label: string;
   href: string | null;
   implemented: boolean;
+  /** preflop の件数取得キー。未指定なら集計対象外 (件数 0 固定)。 */
+  countKey?: CountKey;
 }
 
 const PREFLOP_LEVELS: LevelEntry[] = [
-  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true },
-  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true },
-  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true },
-  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true },
-  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true },
+  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true, countKey: 'beginner' },
+  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true, countKey: 'intermediate' },
+  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true, countKey: 'ep' },
+  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true, countKey: 'lp' },
+  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true, countKey: 'blind' },
   { key: 'advanced',     label: '上級',      href: null,                                implemented: false },
+];
+
+// ポストフロップ (レンジCB / レンジドンク・BMCB)。現状は件数収集が無いため 0 固定。
+const POSTFLOP_LEVELS: LevelEntry[] = [
+  { key: 'flop_cb_srp',   label: 'レンジCB SRP',         href: null, implemented: true },
+  { key: 'flop_cb_3bp',   label: 'レンジCB 3BP/4BP/5BP', href: null, implemented: true },
+  { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   href: null, implemented: true },
 ];
 
 const COUNT_KEYS: ReadonlyArray<CountKey> = ['beginner', 'intermediate', 'ep', 'lp', 'blind'];
@@ -33,6 +42,8 @@ const COUNT_KEYS: ReadonlyArray<CountKey> = ['beginner', 'intermediate', 'ep', '
 export function MissedProblemsSection() {
   const auth = useAuth();
   const [counts, setCounts] = useState<Counts>({});
+  const [openPreflop, setOpenPreflop] = useState(true);
+  const [openPostflop, setOpenPostflop] = useState(true);
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -55,23 +66,59 @@ export function MissedProblemsSection() {
     };
   }, [auth.sessionId]);
 
+  // preflop: countKey から件数。postflop: 集計対象外なので 0 固定。
+  const countFor = (entry: LevelEntry): number | null => {
+    if (!entry.implemented) return null;
+    if (!entry.countKey) return 0;
+    return counts[entry.countKey] ?? null;
+  };
+
   return (
     <section style={sectionStyle} aria-label="間違えた問題">
       <header style={headerStyle}>間違えた問題</header>
 
-      <div style={categoryStyle} aria-label="プリフロップトレーニング">
-        <header style={categoryHeaderStyle}>プリフロップトレーニング</header>
-        <div style={cardsStyle}>
-          {PREFLOP_LEVELS.map((lv) => (
-            <LevelCard
-              key={lv.key}
-              entry={lv}
-              count={lv.key === 'advanced' ? null : counts[lv.key] ?? null}
-            />
-          ))}
-        </div>
-      </div>
+      <CategoryBlock
+        title="プリフロップトレーニング"
+        open={openPreflop}
+        onToggle={() => setOpenPreflop((v) => !v)}
+      >
+        {PREFLOP_LEVELS.map((lv) => (
+          <LevelCard key={lv.key} entry={lv} count={countFor(lv)} />
+        ))}
+      </CategoryBlock>
+
+      <CategoryBlock
+        title="ポストフロップトレーニング"
+        open={openPostflop}
+        onToggle={() => setOpenPostflop((v) => !v)}
+      >
+        {POSTFLOP_LEVELS.map((lv) => (
+          <LevelCard key={lv.key} entry={lv} count={countFor(lv)} />
+        ))}
+      </CategoryBlock>
     </section>
+  );
+}
+
+function CategoryBlock({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div style={categoryStyle} aria-label={title}>
+      <button type="button" style={categoryToggleStyle} onClick={onToggle} aria-expanded={open}>
+        <span style={categoryHeaderStyle}>{title}</span>
+        <span style={categoryChevronStyle} aria-hidden>{open ? '▼' : '▶'}</span>
+      </button>
+      {open && <div style={cardsStyle}>{children}</div>}
+    </div>
   );
 }
 
@@ -123,12 +170,28 @@ const categoryStyle: CSSProperties = {
   flexDirection: 'column',
   gap: '0.45rem',
 };
+const categoryToggleStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%',
+  padding: 0,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  textAlign: 'left',
+};
 const categoryHeaderStyle: CSSProperties = {
   fontSize: '13px',
   fontWeight: 500,
   color: '#993C1D',
   padding: '0 0 0 8px',
   borderLeft: '3px solid #993C1D',
+};
+const categoryChevronStyle: CSSProperties = {
+  fontSize: '0.72rem',
+  color: THEME.textMuted,
 };
 const cardsStyle: CSSProperties = {
   display: 'flex',

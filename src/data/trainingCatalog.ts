@@ -46,17 +46,17 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
   },
   {
     key: 'flop',
-    label: 'フロップトレーニング',
+    label: 'ポストフロップトレーニング',
     levels: [
       { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
       // CB (レンジベット): 全30問 CB(サイズ複数選択)。best_score が finalSum (0-60,
       // 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
       //   CB SRP        : SRP 30 (ランダム)。
       //   CB 3BP/4BP/5BP: 3bet21 / 4bet6 / 5bet3 (= 7:2:1)。
-      { key: 'flop_cb_srp', label: 'CB SRP',          points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
-      { key: 'flop_cb_3bp', label: 'CB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_cb_srp', label: 'レンジCB SRP',          points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_cb_3bp', label: 'レンジCB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       // ドンク/BMCB: ドンク15 (OOPリード) + BMCB15 (相手チェック後IPスタブ)。SRP+3bet。
-      { key: 'flop_donk_bmcb', label: 'ドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
