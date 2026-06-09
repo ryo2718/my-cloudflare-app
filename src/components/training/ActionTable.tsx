@@ -64,6 +64,19 @@ export function ActionTable({
   // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
   const [items, setItems] = useState<ActionItem[] | null>(null);
   const [revealed, setRevealed] = useState(0);
+  // 問題切替 (file / mePosition / providedItems の変化) でレンダー中に items/revealed をリセットする。
+  // ロード effect はペイント後に走るため、これが無いと新問の最初の1フレームに前問の
+  // ポップアップ (items/revealed) が残留する。fetch・タイマー再生は従来どおり effect 内で行う。
+  const [src, setSrc] = useState<{
+    file?: string | null;
+    mePosition: Position;
+    providedItems?: ReadonlyArray<ActionItem>;
+  }>({ file, mePosition, providedItems });
+  if (src.file !== file || src.mePosition !== mePosition || src.providedItems !== providedItems) {
+    setSrc({ file, mePosition, providedItems });
+    setItems(null);
+    setRevealed(0);
+  }
   const doneRef = useRef(onAnimationDone);
   useEffect(() => {
     doneRef.current = onAnimationDone;
