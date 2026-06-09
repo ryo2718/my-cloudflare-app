@@ -11,9 +11,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { HandRangeMatrix } from './HandRangeMatrix';
-import { HandGrid } from '../HandGrid';
 import { ActionTable } from './ActionTable';
-import { FLOP_CB_ORDER, flopSizeColor, flopCbLabel } from './flopCbChoiceStyle';
+import { FlopCbReviewDetail } from './FlopCbReviewDetail';
+import type { FlopCbStrat } from '../../data/training/flopIntermediateCb';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
 import type { Rank, Suit } from '../../types/card';
@@ -64,79 +64,84 @@ export function RuleExplanation({ levelKey }: { levelKey: string }) {
 // ---------------------------------------------------------------------------
 // ポストフロップ (レンジCB / レンジドンク・BMCB)
 //
-// プリフロップと根本的に異なる「自分のハンドではなく、ボードに対してレンジ全体で
-// どう打つか」を、6色グラデーションのミニチュアレンジビューで視覚的に伝える。
-// ※ ここで示すレンジ分布は説明用のサンプル (典型的な分布イメージ) であり、実データではない。
+// ポストフロップの本質「ボード依存性」(同じ BTN・同じレンジでも、ボードが違うだけで
+// レンジ全体の戦略が全く変わる) を、2つのボード (AK3 / AA3) の BTN CB 戦略を
+// 並べて比較して伝える。3モード共通でこの比較ビューを表示する。
+// ※ 表示する頻度はすべて「ルール説明用の固定例」であり、実データ取得ではない。
 // ---------------------------------------------------------------------------
+
+// ルール説明で表示するアクション行 (0% も行を残すため固定リスト)。
+const POSTFLOP_RULE_CHOICES: ReadonlyArray<string> = ['check', '33', '50', '75', '125'];
+// ボードA: AK3 = 分極 (打たない or 大きく打つ)。固定例 (頻度 0-1)。
+const BOARD_A_STRAT: FlopCbStrat = { check: 0.61, '33': 0.03, '50': 0.01, '75': 0.01, '125': 0.33 };
+// ボードB: AA3 = レンジ全体で安く連打。固定例 (頻度 0-1)。
+const BOARD_B_STRAT: FlopCbStrat = { check: 0.14, '33': 0.82, '50': 0.03, '75': 0.01, '125': 0 };
 
 function PostflopRule() {
   return (
     <div>
-      <SectionTitle>ポストフロップの考え方</SectionTitle>
+      <SectionTitle>ボードによって戦略はガラッと変わる</SectionTitle>
       <Card>
         <p style={bodyTextStyle}>
-          プリフロップは「自分の2枚のハンド」でどう打つかを答えました。
-          ポストフロップは、自分のハンドではなく、<strong>ボード(フロップ3枚)に対して
-          ハンドレンジ全体としてどう打つか</strong>を答えます。
-        </p>
-        <p style={bodyTextStyle}>
-          例えば「このボードで、レンジ全体としてどのサイズでどれくらいCBを打つか」を考えます。
-          個別の手札の判断ではなく、下のようにレンジ全体の戦略(色の分布)を答えるイメージです。
+          同じ BTN、同じレンジ。ボードが違うだけで「打つかどうか」も「どのサイズで打つか」も
+          全然違います。だからポストフロップは自分のハンドではなく、
+          <strong>ボードに対して、レンジ全体としてどう打つか</strong>を答えます。
         </p>
       </Card>
 
-      <SectionTitle>レンジ全体の分布(例)</SectionTitle>
-      <Card>
-        <PostflopRangePreview />
-        <PostflopRampLegend />
-        <p style={mutedSmallStyle}>
-          ※ これは説明用のサンプル分布です。実際の出題ではボードごとに分布が変わります。
-        </p>
-      </Card>
-    </div>
-  );
-}
+      <PostflopBoardExample
+        title="ボードA(AK3)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'K' as Rank, suit: 'h' as Suit },
+          { rank: '3' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="分極(打たない or 大きく打つ)"
+        strat={BOARD_A_STRAT}
+        note="ナッツ級(2ペア以上のセット系)はオーバーベットで価値最大化。エースなしのミドルはほぼチェック。「中ぐらいのベット」は使わない。"
+      />
 
-// 13×13 ミニチュアレンジビュー。各セルを6色ランプ (flopSizeColor) で塗り、
-// 「強いハンドほど大きいサイズ/オールイン、弱いハンドほどチェック寄り」という
-// 典型的なレンジ分布のイメージを色で示す (サンプル)。
-function PostflopRangePreview() {
-  return (
-    <div style={rangePreviewWrapStyle}>
-      <HandGrid
-        role="grid"
-        gridStyle={rangeGridStyle}
-        renderCell={(_hand, row, col) => (
-          <div style={{ ...rangeCellStyle, background: flopSizeColor(sampleBucket(row, col)) }} aria-hidden />
-        )}
+      <PostflopBoardExample
+        title="ボードB(AA3)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'A' as Rank, suit: 'd' as Suit },
+          { rank: '3' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="レンジ全体で安く連打"
+        strat={BOARD_B_STRAT}
+        note="A がボードに2枚=相手の AX が激減してこちらのレンジが圧倒的に強い。安く広く打って降ろすか薄い価値を取る。"
       />
     </div>
   );
 }
 
-// 行/列インデックス (0=A … 12=2) からサンプルのベットサイズ・バケットを返す。
-// 上三角 = suited を1段強気に。強い (インデックス和が小さい) ほど大きいサイズ。
-function sampleBucket(row: number, col: number): string {
-  const suited = col > row;
-  const t = row + col - (suited ? 2 : 0);
-  if (t <= 2) return 'ALLIN';
-  if (t <= 6) return '125';
-  if (t <= 10) return '75';
-  if (t <= 14) return '50';
-  if (t <= 18) return '33';
-  return 'check';
-}
-
-function PostflopRampLegend() {
+function PostflopBoardExample({
+  title,
+  cards,
+  tagline,
+  strat,
+  note,
+}: {
+  title: string;
+  cards: ReadonlyArray<{ rank: Rank; suit: Suit }>;
+  tagline: string;
+  strat: FlopCbStrat;
+  note: string;
+}) {
   return (
-    <div style={legendRowStyle} aria-label="色の凡例">
-      {FLOP_CB_ORDER.filter((c) => c !== '10' && c !== '20' && c !== '25').map((c) => (
-        <span key={c} style={legendItemStyle}>
-          <span style={{ ...legendSwatchStyle, background: flopSizeColor(c) }} aria-hidden />
-          {flopCbLabel(c)}
-        </span>
-      ))}
-    </div>
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      <Card>
+        <div style={boardRowStyle}>
+          <CardSet cards={cards} size="md" gap={4} />
+          <span style={taglineStyle}>{tagline}</span>
+        </div>
+        {/* 既存のフィードバック頻度バー (FlopCbReviewDetail) を流用。選択マークは出さない。 */}
+        <FlopCbReviewDetail choices={POSTFLOP_RULE_CHOICES} strat={strat} selections={[]} />
+        <p style={bodyTextStyle}>{note}</p>
+      </Card>
+    </>
   );
 }
 
@@ -841,39 +846,20 @@ const ptRedStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-// ポストフロップ ミニチュアレンジビュー
-const rangePreviewWrapStyle: CSSProperties = {
-  width: '100%',
-  maxWidth: 280,
-  margin: '0 auto',
-};
-const rangeGridStyle: CSSProperties = {
-  gap: '1px',
-  border: '1px solid #D3D1C7',
-  borderRadius: '4px',
-  overflow: 'hidden',
-  background: '#D3D1C7',
-};
-const rangeCellStyle: CSSProperties = {
-  aspectRatio: '1 / 1',
-  width: '100%',
-};
-const legendRowStyle: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: '8px',
-  marginTop: '8px',
-};
-const legendItemStyle: CSSProperties = {
+// ポストフロップ ルール説明 (ボード比較ビュー)
+const boardRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
-  fontSize: '11px',
-  color: '#2C2C2A',
+  gap: '10px',
+  flexWrap: 'wrap',
+  marginBottom: '8px',
 };
-const legendSwatchStyle: CSSProperties = {
-  width: 12,
-  height: 12,
-  borderRadius: '3px',
-  display: 'inline-block',
+const taglineStyle: CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 700,
+  color: '#993C1D',
+  background: '#FAEEDA',
+  border: '1px solid #E5A551',
+  borderRadius: '999px',
+  padding: '0.15rem 0.6rem',
 };
