@@ -4,40 +4,44 @@
 // ※ ポストフロップは現状「間違えた問題」の収集が無いため件数は 0 固定 (集計は後続対応)。
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { apiGetMissedProblems } from '../../api/missedProblems';
+import { apiGetMissedProblems, type MissedLevelQuery } from '../../api/missedProblems';
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
 import { THEME } from '../../styles/theme';
 
-type CountKey = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
-type Counts = Partial<Record<CountKey, number | null>>;
+type Counts = Record<string, number | null>;
 
 interface LevelEntry {
   key: string;
   label: string;
   href: string | null;
   implemented: boolean;
-  /** preflop の件数取得キー。未指定なら集計対象外 (件数 0 固定)。 */
-  countKey?: CountKey;
+  /** 件数取得用の level クエリ。未指定なら集計対象外 (件数 0 固定)。 */
+  level?: MissedLevelQuery;
 }
 
 const PREFLOP_LEVELS: LevelEntry[] = [
-  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true, countKey: 'beginner' },
-  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true, countKey: 'intermediate' },
-  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true, countKey: 'ep' },
-  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true, countKey: 'lp' },
-  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true, countKey: 'blind' },
+  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true, level: 'beginner' },
+  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true, level: 'intermediate' },
+  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true, level: 'ep' },
+  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true, level: 'lp' },
+  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true, level: 'blind' },
   { key: 'advanced',     label: '上級',      href: null,                                implemented: false },
 ];
 
-// ポストフロップ (レンジCB / レンジドンク・BMCB)。現状は件数収集が無いため 0 固定。
+// ポストフロップ (初級 + レンジCB / レンジドンク・BMCB)。level=training_type で件数取得。
 const POSTFLOP_LEVELS: LevelEntry[] = [
-  { key: 'flop_cb_srp',   label: 'レンジCB SRP',         href: null, implemented: true },
-  { key: 'flop_cb_3bp',   label: 'レンジCB 3BP/4BP/5BP', href: null, implemented: true },
-  { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   href: null, implemented: true },
+  { key: 'flop_beginner',  label: '初級',                 href: '/quiz/review/flop/flop_beginner',  implemented: true, level: 'flop_beginner' },
+  { key: 'flop_cb_srp',    label: 'レンジCB SRP',         href: '/quiz/review/flop/flop_cb_srp',    implemented: true, level: 'flop_cb_srp' },
+  { key: 'flop_cb_3bp',    label: 'レンジCB 3BP/4BP/5BP', href: '/quiz/review/flop/flop_cb_3bp',    implemented: true, level: 'flop_cb_3bp' },
+  { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',    href: '/quiz/review/flop/flop_donk_bmcb',  implemented: true, level: 'flop_donk_bmcb' },
 ];
 
-const COUNT_KEYS: ReadonlyArray<CountKey> = ['beginner', 'intermediate', 'ep', 'lp', 'blind'];
+// 件数取得対象 (level を持つ全モード)。
+const FETCH_LEVELS: ReadonlyArray<MissedLevelQuery> = [
+  ...PREFLOP_LEVELS.map((l) => l.level).filter((l): l is MissedLevelQuery => !!l),
+  ...POSTFLOP_LEVELS.map((l) => l.level).filter((l): l is MissedLevelQuery => !!l),
+];
 
 export function MissedProblemsSection() {
   const auth = useAuth();
@@ -49,11 +53,11 @@ export function MissedProblemsSection() {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    Promise.all(COUNT_KEYS.map((k) => apiGetMissedProblems(sid, { level: k, limit: 1000 })))
+    Promise.all(FETCH_LEVELS.map((k) => apiGetMissedProblems(sid, { level: k, limit: 1000 })))
       .then((results) => {
         if (cancelled) return;
         const next: Counts = {};
-        COUNT_KEYS.forEach((k, i) => {
+        FETCH_LEVELS.forEach((k, i) => {
           next[k] = results[i].length;
         });
         setCounts(next);
@@ -66,11 +70,10 @@ export function MissedProblemsSection() {
     };
   }, [auth.sessionId]);
 
-  // preflop: countKey から件数。postflop: 集計対象外なので 0 固定。
   const countFor = (entry: LevelEntry): number | null => {
     if (!entry.implemented) return null;
-    if (!entry.countKey) return 0;
-    return counts[entry.countKey] ?? null;
+    if (!entry.level) return 0;
+    return counts[entry.level] ?? null;
   };
 
   return (

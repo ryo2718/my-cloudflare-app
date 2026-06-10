@@ -22,6 +22,8 @@ import { MissedProblemsListPage } from './components/training/MissedProblemsList
 import { MissedProblemAnswerPage } from './components/training/MissedProblemAnswerPage';
 import { MissedChallengePlayPage } from './components/training/MissedChallengePlayPage';
 import { MissedChallengeResultPage } from './components/training/MissedChallengeResultPage';
+import { FlopMissedListPage, FlopMissedPlayPage } from './components/training/FlopMissedPage';
+import type { FlopTrainingType } from './api/missedProblems';
 import { parseMissedFilter } from './components/training/missedChallengeStore';
 import type { MissedLevel } from './api/missedProblems';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
@@ -89,6 +91,17 @@ export default function App() {
   if (listMatch) {
     const lv = listMatch[1] as MissedLevel;
     return <MissedProblemsListPage level={lv} />;
+  }
+
+  // /quiz/review/flop/{training_type}(/play): ポストフロップの間違えた問題 一覧 / 再出題
+  const flopReviewMatch = path.match(
+    /^\/quiz\/review\/flop\/(flop_beginner|flop_cb_srp|flop_cb_3bp|flop_donk_bmcb)(\/play)?\/?$/,
+  );
+  if (flopReviewMatch) {
+    const tt = flopReviewMatch[1] as FlopTrainingType;
+    return flopReviewMatch[2]
+      ? <FlopMissedPlayPage trainingType={tt} />
+      : <FlopMissedListPage trainingType={tt} />;
   }
 
   // 互換: 旧 URL /quiz/review/{level}(/answer/{id}) を新形式にリダイレクト

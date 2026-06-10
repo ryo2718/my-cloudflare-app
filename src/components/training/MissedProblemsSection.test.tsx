@@ -30,7 +30,7 @@ function renderSection() {
 
 describe('MissedProblemsSection', () => {
   it('プリフロップ/ポストフロップ両カテゴリと各モードを表示する', () => {
-    renderSection();
+    const { container } = renderSection();
     // 2 カテゴリ見出し。
     expect(screen.getByText('プリフロップトレーニング')).toBeTruthy();
     expect(screen.getByText('ポストフロップトレーニング')).toBeTruthy();
@@ -40,8 +40,9 @@ describe('MissedProblemsSection', () => {
     expect(screen.getByText('レンジCB SRP')).toBeTruthy();
     expect(screen.getByText('レンジCB 3BP/4BP/5BP')).toBeTruthy();
     expect(screen.getByText('レンジドンク/BMCB')).toBeTruthy();
-    // 件数収集が無いので「(間違えた問題なし)」表示 (3件)。
-    expect(screen.getAllByText('(間違えた問題なし)').length).toBeGreaterThanOrEqual(3);
+    // ポストフロップ各モードは復習一覧へのリンク (/quiz/review/flop/{training_type})。
+    expect(container.querySelector('a[href="/quiz/review/flop/flop_cb_srp"]')).toBeTruthy();
+    expect(container.querySelector('a[href="/quiz/review/flop/flop_donk_bmcb"]')).toBeTruthy();
   });
 
   it('カテゴリ見出しのタップで折りたたみできる', async () => {

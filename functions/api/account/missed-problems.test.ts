@@ -68,3 +68,37 @@ describe('missed-problems POST', () => {
     expect(exec.length).toBe(0);
   });
 });
+
+describe('missed-problems POST (flop)', () => {
+  const FLOP_VALID = {
+    training_type: 'flop_cb_srp',
+    scenario_type: 'flop_cb',
+    hero_position: 'BTN',
+    opener_position: 'BB',
+    hand: '-',
+    user_selections: [],
+    gto_strategy: { allin: 0, raise: 0, call: 0, fold: 0 },
+    score_obtained: 0,
+    metadata: JSON.stringify({ board: 'AdAc3d', variant: 'cor_btnc', pot: 'SRP', kind: 'cb' }),
+  };
+
+  it('flop_* training_type + metadata は受理され metadata を INSERT する', async () => {
+    const { db, exec } = makeFakeDb();
+    const res = await onRequestPost(ctx(postRequest({ records: [FLOP_VALID] }), db));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ inserted: 1 });
+    const insert = exec.find((e) => e.sql.includes('INSERT INTO missed_problems'));
+    expect(insert).toBeDefined();
+    expect(insert!.sql).toContain('metadata');
+    expect(insert!.args).toContain('flop_cb_srp');
+    expect(insert!.args).toContain(FLOP_VALID.metadata);
+  });
+
+  it('flop で metadata 欠落は除外され inserted=0', async () => {
+    const { db, exec } = makeFakeDb();
+    const noMeta = { ...FLOP_VALID, metadata: undefined };
+    const res = await onRequestPost(ctx(postRequest({ records: [noMeta] }), db));
+    expect(await res.json()).toMatchObject({ inserted: 0 });
+    expect(exec.some((e) => e.sql.includes('INSERT INTO missed_problems'))).toBe(false);
+  });
+});

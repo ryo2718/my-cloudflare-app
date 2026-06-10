@@ -33,23 +33,55 @@ import { FlopSimilarBoards } from './FlopSimilarBoards';
 import { FLOP_CB_ORDER, flopCbLabels, flopCbColor } from './flopCbChoiceStyle';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
+import { useAuth } from '../../hooks/useAuth';
+import { apiPostMissedProblems, type FlopTrainingType } from '../../api/missedProblems';
+import { flopRbMissedInput } from '../../data/training/flopMissedMode';
 
 type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
 const FLOP_SETTLE_MS = 400;
 const CHECK_TO_TURN_MS = 200;
+/** 1問満点 (これ未満を「間違えた問題」として記録)。 */
+const FLOP_RB_PERFECT = 2;
 
 const selOf = (r: FlopRbResponse | null): ReadonlyArray<string> => r?.selections ?? [];
 
-export interface TrainingPlayFlopIntermediateProps {
-  level: TrainingLevel;
+/** 復習(再出題)モード設定。指定時は通常生成・記録の代わりに使う。 */
+export interface FlopRbReview {
+  /** 再構築済みの出題。 */
+  questions: FlopRbQuestion[];
+  /** 完了時 (pt 加算・DB 記録なし)。 */
+  onFinish: (records: FlopRbRecord[]) => void;
 }
 
-export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermediateProps) {
+export interface TrainingPlayFlopIntermediateProps {
+  level: TrainingLevel;
+  /** 指定時は復習(間違えた問題の再出題)モード。 */
+  review?: FlopRbReview;
+}
+
+export function TrainingPlayFlopIntermediate({ level, review }: TrainingPlayFlopIntermediateProps) {
+  const auth = useAuth();
   const [instant] = useState<boolean>(loadInstantFeedback);
   const [lastRes, setLastRes] = useState<FlopRbResponse | null>(null);
 
   const finish = (records: FlopRbRecord[]) => {
+    // 復習モード: pt 加算・DB 記録・間違えた問題記録は行わない。
+    if (review) {
+      review.onFinish(records);
+      return;
+    }
     saveFlopRbRecords(level.key, records);
+    // 満点未満を「間違えた問題」として記録 (ベスト努力・失敗は silent)。
+    if (auth.sessionId) {
+      const missed = records
+        .filter((r) => r.finalScore < FLOP_RB_PERFECT)
+        .map((r) => flopRbMissedInput(level.key as FlopTrainingType, r, r.finalScore));
+      if (missed.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
+          /* silent fallback */
+        });
+      }
+    }
     const finalSum = records.reduce((s, r) => s + r.finalScore, 0);
     const params = new URLSearchParams({ score: String(finalSum), total: String(FLOP_RB_MAX_SCORE) });
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
@@ -60,9 +92,9 @@ export function TrainingPlayFlopIntermediate({ level }: TrainingPlayFlopIntermed
     FlopRbResponse,
     FlopRbRecord
   >({
-    load: () => generateFlopRbQuestions(flopRbModeOf(level.key)),
-    onLoadStart: () => clearFlopRbRecords(level.key),
-    reloadKey: level.key,
+    load: review ? () => Promise.resolve(review.questions) : () => generateFlopRbQuestions(flopRbModeOf(level.key)),
+    onLoadStart: review ? undefined : () => clearFlopRbRecords(level.key),
+    reloadKey: review ? `review:${level.key}` : level.key,
     instant,
     scorePoints: (q, res) => scoreFlopRb(q, res),
     buildRecord: (q, res, i) => ({ ...q, recordId: i + 1, response: res, finalScore: scoreFlopRb(q, res) }),

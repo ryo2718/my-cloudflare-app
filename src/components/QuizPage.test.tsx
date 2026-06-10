@@ -42,7 +42,8 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     // 初級 / 中級 / 上級 (未実装) の 3 カードを描画するため、 それぞれ +1。
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
-    expect(countText('初級')).toBe(3);   // preflop + flop + missed
+    // preflop quiz行 + flop quiz行 + missed(プリフロ初級) + missed(ポストフロ初級)。
+    expect(countText('初級')).toBe(4);
     // ">中級<" = preflop の「中級」見出し + flop の未実装カード。
     expect(countText('中級')).toBe(2);
     expect(countText('上級')).toBe(3);   // preflop + flop + missed (未実装表記)

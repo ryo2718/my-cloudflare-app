@@ -29,6 +29,9 @@ import { FlopFeedbackDetail } from './FlopFeedbackDetail';
 import { flopJudgment } from './flopFeedbackFormat';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
+import { useAuth } from '../../hooks/useAuth';
+import { apiPostMissedProblems } from '../../api/missedProblems';
+import { flopBeginnerMissedInput } from '../../data/training/flopMissedMode';
 
 // アニメーションの流れ (修正1):
 //   preflop : プリフロップのアクションを順次再生 (ActionTable)。
@@ -39,16 +42,42 @@ type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
 const FLOP_SETTLE_MS = 400; // フロップのフリップが出そろうまで待つ
 const CHECK_TO_TURN_MS = 200; // OOP check → ヒーロー手番
 
-export interface TrainingPlayFlopProps {
-  level: TrainingLevel;
+/** 復習(再出題)モード設定。指定時は通常生成・記録の代わりに使う。 */
+export interface FlopBeginnerReview {
+  questions: FlopQuestion[];
+  /** 完了時 (pt 加算・DB 記録なし)。 */
+  onFinish: (records: FlopRecord[]) => void;
 }
 
-export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
+export interface TrainingPlayFlopProps {
+  level: TrainingLevel;
+  /** 指定時は復習(間違えた問題の再出題)モード。 */
+  review?: FlopBeginnerReview;
+}
+
+export function TrainingPlayFlop({ level, review }: TrainingPlayFlopProps) {
+  const auth = useAuth();
   const [instant] = useState<boolean>(loadInstantFeedback);
 
   const finish = (records: FlopRecord[]) => {
+    // 復習モード: pt 加算・DB 記録・間違えた問題記録は行わない。
+    if (review) {
+      review.onFinish(records);
+      return;
+    }
     // 振り返り (答え合わせ) 用に各問の記録を保存してから結果画面へ。
     saveFlopRecords(level.key, records);
+    // 不正解を「間違えた問題」として記録 (ベスト努力・失敗は silent)。
+    if (auth.sessionId) {
+      const missed = records
+        .filter((r) => !r.isCorrect)
+        .map((r) => flopBeginnerMissedInput(r, scoreFlopAnswer(r, r.choice).points));
+      if (missed.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
+          /* silent fallback */
+        });
+      }
+    }
     const correctCount = records.filter((r) => r.isCorrect).length;
     const params = new URLSearchParams({
       score: String(correctCount),
@@ -62,8 +91,8 @@ export function TrainingPlayFlop({ level }: TrainingPlayFlopProps) {
     FlopResponse,
     FlopRecord
   >({
-    load: () => generateFlopBeginnerQuestions(),
-    reloadKey: level.key,
+    load: review ? () => Promise.resolve(review.questions) : () => generateFlopBeginnerQuestions(),
+    reloadKey: review ? `review:${level.key}` : level.key,
     instant,
     scorePoints: (q, res) => scoreFlopAnswer(q, res.choice).points,
     buildRecord: (q, res, i) => ({

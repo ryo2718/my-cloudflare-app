@@ -20,17 +20,32 @@ export interface MissedProblemRow {
   is_timeout: number;
   is_removed_from_review: number;
   created_at: number;
+  /** フロップ用 JSON (board / pot / variant / kind / hand)。プリフロップは null/undefined。 */
+  metadata?: string | null;
 }
 
-export type MissedTrainingType =
+/** プリフロップの training_type。 */
+export type PreflopTrainingType =
   | 'preflop_beginner'
   | 'preflop_intermediate'
   | 'preflop_intermediate_ep'
   | 'preflop_intermediate_lp'
   | 'preflop_intermediate_blind';
 
-/** 取得用 level クエリ。 */
+/** ポストフロップ (フロップ) の training_type。 */
+export type FlopTrainingType =
+  | 'flop_beginner'
+  | 'flop_cb_srp'
+  | 'flop_cb_3bp'
+  | 'flop_donk_bmcb';
+
+export type MissedTrainingType = PreflopTrainingType | FlopTrainingType;
+
+/** 取得用 level クエリ (プリフロップ)。 */
 export type MissedLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+
+/** 取得用 level クエリ。フロップは training_type をそのまま level に使う。 */
+export type MissedLevelQuery = MissedLevel | FlopTrainingType;
 
 export interface MissedProblemInput {
   training_type: MissedTrainingType;
@@ -45,6 +60,8 @@ export interface MissedProblemInput {
   gto_strategy: { allin: number; raise: number; call: number; fold: number; check?: number };
   score_obtained: number;
   is_timeout?: boolean;
+  /** フロップ固有情報 (board / pot / variant / kind / hand) を JSON 文字列で持つ。 */
+  metadata?: string | null;
 }
 
 interface ErrorBody { error?: string }
@@ -79,7 +96,7 @@ export async function apiPostMissedProblems(
 
 export async function apiGetMissedProblems(
   sessionId: string,
-  params: { level?: MissedLevel; limit?: number; includeRemoved?: boolean } = {},
+  params: { level?: MissedLevelQuery; limit?: number; includeRemoved?: boolean } = {},
 ): Promise<MissedProblemRow[]> {
   const qs = new URLSearchParams();
   if (params.level) qs.set('level', params.level);

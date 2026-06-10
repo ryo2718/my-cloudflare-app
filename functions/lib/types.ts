@@ -69,6 +69,8 @@ export interface MissedProblemRow {
   is_timeout: number;
   is_removed_from_review: number;
   created_at: number;
+  /** フロップ用 JSON (board / pot / variant / kind / hand)。プリフロップは null。 */
+  metadata?: string | null;
 }
 
 export interface GroupKeyRow {

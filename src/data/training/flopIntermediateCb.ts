@@ -499,6 +499,44 @@ export async function generateFlopRbQuestions(mode: FlopRbMode = 'srp'): Promise
   return buildFlopRbQuestions(await loadFlopRbData(), mode);
 }
 
+/**
+ * 復習(再出題)用: variant + board から 1 問を再構築する。
+ * strat / choices / preflopActions / similar は実データから取り直す(正解は保存していない)。
+ * 見つからなければ null。
+ */
+export function recordToFlopRbQuestion(
+  data: FlopRbData,
+  variant: string,
+  board: string,
+): FlopRbQuestion | null {
+  const fallbackChoices = data.cb_choices ?? DEFAULT_CHOICES;
+  const choicesFor = (pot: FlopRbPot) => (data.cb_choices_by_pot ?? {})[pot] ?? fallbackChoices;
+  const pools: Array<{ arr: ReadonlyArray<CbBoard>; kind: FlopCbKind }> = [
+    ...Object.values(data.cb ?? {}).map((arr) => ({ arr: arr as ReadonlyArray<CbBoard>, kind: 'cb' as FlopCbKind })),
+    { arr: data.donk ?? [], kind: 'donk' as FlopCbKind },
+    { arr: data.bmcb ?? [], kind: 'bmcb' as FlopCbKind },
+  ];
+  for (const { arr, kind } of pools) {
+    const rec = arr.find((b) => b.variant === variant && b.board === board);
+    if (!rec) continue;
+    const choices = choicesFor(rec.pot);
+    return {
+      id: 1,
+      pot: rec.pot,
+      kind: rec.kind ?? kind,
+      variant: rec.variant,
+      hero: rec.hero as Position,
+      villain: rec.villain as Position,
+      board: parseBoard(rec.board),
+      choices,
+      strat: rec.strat,
+      preflopActions: data.preflop?.[rec.variant] ?? [],
+      similar: findSimilar(arr, rec, choices, FLOP_RB_SIMILAR_COUNT),
+    };
+  }
+  return null;
+}
+
 /** シナリオラベル: 「[donk|bmcb ]{srp|3bp|4bp|5bp} {ヒーロー} vs {相手}」。 */
 export function flopRbScenarioLabel(q: { pot: FlopRbPot; hero: Position; villain: Position; kind?: FlopCbKind }): string {
   const tag = q.pot === 'SRP' ? 'srp' : q.pot === '3bet' ? '3bp' : q.pot === '4bet' ? '4bp' : '5bp';

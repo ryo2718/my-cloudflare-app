@@ -13,6 +13,11 @@ const ALLOWED_TRAINING_TYPES = new Set([
   'preflop_intermediate_ep',
   'preflop_intermediate_lp',
   'preflop_intermediate_blind',
+  // ポストフロップ (フロップ)。フロップ固有情報は metadata(JSON)に持つ。
+  'flop_beginner',
+  'flop_cb_srp',
+  'flop_cb_3bp',
+  'flop_donk_bmcb',
 ]);
 const ALLOWED_SCENARIOS = new Set([
   'bb_response',
@@ -27,10 +32,17 @@ const ALLOWED_SCENARIOS = new Set([
   'lp_open', 'lp_vs_open_btn', 'lp_vs_open_co', 'lp_vs_3bet', 'lp_vs_4bet',
   'sb_open', 'sb_limp_vs_raise', 'sb_vs_3bet', 'sb_vs_4bet', 'sb_vs_open',
   'bb_vs_open_other', 'bb_vs_open_sb', 'bb_vs_limp', 'bb_vs_limp_raise', 'bb_vs_4bet',
+  // フロップ scenario_type (種別タグ)。詳細は metadata に持つ。
+  'flop_cb', 'flop_donk', 'flop_bmcb', 'flop_beginner',
 ]);
 const ALLOWED_POSITIONS = new Set(['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']);
 
-/** level クエリ → training_type。 */
+/** フロップ training_type か。 */
+function isFlopType(t: string): boolean {
+  return t.startsWith('flop_');
+}
+
+/** level クエリ → training_type。フロップは level=training_type をそのまま使う。 */
 const LEVEL_TO_TRAINING_TYPE: Record<string, string> = {
   beginner: 'preflop_beginner',
   intermediate: 'preflop_intermediate',
@@ -38,6 +50,13 @@ const LEVEL_TO_TRAINING_TYPE: Record<string, string> = {
   lp: 'preflop_intermediate_lp',
   blind: 'preflop_intermediate_blind',
 };
+
+/** level クエリを training_type へ解決 (フロップは flop_* をそのまま許可)。 */
+function resolveTrainingType(level: string): string {
+  if (LEVEL_TO_TRAINING_TYPE[level]) return LEVEL_TO_TRAINING_TYPE[level];
+  if (isFlopType(level) && ALLOWED_TRAINING_TYPES.has(level)) return level;
+  return 'preflop_intermediate';
+}
 
 /** 取得 limit の上限。 */
 const MAX_LIMIT = 1000;
@@ -52,7 +71,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const url = new URL(request.url);
   const level = url.searchParams.get('level') ?? 'intermediate';
-  const trainingType = LEVEL_TO_TRAINING_TYPE[level] ?? 'preflop_intermediate';
+  const trainingType = resolveTrainingType(level);
   const limitRaw = parseInt(url.searchParams.get('limit') ?? '10', 10);
   const limit = Number.isFinite(limitRaw)
     ? Math.min(MAX_LIMIT, Math.max(1, limitRaw))
@@ -93,6 +112,8 @@ interface MissedProblemInput {
   gto_strategy: { allin: number; raise: number; call: number; fold: number };
   score_obtained: number;
   is_timeout?: boolean;
+  /** フロップ固有情報 (board / pot / variant / kind / hand) を JSON 文字列で持つ。 */
+  metadata?: string | null;
 }
 
 function isValidRecord(r: unknown): r is MissedProblemInput {
@@ -116,6 +137,18 @@ function isValidRecord(r: unknown): r is MissedProblemInput {
   if (!x.gto_strategy || typeof x.gto_strategy !== 'object') return false;
   if (typeof x.score_obtained !== 'number' || !Number.isFinite(x.score_obtained)) return false;
   if (x.score_obtained < -1 || x.score_obtained > 2) return false;
+  // フロップは再出題に必要な metadata (board/variant を含む JSON) を必須にする。
+  if (isFlopType(x.training_type)) {
+    if (typeof x.metadata !== 'string' || x.metadata.length === 0 || x.metadata.length > 500) return false;
+    try {
+      const m = JSON.parse(x.metadata) as Record<string, unknown>;
+      if (typeof m.board !== 'string' || typeof m.variant !== 'string') return false;
+    } catch {
+      return false;
+    }
+  } else if (x.metadata !== null && x.metadata !== undefined && typeof x.metadata !== 'string') {
+    return false;
+  }
   return true;
 }
 
@@ -154,8 +187,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
          (account_id, training_type, scenario_type, hero_position,
           opener_position, three_bettor_position, hand,
           user_selections, gto_strategy, score_obtained,
-          is_timeout, is_removed_from_review, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+          is_timeout, is_removed_from_review, created_at, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       )
       .bind(
         account.id,
@@ -170,6 +203,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         r.score_obtained,
         r.is_timeout ? 1 : 0,
         now,
+        r.metadata ?? null,
       ),
   );
   await env.DB.batch(stmts);

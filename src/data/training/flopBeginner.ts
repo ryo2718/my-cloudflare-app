@@ -190,6 +190,43 @@ export async function generateFlopBeginnerQuestions(): Promise<FlopQuestion[]> {
   return buildFlopQuestions(await loadFlopTrainingData());
 }
 
+/**
+ * 復習(再出題)用: variant + board から 1 問を再構築する。
+ * rate / actions / preflopActions は実データから取り直す。見つからなければ null。
+ */
+export function recordToFlopBeginnerQuestion(
+  data: FlopTrainingData,
+  variant: string,
+  board: string,
+): FlopQuestion | null {
+  const all: Array<{ rec: BoardRecord; type: FlopQuestionType }> = [];
+  for (const byVariant of Object.values(data.cb ?? {})) {
+    for (const arr of Object.values(byVariant)) {
+      for (const rec of arr) all.push({ rec, type: 'cb' });
+    }
+  }
+  for (const arr of Object.values(data.donk ?? {})) {
+    for (const rec of arr) all.push({ rec, type: 'donk' });
+  }
+  const hit = all.find((x) => x.rec.variant === variant && x.rec.board === board);
+  if (!hit) return null;
+  const threshold = hit.type === 'cb' ? data.cb_threshold : data.donk_threshold;
+  return {
+    id: 1,
+    type: hit.type,
+    pot: hit.rec.pot,
+    variant: hit.rec.variant,
+    hero: hit.rec.hero as Position,
+    villain: hit.rec.villain as Position,
+    board: parseBoard(hit.rec.board),
+    rate: hit.rec.rate,
+    threshold,
+    correct: hit.rec.rate >= threshold ? 'bet' : 'check',
+    actions: hit.rec.actions,
+    preflopActions: data.preflop?.[hit.rec.variant] ?? [],
+  };
+}
+
 /** シナリオラベル: 「{srp|3bp} {ヒーロー} vs {相手}」。 */
 export function flopScenarioLabel(q: { pot: FlopPot; hero: Position; villain: Position }): string {
   return `${q.pot === 'SRP' ? 'srp' : '3bp'} ${q.hero} vs ${q.villain}`;
