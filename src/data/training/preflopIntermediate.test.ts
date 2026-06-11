@@ -336,19 +336,20 @@ describe('generateProblemDistribution (5 タイプ)', () => {
       expect(d.bb + d.vs3bet + d.vs4bet + d.middleVsOpen + d.riskyOpen).toBe(20);
     }
   });
-  it('各タイプの範囲遵守: bb 2-5, vs3bet 4-6, vs4bet 4-6, middleVsOpen 3-5, riskyOpen 1-3', () => {
+  it('各タイプの範囲遵守: bb 3-6, vs3bet 5-7, vs4bet 1-3, middleVsOpen 4-6, riskyOpen 1-3', () => {
     for (let i = 0; i < 200; i++) {
       const d = generateProblemDistribution();
-      expect(d.bb).toBeGreaterThanOrEqual(2);
-      expect(d.bb).toBeLessThanOrEqual(5);
-      expect(d.vs3bet).toBeGreaterThanOrEqual(4);
-      expect(d.vs3bet).toBeLessThanOrEqual(6);
-      expect(d.vs4bet).toBeGreaterThanOrEqual(4);
-      expect(d.vs4bet).toBeLessThanOrEqual(6);
-      expect(d.middleVsOpen).toBeGreaterThanOrEqual(3);
-      expect(d.middleVsOpen).toBeLessThanOrEqual(5);
+      expect(d.bb).toBeGreaterThanOrEqual(3);
+      expect(d.bb).toBeLessThanOrEqual(6);
+      expect(d.vs3bet).toBeGreaterThanOrEqual(5);
+      expect(d.vs3bet).toBeLessThanOrEqual(7);
+      expect(d.vs4bet).toBeGreaterThanOrEqual(1);
+      expect(d.vs4bet).toBeLessThanOrEqual(3);
+      expect(d.middleVsOpen).toBeGreaterThanOrEqual(4);
+      expect(d.middleVsOpen).toBeLessThanOrEqual(6);
       expect(d.riskyOpen).toBeGreaterThanOrEqual(1);
       expect(d.riskyOpen).toBeLessThanOrEqual(3);
+      expect(d.bb + d.vs3bet + d.vs4bet + d.middleVsOpen + d.riskyOpen).toBe(20);
     }
   });
 });

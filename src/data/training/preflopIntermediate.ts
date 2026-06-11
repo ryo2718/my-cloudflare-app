@@ -20,6 +20,7 @@
 //   - それ以外: 頻度別基礎点合計 floor → 正規化 (満点 2)
 
 import { getTierOfHand } from './tierLookup';
+import { EV_RANKING } from '../evRanking';
 import type { HandStrategy } from './preflopBeginner';
 import {
   PREFLOP_ORDER,
@@ -57,6 +58,65 @@ const DEDUP_MAX_RETRIES = 8;
 const GENERATE_MAX_RETRIES = 50;
 const DISTRIBUTION_MAX_RETRIES = 1000;
 
+// --- ブラフ/バリュー判定 (EV_RANKING の topPct を利用、参照のみ) ---------------
+// topPct: ハンドの絶対強さ百分位 (小さいほど強い)。
+//   ピュア(単一100%)レイズ/オールインのうち、topPct<=PURE_BLUFF_TOPPCT は「ピュアバリュー」
+//   として従来どおり出題除外 (AA 等の自明問題)。topPct>PURE_BLUFF_TOPPCT は「ピュアブラフ」
+//   (A5s=raise100% / A7s=allin100% 等のブロッカーブラフ) として出題に含める。
+const PURE_BLUFF_TOPPCT = 8;
+// ブラフ枠 / バリュー枠の内部ラベル閾値。
+const BLUFF_TOPPCT = 10;  // topPct>10 のレイズ/オールイン = ブラフ寄り
+const VALUE_TOPPCT = 5;   // topPct<=5 のレイズ/オールイン = バリュー寄り
+// レイズ判断シナリオで「ブラフ枠」(ランク下位のレイズに絞る) を強制する確率。
+const BLUFF_SLOT_PROB = 0.35;
+// ブラフ/バリュー判定で「アグレッシブ」とみなす最低頻度 (raise or allin)。
+const AGGRESSIVE_MIN_PCT = 10;
+
+/** 問題が内部的にブラフ枠/バリュー枠/中立のどれか (UI 表示は今回しない、ロジック用)。 */
+export type HandSlot = 'bluff' | 'value' | 'neutral';
+
+function topPctOfHand(hand: Hand): number {
+  return EV_RANKING[hand]?.topPct ?? 0;
+}
+
+function isAggressive(s: HandStrategy): boolean {
+  return (s.raise ?? 0) >= AGGRESSIVE_MIN_PCT || (s.allin ?? 0) >= AGGRESSIVE_MIN_PCT;
+}
+
+/** ハンドのブラフ/バリュー/中立ラベル (レイズ/オールインのランク位置で判定)。 */
+export function handSlotOf(hand: Hand, s: HandStrategy): HandSlot {
+  if (!isAggressive(s)) return 'neutral';
+  const tp = topPctOfHand(hand);
+  if (tp > BLUFF_TOPPCT) return 'bluff';
+  if (tp <= VALUE_TOPPCT) return 'value';
+  return 'neutral';
+}
+
+/** ブラフ枠の候補か (ランク下位 topPct>BLUFF_TOPPCT のレイズ/オールイン)。 */
+function isBluffCandidate(hand: Hand, s: HandStrategy): boolean {
+  return isAggressive(s) && topPctOfHand(hand) > BLUFF_TOPPCT;
+}
+
+/**
+ * ノードの hands から 1 ハンド抽選 (eligible のみ)。確率 BLUFF_SLOT_PROB で
+ * 「ブラフ枠」に絞り、ランク下位のレイズ/オールインハンドから抽選する。
+ * eligible が無ければ null。返り値に内部 slot ラベルを含む。
+ */
+function pickHandWithSlot(
+  hands: Record<string, HandStrategy>,
+): { hand: Hand; strategy: HandStrategy; slot: HandSlot } | null {
+  const eligible = (Object.keys(hands) as Hand[]).filter((h) => isHandEligible(h, hands[h]));
+  if (eligible.length === 0) return null;
+  let pool = eligible;
+  if (Math.random() < BLUFF_SLOT_PROB) {
+    const bluffs = eligible.filter((h) => isBluffCandidate(h, hands[h]));
+    if (bluffs.length > 0) pool = bluffs;
+  }
+  const hand = pool[Math.floor(Math.random() * pool.length)];
+  const strategy = hands[hand];
+  return { hand, strategy, slot: handSlotOf(hand, strategy) };
+}
+
 /** 開額 (テーブル俯瞰図のチップ表示用、bb 単位)。 */
 const OPEN_SIZE = 2.5;
 const THREE_BET_SIZE = 12;  // 概算: 12bb (BB が 3bet 想定)
@@ -91,6 +151,8 @@ export interface IntermediateQuestion {
     { rank: string; suit: 's' | 'h' | 'd' | 'c' },
   ];
   strategy: HandStrategy;
+  /** 内部ラベル: ブラフ枠 / バリュー枠 / 中立 (今回は UI 非表示、ロジック用)。 */
+  slot?: HandSlot;
 }
 
 export interface ScoreBreakdown {
@@ -210,17 +272,19 @@ function randomInt(min: number, max: number): number {
  *   bb: 2-5, vs3bet: 4-6, vs4bet: 4-6, middleVsOpen: 3-5, riskyOpen: 1-3
  */
 export function generateProblemDistribution(): ProblemDistribution {
+  // vs_4bet (allin に対する call/fold 主体で学習価値が薄い) を削減し、
+  // 能動的な 3bet/4bet 判断シナリオ (bb_response / middle_vs_open / vs_3bet) を増やす。
   for (let i = 0; i < DISTRIBUTION_MAX_RETRIES; i++) {
-    const bb = randomInt(2, 5);
-    const vs3bet = randomInt(4, 6);
-    const vs4bet = randomInt(4, 6);
-    const middleVsOpen = randomInt(3, 5);
+    const bb = randomInt(3, 6);
+    const vs3bet = randomInt(5, 7);
+    const vs4bet = randomInt(1, 3);
+    const middleVsOpen = randomInt(4, 6);
     const riskyOpen = randomInt(1, 3);
     if (bb + vs3bet + vs4bet + middleVsOpen + riskyOpen === 20) {
       return { bb, vs3bet, vs4bet, middleVsOpen, riskyOpen };
     }
   }
-  return { bb: 3, vs3bet: 5, vs4bet: 5, middleVsOpen: 5, riskyOpen: 2 };
+  return { bb: 4, vs3bet: 6, vs4bet: 2, middleVsOpen: 5, riskyOpen: 3 };
 }
 
 // ---------------------------------------------------------------------------
@@ -241,10 +305,17 @@ export function isHandEligible(hand: Hand, strategy: HandStrategy | undefined): 
   const major = countMajorStrategies(strategy);
   if (major < 1) return false;
   if (major === 1) {
-    const maxFreq = Math.max(
-      strategy.allin ?? 0, strategy.raise ?? 0, strategy.call ?? 0, strategy.fold ?? 0,
-    );
-    if (maxFreq >= 99.999) return false;
+    const allin = strategy.allin ?? 0;
+    const raise = strategy.raise ?? 0;
+    const maxFreq = Math.max(allin, raise, strategy.call ?? 0, strategy.fold ?? 0);
+    if (maxFreq >= 99.999) {
+      // ピュア(単一100%)。ピュアバリュー(ランク上位のレイズ)・ピュア call/fold は
+      // 自明問題として従来どおり除外。ピュアブラフ(ランク下位 topPct>PURE_BLUFF_TOPPCT の
+      // レイズ/オールイン = A5s/A7s 等のブロッカーブラフ) のみ出題に含める。
+      const pureAggressive = raise >= 99.999 || allin >= 99.999;
+      const isPureBluff = pureAggressive && topPctOfHand(hand) > PURE_BLUFF_TOPPCT;
+      if (!isPureBluff) return false;
+    }
   }
   return true;
 }
@@ -408,11 +479,9 @@ export function generateBBResponseQuestion(data: StrategiesByOpener): Intermedia
   if (eligibleOpeners.length === 0) throw new Error('bb_response: no eligible openers');
   for (let attempt = 0; attempt < GENERATE_MAX_RETRIES; attempt++) {
     const opener = pickRandom(eligibleOpeners);
-    const hands = data[opener]!;
-    const handStr = pickRandom(Object.keys(hands));
-    const hand = handStr as Hand;
-    const strategy = hands[handStr];
-    if (!isHandEligible(hand, strategy)) continue;
+    const picked = pickHandWithSlot(data[opener]!);
+    if (!picked) continue;
+    const { hand, strategy, slot } = picked;
     const foldedBefore = [...positionsBefore(opener), ...positionsBetween(opener, 'BB')];
     return {
       scenarioType: 'bb_response',
@@ -423,6 +492,7 @@ export function generateBBResponseQuestion(data: StrategiesByOpener): Intermedia
       hand,
       cards: handToCards(hand),
       strategy,
+      slot,
     };
   }
   throw new Error('bb_response: no eligible hand after retries');
@@ -435,11 +505,9 @@ export function generateVs3betQuestion(data: StrategiesByPair): IntermediateQues
   for (let attempt = 0; attempt < GENERATE_MAX_RETRIES; attempt++) {
     const key = pickRandom(eligibleKeys);
     const [opener, threeBettor] = key.split('_') as [Position, Position];
-    const hands = data[key];
-    const handStr = pickRandom(Object.keys(hands));
-    const hand = handStr as Hand;
-    const strategy = hands[handStr];
-    if (!isHandEligible(hand, strategy)) continue;
+    const picked = pickHandWithSlot(data[key]);
+    if (!picked) continue;
+    const { hand, strategy, slot } = picked;
     // 自分=opener、3bettor は後 → foldedBefore = opener より前のみ
     // (opener と 3bettor の間の人は既に fold 確定)
     const foldedBefore = [
@@ -459,6 +527,7 @@ export function generateVs3betQuestion(data: StrategiesByPair): IntermediateQues
       hand,
       cards: handToCards(hand),
       strategy,
+      slot,
     };
   }
   throw new Error('vs_3bet: no eligible hand after retries');
@@ -471,11 +540,9 @@ export function generateVs4betQuestion(data: StrategiesByPair): IntermediateQues
   for (let attempt = 0; attempt < GENERATE_MAX_RETRIES; attempt++) {
     const key = pickRandom(eligibleKeys);
     const [opener, threeBettor] = key.split('_') as [Position, Position];
-    const hands = data[key];
-    const handStr = pickRandom(Object.keys(hands));
-    const hand = handStr as Hand;
-    const strategy = hands[handStr];
-    if (!isHandEligible(hand, strategy)) continue;
+    const picked = pickHandWithSlot(data[key]);
+    if (!picked) continue;
+    const { hand, strategy, slot } = picked;
     const foldedBefore = [
       ...positionsBefore(opener),
       ...positionsBetween(opener, threeBettor),
@@ -493,6 +560,7 @@ export function generateVs4betQuestion(data: StrategiesByPair): IntermediateQues
       hand,
       cards: handToCards(hand),
       strategy,
+      slot,
     };
   }
   throw new Error('vs_4bet: no eligible hand after retries');
@@ -508,11 +576,9 @@ export function generateMiddleVsOpenQuestion(data: StrategiesByPair): Intermedia
   for (let attempt = 0; attempt < GENERATE_MAX_RETRIES; attempt++) {
     const key = pickRandom(eligibleKeys);
     const [opener, me] = key.split('_') as [Position, Position];
-    const hands = data[key];
-    const handStr = pickRandom(Object.keys(hands));
-    const hand = handStr as Hand;
-    const strategy = hands[handStr];
-    if (!isHandEligible(hand, strategy)) continue;
+    const picked = pickHandWithSlot(data[key]);
+    if (!picked) continue;
+    const { hand, strategy, slot } = picked;
     const foldedBefore = [
       ...positionsBefore(opener),
       ...positionsBetween(opener, me),
@@ -526,6 +592,7 @@ export function generateMiddleVsOpenQuestion(data: StrategiesByPair): Intermedia
       hand,
       cards: handToCards(hand),
       strategy,
+      slot,
     };
   }
   throw new Error('middle_vs_open: no eligible hand after retries');
@@ -550,7 +617,14 @@ export function generateRiskyOpenQuestion(data: StrategiesByOpener): Intermediat
     }
   }
   if (pairs.length === 0) throw new Error('risky_open: no eligible hand');
-  const { opener, hand } = pickRandom(pairs);
+  // 確率 BLUFF_SLOT_PROB でブラフ枠 (ランク下位の混合 open) に絞る。
+  let pool = pairs;
+  if (Math.random() < BLUFF_SLOT_PROB) {
+    const bluffs = pairs.filter(({ opener, hand }) => isBluffCandidate(hand, data[opener]![hand]!));
+    if (bluffs.length > 0) pool = bluffs;
+  }
+  const { opener, hand } = pickRandom(pool);
+  const strategy = data[opener]![hand]!;
   return {
     scenarioType: 'risky_open',
     myPosition: opener,
@@ -559,7 +633,8 @@ export function generateRiskyOpenQuestion(data: StrategiesByOpener): Intermediat
     chipExtras: [],
     hand,
     cards: handToCards(hand),
-    strategy: data[opener]![hand]!,
+    strategy,
+    slot: handSlotOf(hand, strategy),
   };
 }
 
