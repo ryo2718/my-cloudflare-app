@@ -71,12 +71,13 @@ describe('CB 3BP/4BP/5BP (flop_cb_3bp) 出題生成', () => {
     }
   });
 
-  it('ポット別選択肢: 5bet は check/33/50/ALLIN、4bet は 125 を含まない', () => {
+  it('ポット別選択肢: 5bet は check/33/50/ALLIN、4bet は ALLIN を含む', () => {
+    // 4bet の 125(オーバーベット)有無はデータ依存。high-card 層化収録後は一部の
+    // 4bet ボードで 125 が使われるため「含まない」は前提にしない (5bet の浅さは維持)。
     for (const q of buildFlopRbQuestions(DATA, '3bp')) {
       if (q.pot === '5bet') expect(q.choices).toEqual(['check', '33', '50', 'ALLIN']);
       if (q.pot === '4bet') {
         expect(q.choices).toContain('ALLIN');
-        expect(q.choices).not.toContain('125');
       }
     }
   });

@@ -136,6 +136,74 @@ function isMixed(strat) {
   return n >= 2;
 }
 
+// --- high-card 層化抽出 (ローボード偏り対策) ---------------------------------
+// 従来は「低→高ソート済み solutions の先頭 PER_VARIANT_CAP 件」を採用していたため、
+// 各 variant の最低ボードだけが残りハイカードに到達しなかった。high-card で層化し
+// ラウンドロビンに抽出することで、A〜2 のテクスチャを満遍なく収録する。
+const RANK_VAL = { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, T: 10, J: 11, Q: 12, K: 13, A: 14 };
+/** ボード文字列 "AsKd2c" の最大ランク値 (A=14 … 2=2)。 */
+function boardHighRank(name) {
+  return Math.max(RANK_VAL[name[0]], RANK_VAL[name[2]], RANK_VAL[name[4]]);
+}
+/** 文字列 → 32bit seed (FNV-1a)。 */
+function strSeed(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+/** 決定的 PRNG (mulberry32)。再現性のためビルドは固定シードで回す。 */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffleSeeded(arr, rand) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+/**
+ * high-card で層化して cap 件をラウンドロビン抽出する。
+ *   - 各 high-card ビンから1枚ずつ均等に取り、枯れたビンはスキップ。
+ *   - 残り枠はボードの多いビン (主にハイカード) で埋める。
+ *   - ビン内はシード付きシャッフルで偏りを避ける (決定的)。
+ *   - entries が cap 以下ならそのまま全件返す。
+ */
+function stratifiedByHighCard(entries, cap, seed) {
+  if (entries.length <= cap) return entries;
+  const rand = mulberry32(seed);
+  const bins = new Map();
+  for (const e of entries) {
+    const r = boardHighRank(e.board);
+    if (!bins.has(r)) bins.set(r, []);
+    bins.get(r).push(e);
+  }
+  // 高ランク→低ランク順のビン配列。各ビン内はシャッフル。
+  const binArrs = [...bins.keys()].sort((a, b) => b - a).map((r) => shuffleSeeded(bins.get(r), rand));
+  const picked = [];
+  const idx = new Array(binArrs.length).fill(0);
+  let progress = true;
+  while (picked.length < cap && progress) {
+    progress = false;
+    for (let i = 0; i < binArrs.length && picked.length < cap; i++) {
+      if (idx[i] < binArrs[i].length) {
+        picked.push(binArrs[i][idx[i]++]);
+        progress = true;
+      }
+    }
+  }
+  return picked;
+}
+
 /** プリフロップ アクション列 (アニメ用)。folds を席順で割り込ませ、raise 額は invested / 3bet表 から決定。 */
 function buildPreflopSeq(variant, node, threeBetSizes = {}) {
   const players = node?.game_point?.game?.players ?? [];
@@ -235,17 +303,19 @@ function main() {
   const preflop = {};
 
   // ノードの混合戦略ボードを out に収集 (kind/hero/villain を付与)。
+  //   全混合戦略ボードを集めてから high-card 層化抽出で PER_VARIANT_CAP 件に絞る
+  //   (従来は低→高ソート済み solutions の先頭 cap 件 = ローボード偏りの原因)。
   const collectBoards = (out, node, meta) => {
     if (!node) return;
     const flopPot = node.game_point?.game?.pot ?? 0;
-    let added = 0;
+    const mixed = [];
     for (const s of node.solutions) {
-      if (added >= PER_VARIANT_CAP) break;
       const strat = bucketize(s.action_solutions, flopPot);
       if (!isMixed(strat)) continue;
-      out.push({ variant: meta.variant, hero: meta.hero, villain: meta.villain, pot: meta.pot, kind: meta.kind, board: s.name, strat });
-      added++;
+      mixed.push({ variant: meta.variant, hero: meta.hero, villain: meta.villain, pot: meta.pot, kind: meta.kind, board: s.name, strat });
     }
+    const seed = strSeed(`${meta.variant}|${meta.kind}`);
+    for (const e of stratifiedByHighCard(mixed, PER_VARIANT_CAP, seed)) out.push(e);
   };
 
   for (const variant of variants) {
