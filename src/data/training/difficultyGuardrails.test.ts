@@ -204,7 +204,7 @@ describe('難易度ガードレール', () => {
     expect(constEq(stats.ep.scenario.ep_vs_3bet, 10)).toBe(true);
     // 中級総合: 各シナリオ題数は定義レンジ内、合計20。
     const ranges: Record<string, [number, number]> = {
-      bb_response: [2, 5], vs_3bet: [4, 6], vs_4bet: [4, 6], middle_vs_open: [3, 5], risky_open: [1, 3],
+      bb_response: [3, 6], vs_3bet: [5, 7], vs_4bet: [1, 3], middle_vs_open: [4, 6], risky_open: [1, 3],
     };
     for (const [k, [lo, hi]] of Object.entries(ranges)) {
       const counts = stats.intermediate.scenario[k] ?? [];
