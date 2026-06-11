@@ -73,14 +73,15 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('未実装バッジ: 閉じたアコーディオン内は未描画。初級シナリオ別3モード(フラット表示)+ missed上級', () => {
+  it('未実装バッジ: 閉じたアコーディオン内は未描画。初級シナリオ別の未実装2モード + missed上級', () => {
     // 上級/超上級 (preflop・flop) は既定で閉じたアコーディオン → 中身 (準備中) 未描画。
     // flop 初級は実装済 (プリフロップ初級クリアで解放) なので未実装ではなくロック表示。
-    // 初級のシナリオ別3モード (オープン/vsオープン/vs3bet4bet) は初級フラット枠に未実装カードとして
-    // 常時表示。よって未実装バッジは「初級3モード + MissedProblemsSection 上級」= 4 件。
+    // 初級オープンは実装済 (初級基礎クリアで解放) なので未実装ではなくロック表示。
+    // 初級のシナリオ別で未実装なのは vsオープン / vs3bet4bet の2モード (フラット枠に常時表示)。
+    // よって未実装バッジは「初級2モード + MissedProblemsSection 上級」= 3 件。
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    expect(matches.length).toBe(4);
+    expect(matches.length).toBe(3);
   });
 
   it('上級/超上級はアコーディオン枠で表示 (既定は閉、準備中は未描画)', () => {

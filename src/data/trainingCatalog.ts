@@ -46,7 +46,9 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       // UI では「初級 基礎」の直後に未実装カードとして並ぶ。training_type は新規キー
       // (サーバ whitelist 未追加・記録経路に到達しない想定)。配列末尾に置くのは index 依存の
       // 既存テストを保つため (tier グルーピングで表示順は「初級 基礎」の後になる)。
-      { key: 'preflop_beginner_open',         label: '初級 オープン',          points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      // 初級オープン: 各ポジションのオープン頻度をスライダーで回答。1問0.5pt × 20問 = 10pt。
+      //   best_score は正解数 (0-20) で保存し、pt は points=0.5 で換算 (best_score INTEGER のため)。
+      { key: 'preflop_beginner_open',         label: '初級 オープン',          points: 0.5, questionCount: 20, timeLimitSec: 50, implemented: true },
       { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -101,6 +103,11 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const qc = level.questionCount ?? 0;
     return `${qc}問・最大 ${qc}pt・制限時間 20s`;
   }
+  // 初級オープン: 1問0.5pt × 20問 = 10pt・制限時間 50s。
+  if (level.key === 'preflop_beginner_open') {
+    const qc = level.questionCount ?? 20;
+    return `${qc}問・最大 ${qc * 0.5}pt・制限時間 50s`;
+  }
   const parts: string[] = [];
   if (level.points !== null) parts.push(`${level.points}pt`);
   if (level.questionCount !== null) parts.push(`${level.questionCount}問`);
@@ -129,6 +136,8 @@ export function maxScoreFor(level: TrainingLevel): number {
     level.key === 'flop_donk_bmcb'
   )
     return level.questionCount * 2;
+  // 初級オープン: 満点 pt = questionCount * 0.5 (= 10)。best_score は正解数 (0-20)。
+  if (level.key === 'preflop_beginner_open') return level.questionCount * 0.5;
   return level.questionCount;
 }
 

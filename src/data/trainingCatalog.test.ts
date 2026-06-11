@@ -50,16 +50,25 @@ describe('TRAINING_CATALOG', () => {
     ]);
   });
 
-  it('初級シナリオ別3モード: ラベルと implemented=false (タブのみ・中身は後)', () => {
+  it('初級シナリオ別モード: ラベル。open は実装済、残り2モードは未実装 (タブのみ・中身は後)', () => {
     const byKey = (k: string) => TRAINING_CATALOG[0].levels.find((l) => l.key === k);
     expect(byKey('preflop_beginner')?.label).toBe('初級 基礎'); // 旧「初級」の改名
     expect(byKey('preflop_beginner_open')?.label).toBe('初級 オープン');
     expect(byKey('preflop_beginner_vs_open')?.label).toBe('初級 vs オープン');
     expect(byKey('preflop_beginner_vs_3bet_4bet')?.label).toBe('初級 vs 3ベット/4ベット');
-    for (const k of ['preflop_beginner_open', 'preflop_beginner_vs_open', 'preflop_beginner_vs_3bet_4bet']) {
+    // vs オープン / vs 3ベット4ベット はまだ未実装。
+    for (const k of ['preflop_beginner_vs_open', 'preflop_beginner_vs_3bet_4bet']) {
       expect(byKey(k)?.implemented).toBe(false);
       expect(byKey(k)?.questionCount).toBeNull();
     }
+  });
+
+  it('初級オープン: points=0.5, questionCount=20, timeLimitSec=50, implemented=true', () => {
+    const open = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_open');
+    expect(open?.points).toBe(0.5);
+    expect(open?.questionCount).toBe(20);
+    expect(open?.timeLimitSec).toBe(50);
+    expect(open?.implemented).toBe(true);
   });
 
   it('中級 EP/LP=20問, Blind=30問, 全て implemented=true・20s', () => {
@@ -142,6 +151,11 @@ describe('helpers', () => {
     expect(formatLevelInfo(TRAINING_CATALOG[0].levels[1])).toBe('20問・最大 40pt・制限時間 20s');
   });
 
+  it('formatLevelInfo: 初級オープンは "20問・最大 10pt・制限時間 50s"', () => {
+    const open = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_open')!;
+    expect(formatLevelInfo(open)).toBe('20問・最大 10pt・制限時間 50s');
+  });
+
   it('formatLevelInfo: フロップ CB SRP/CB 3BP/ドンクBMCB は "30問・最大 60pt・制限時間なし"', () => {
     expect(formatLevelInfo(TRAINING_CATALOG[1].levels[1])).toBe('30問・最大 60pt・制限時間なし');
     expect(formatLevelInfo(TRAINING_CATALOG[1].levels[2])).toBe('30問・最大 60pt・制限時間なし');
@@ -166,6 +180,10 @@ describe('maxScoreFor', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[2])).toBe(20); // EP
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[3])).toBe(20); // LP
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[4])).toBe(30); // Blind
+  });
+  it('初級オープン: 10 (questionCount * 0.5, best_score は正解数 0-20)', () => {
+    const open = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_open')!;
+    expect(maxScoreFor(open)).toBe(10);
   });
   it('フロップ CB SRP/CB 3BP/ドンクBMCB: 60 (questionCount * 2)', () => {
     expect(maxScoreFor(TRAINING_CATALOG[1].levels[1])).toBe(60);

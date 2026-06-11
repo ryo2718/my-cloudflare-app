@@ -52,6 +52,7 @@ function useHands(file: string): Record<string, HandStrategy> | null {
 
 export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_beginner') return <BeginnerRule />;
+  if (levelKey === 'preflop_beginner_open') return <BeginnerOpenRule />;
   if (levelKey === 'preflop_intermediate') return <IntermediateRule />;
   if (levelKey === 'preflop_intermediate_ep') return <PositionalRule mode="ep" />;
   if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
@@ -292,6 +293,68 @@ function BeginnerRule() {
       <Card>
         {hands ? (
           <HandRangeMatrix hands={hands} highlightHand="QJs" />
+        ) : (
+          <div style={mutedStyle}>レンジ読み込み中…</div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 初級 オープン (スライダーで open 頻度を回答・優しい採点)
+// ---------------------------------------------------------------------------
+
+function BeginnerOpenRule() {
+  const hands = useHands('co.json');
+  return (
+    <div>
+      <SolutionConditions />
+      <SectionTitle>このモードについて</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          各ポジション(UTG / HJ / CO / BTN / SB)で、配られたハンドを
+          <strong>何%でレイズ(オープン)するか</strong>をスライダーで答えます。
+          初級基礎の「参加する / しない」をもう一歩進めて、頻度の感覚を身につけるモードです。
+        </p>
+      </Card>
+
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="ポジション" value="CO" />
+        <LabelValue label="シナリオ" value="オープン(レイズ頻度をスライダーで回答)" />
+        <Divider />
+        <div style={handBoxStyle}>
+          <CardSet
+            cards={[
+              { rank: 'A' as Rank, suit: 's' as Suit },
+              { rank: 'T' as Rank, suit: 'h' as Suit },
+            ]}
+            size="md"
+            gap={4}
+          />
+        </div>
+      </Card>
+
+      <SectionTitle>回答とスライダー</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>レイズ頻度を 0〜100%・10% 刻みで回答(「飛ばす」可)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>「100%レイズ」「100%フォールド」のショートカットあり</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>制限時間 50 秒</p>
+      </div>
+
+      <SectionTitle>採点ルール(優しい採点)</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>正解の±20%以内なら <span style={ptGreenStyle}>正解(0.5pt)</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>外しても <span style={ptGreenStyle}>減点なし</span>(0pt)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>全20問・満点 10pt(1問 0.5pt)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>90%(=9pt)以上でクリア</p>
+      </div>
+
+      <SectionTitle>レンジ表(CO オープン)</SectionTitle>
+      <Card>
+        {hands ? (
+          <HandRangeMatrix hands={hands} highlightHand="ATo" />
         ) : (
           <div style={mutedStyle}>レンジ読み込み中…</div>
         )}

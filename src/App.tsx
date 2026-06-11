@@ -31,6 +31,7 @@ import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayFlop } from './components/training/TrainingPlayFlop';
 import { TrainingPlayFlopIntermediate } from './components/training/TrainingPlayFlopIntermediate';
 import { TrainingPlayFlopPerHandCb } from './components/training/TrainingPlayFlopPerHandCb';
+import { TrainingPlayBeginnerOpen } from './components/training/TrainingPlayBeginnerOpen';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResultPositional } from './components/training/TrainingResultPositional';
@@ -131,6 +132,10 @@ export default function App() {
     if (screen === 'confirm') return <TrainingConfirm level={level} />;
     if (screen === 'rules') return <TrainingRules level={level} />;
     if (screen === 'play') {
+      // 初級オープン: 各ポジションの open 頻度をスライダーで回答 (優しい採点・50s)。
+      if (level.key === 'preflop_beginner_open') {
+        return <TrainingPlayBeginnerOpen level={level} />;
+      }
       // 中級ポジション別 (EP/LP/Blind): スライダー / ノード別複数選択 / limp 緩和
       if (
         level.key === 'preflop_intermediate_ep' ||
