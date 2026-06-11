@@ -22,8 +22,8 @@ describe('TRAINING_CATALOG', () => {
     expect(byKey('flop_donk_bmcb')?.label).toBe('レンジドンク/BMCB');
   });
 
-  it('preflop 7 レベル, flop 6 レベル (初級/CB SRP/CB 3BP4BP5BP/ドンクBMCB/上級/超上級)', () => {
-    expect(TRAINING_CATALOG[0].levels).toHaveLength(7);
+  it('preflop 10 レベル, flop 6 レベル (初級基礎/中級x4/上級/超上級/初級シナリオ別x3)', () => {
+    expect(TRAINING_CATALOG[0].levels).toHaveLength(10);
     expect(TRAINING_CATALOG[1].levels).toHaveLength(6);
     expect(TRAINING_CATALOG[1].levels.map((l) => l.key)).toEqual([
       'flop_beginner',
@@ -35,7 +35,7 @@ describe('TRAINING_CATALOG', () => {
     ]);
   });
 
-  it('中級ポジション別 (EP/LP/Blind) が中級総合の直後に並ぶ', () => {
+  it('中級ポジション別 (EP/LP/Blind) が中級総合の直後に並ぶ / 初級シナリオ別3モードは末尾', () => {
     expect(TRAINING_CATALOG[0].levels.map((l) => l.key)).toEqual([
       'preflop_beginner',
       'preflop_intermediate',
@@ -44,7 +44,22 @@ describe('TRAINING_CATALOG', () => {
       'preflop_intermediate_blind',
       'preflop_advanced',
       'preflop_expert',
+      'preflop_beginner_open',
+      'preflop_beginner_vs_open',
+      'preflop_beginner_vs_3bet_4bet',
     ]);
+  });
+
+  it('初級シナリオ別3モード: ラベルと implemented=false (タブのみ・中身は後)', () => {
+    const byKey = (k: string) => TRAINING_CATALOG[0].levels.find((l) => l.key === k);
+    expect(byKey('preflop_beginner')?.label).toBe('初級 基礎'); // 旧「初級」の改名
+    expect(byKey('preflop_beginner_open')?.label).toBe('初級 オープン');
+    expect(byKey('preflop_beginner_vs_open')?.label).toBe('初級 vs オープン');
+    expect(byKey('preflop_beginner_vs_3bet_4bet')?.label).toBe('初級 vs 3ベット/4ベット');
+    for (const k of ['preflop_beginner_open', 'preflop_beginner_vs_open', 'preflop_beginner_vs_3bet_4bet']) {
+      expect(byKey(k)?.implemented).toBe(false);
+      expect(byKey(k)?.questionCount).toBeNull();
+    }
   });
 
   it('中級 EP/LP=20問, Blind=30問, 全て implemented=true・20s', () => {

@@ -42,8 +42,9 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     // 初級 / 中級 / 上級 (未実装) の 3 カードを描画するため、 それぞれ +1。
     const countText = (label: string) =>
       (html.match(new RegExp(`>(?:🔒 )?${label}<`, 'g')) ?? []).length;
-    // preflop quiz行 + flop quiz行 + missed(プリフロ初級) + missed(ポストフロ初級)。
-    expect(countText('初級')).toBe(4);
+    // 「初級」単独 = flop quiz行 + missed(プリフロ初級) + missed(ポストフロ初級)。
+    // (preflop quiz行は「初級 基礎」に改名、初級3モードは「初級 オープン」等で >初級< には一致しない)
+    expect(countText('初級')).toBe(3);
     // ">中級<" = preflop の「中級」見出し + flop の未実装カード。
     expect(countText('中級')).toBe(2);
     expect(countText('上級')).toBe(3);   // preflop + flop + missed (未実装表記)
@@ -72,13 +73,14 @@ describe('<QuizPage /> (level-accordion トレーニングメニュー)', () => 
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('未実装バッジ: 閉じたアコーディオン内は未描画。未実装は missed上級 のみ (flop初級は実装済=ロック表示)', () => {
+  it('未実装バッジ: 閉じたアコーディオン内は未描画。初級シナリオ別3モード(フラット表示)+ missed上級', () => {
     // 上級/超上級 (preflop・flop) は既定で閉じたアコーディオン → 中身 (準備中) 未描画。
     // flop 初級は実装済 (プリフロップ初級クリアで解放) なので未実装ではなくロック表示。
-    // 未実装バッジは MissedProblemsSection の上級カードのみ。
+    // 初級のシナリオ別3モード (オープン/vsオープン/vs3bet4bet) は初級フラット枠に未実装カードとして
+    // 常時表示。よって未実装バッジは「初級3モード + MissedProblemsSection 上級」= 4 件。
     const html = render();
     const matches = html.match(/>未実装</g) ?? [];
-    expect(matches.length).toBe(1);
+    expect(matches.length).toBe(4);
   });
 
   it('上級/超上級はアコーディオン枠で表示 (既定は閉、準備中は未描画)', () => {

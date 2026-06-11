@@ -33,7 +33,7 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     key: 'preflop',
     label: 'プリフロップトレーニング',
     levels: [
-      { key: 'preflop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
+      { key: 'preflop_beginner',     label: '初級 基礎', points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
       // 中級総合は best_score が finalSum (0-40) を直接表す pt 値。 points=1 で累計と整合。
       { key: 'preflop_intermediate',       label: '中級 総合',  points: 1, questionCount: 20, timeLimitSec: 20, implemented: true },
       // 中級ポジション別 (EP/LP/Blind)。 best_score = 全問素点÷2 (満点 = questionCount)。
@@ -42,6 +42,13 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       { key: 'preflop_intermediate_blind', label: '中級 Blind', points: 1, questionCount: 30, timeLimitSec: 20, implemented: true },
       { key: 'preflop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null,   implemented: false },
       { key: 'preflop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null,   implemented: false },
+      // 初級のシナリオ別モード (タブのみ追加・中身は後で実装)。tierOf で「初級」枠に入り、
+      // UI では「初級 基礎」の直後に未実装カードとして並ぶ。training_type は新規キー
+      // (サーバ whitelist 未追加・記録経路に到達しない想定)。配列末尾に置くのは index 依存の
+      // 既存テストを保つため (tier グルーピングで表示順は「初級 基礎」の後になる)。
+      { key: 'preflop_beginner_open',         label: '初級 オープン',          points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
   },
   {
