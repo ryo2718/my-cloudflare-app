@@ -23,6 +23,35 @@ export function SliderChoice({ actionLabel, onSubmit, onSkip, disabled = false }
     <div style={containerStyle}>
       <p style={promptStyle}>{actionLabel}の頻度は?(10% 刻み)</p>
 
+      {/* ショートカット: 100% / 0% に即セットして自動的に回答確定 (テンポ向上)。
+          スライダー手動操作 + 「回答する」も従来どおり使える。 */}
+      <div style={quickRowStyle}>
+        <button
+          type="button"
+          onClick={() => {
+            if (disabled) return;
+            setValue(SLIDER_MAX);
+            onSubmit(SLIDER_MAX);
+          }}
+          disabled={disabled}
+          style={quickRaiseStyle}
+        >
+          100%{actionLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (disabled) return;
+            setValue(SLIDER_MIN);
+            onSubmit(SLIDER_MIN);
+          }}
+          disabled={disabled}
+          style={quickFoldStyle}
+        >
+          100%フォールド
+        </button>
+      </div>
+
       <div style={valueRowStyle}>
         <span style={valueStyle}>{value}%</span>
       </div>
@@ -138,6 +167,32 @@ const endBtnStyle: CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontVariantNumeric: 'tabular-nums',
+};
+const quickRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '0.5rem',
+};
+const quickBtnBase: CSSProperties = {
+  padding: '0.7rem 0.5rem',
+  borderRadius: '0.45rem',
+  fontSize: '0.95rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  border: '1.5px solid',
+};
+const quickRaiseStyle: CSSProperties = {
+  ...quickBtnBase,
+  background: '#FDE6CC',
+  color: '#993C1D',
+  borderColor: '#E5A551',
+};
+const quickFoldStyle: CSSProperties = {
+  ...quickBtnBase,
+  background: '#fff',
+  color: THEME.textPrimary,
+  borderColor: THEME.border,
 };
 
 const scaleRowStyle: CSSProperties = {
