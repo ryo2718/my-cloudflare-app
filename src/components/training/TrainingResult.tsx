@@ -20,6 +20,10 @@ import {
   type ProblemRecord,
 } from '../../data/training/recordsStore';
 import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
+import {
+  loadBeginnerOpenRecords,
+  type BeginnerOpenRecord,
+} from '../../data/training/beginnerOpenRecordsStore';
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
@@ -91,6 +95,11 @@ export function TrainingResult({ level }: TrainingResultProps) {
   // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
   const mode = scoreInfo?.mode ?? 'beginner';
   const isIntermediate = mode === 'intermediate';
+  // 初級オープンは「間違えた問題」ではなく全問の「答え一覧」(slider %) を表示する。
+  const isBeginnerOpen = level.key === 'preflop_beginner_open';
+  const [openRecords, setOpenRecords] = useState<BeginnerOpenRecord[]>(() =>
+    isBeginnerOpen ? (loadBeginnerOpenRecords(level.key) ?? []) : [],
+  );
   const [missed, setMissed] = useState<ProblemRecord[]>(() => {
     if (isIntermediate) return [];
     const records = loadRecords(level.key);
@@ -102,10 +111,15 @@ export function TrainingResult({ level }: TrainingResultProps) {
     return records ?? [];
   });
   useEffect(() => {
-    if (isIntermediate) {
-      const records = loadIntermediateRecords(level.key);
+    if (isBeginnerOpen) {
+      const records = loadBeginnerOpenRecords(level.key);
       if (records) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
+        setOpenRecords(records);
+      }
+    } else if (isIntermediate) {
+      const records = loadIntermediateRecords(level.key);
+      if (records) {
         setIntermediateAll(records);
       }
     } else {
@@ -114,7 +128,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
         setMissed(missedRecords(records));
       }
     }
-  }, [level.key, isIntermediate]);
+  }, [level.key, isIntermediate, isBeginnerOpen]);
 
   // submission レスポンスをセッション単位でキャッシュ。
   // 振り返り画面に遷移 → 戻り時に再 submit すると 2 回目は is_best=false になり「更新通知が消える」
@@ -211,6 +225,19 @@ export function TrainingResult({ level }: TrainingResultProps) {
 
         {isIntermediate && intermediateAll.length > 0 && (
           <ScoreBreakdownSection records={intermediateAll} />
+        )}
+
+        {isBeginnerOpen && openRecords.length > 0 && (
+          <section style={missedSectionStyle} aria-label="答え一覧">
+            <header style={missedHeaderStyle}>答え一覧 ({openRecords.length}問)</header>
+            <ul style={missedListStyle}>
+              {openRecords.map((rec) => (
+                <li key={rec.id} style={{ listStyle: 'none' }}>
+                  <OpenAnswerCard record={rec} />
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {!isIntermediate && missed.length > 0 && (
@@ -413,6 +440,29 @@ function MissedCard({
   );
 }
 
+/** 初級オープンの答え一覧 1 行 (ポジション+ハンド / 正解レイズ% / 自分の回答%)。 */
+function OpenAnswerCard({ record }: { record: BeginnerOpenRecord }) {
+  const correct = record.points > 0;
+  const icon = correct ? '○' : '✕';
+  const color = correct ? '#3B6D11' : '#A32D2D';
+  const answerText = record.answerPct === null ? '—' : `${record.answerPct}%`;
+  return (
+    <div style={missedCardStyle}>
+      <span style={{ ...iconBadgeStyle, color }} aria-label={`判定: ${icon}`}>
+        {icon}
+      </span>
+      <div style={missedCardLeftStyle}>
+        <span style={missedScenarioStyle}>{record.position} {record.hand}</span>
+        <div style={missedAnswerLineStyle}>
+          あなた: <span style={userAnswerStyle}>{answerText}</span>
+          {' | '}
+          正解: <span style={correctAnswerStyle}>{record.raisePct}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 保存失敗カード: エラー表示 + 再保存ボタン (スコアは退避済みなので失われない)。 */
 function SaveErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
@@ -514,7 +564,6 @@ export function ResultPtCard({
       <div style={ptCardStyle}>
         <span style={celebrateStyle}>🎉 初挑戦お疲れさま!</span>
         <span style={ptBigStyle}>+{earnedPt}pt 獲得!</span>
-        <span style={subInfoStyle}>過去の最高スコア: {sub.current_best}点</span>
       </div>
     );
   }

@@ -4,6 +4,7 @@
 //
 // 出題規則 (フェーズ2の preflopBeginnerExt を使用):
 //   - EV 閾値: topPct <= 40 のハンドのみ候補
+//   - 強ハンド除外: topPct < 7.25 (AQo 以上) は自明なので除外 (isTooStrongForBeginner)
 //   - SB: レイズ90%以上のハンドのみ (リンプ/レイズ混合は出さない)
 //   - 境界 (レイズ混合 10-90%) 問題は全体で最大 4 問 (20%)
 //   - ポジション均等配分: 各 4 問 = 20 問
@@ -11,9 +12,23 @@
 
 import { handToCards, type HandStrategy, type PreflopQuestion } from './preflopBeginner';
 import { isEligibleByEvThreshold, isRaiseDominant, isBoundary } from './preflopBeginnerExt';
+import { EV_RANKING } from '../evRanking';
 import type { Hand, Position } from '../../types/strategy';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
+
+/**
+ * 「強すぎて学習価値が薄い」ハンドの topPct 上限 (これ未満 = 除外対象)。
+ * ryoji 指示「AQo・AJs・88 以上はつまらない」を、AQo (topPct 7.24) を含めて
+ * それ以上に強いハンドを除外する解釈に対応 (topPct が小さいほど強い)。
+ */
+export const TOO_STRONG_MAX_TOPPCT = 7.25;
+
+/** AQo (topPct 7.24) 以上に強いハンドか (= 100%レイズが自明で出題から除外)。未登録は false。 */
+export function isTooStrongForBeginner(hand: Hand): boolean {
+  const info = EV_RANKING[hand];
+  return info ? info.topPct < TOO_STRONG_MAX_TOPPCT : false;
+}
 
 /** 出題するポジション (open = RFI)。 */
 export const OPEN_POSITIONS: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
@@ -47,11 +62,12 @@ function shuffle<T>(arr: T[]): T[] {
   return arr;
 }
 
-/** あるポジションの出題候補ハンド (EV<=40。SB は追加で raise>=90)。 */
+/** あるポジションの出題候補ハンド (EV<=40 かつ AQo 未満の強さ。SB は追加で raise>=90)。 */
 export function candidatesFor(pos: Position, hands: Record<string, HandStrategy>): Hand[] {
   const out: Hand[] = [];
   for (const h of Object.keys(hands) as Hand[]) {
     if (!isEligibleByEvThreshold(h)) continue;
+    if (isTooStrongForBeginner(h)) continue; // AQo 以上の自明な強ハンドは除外
     if (pos === 'SB' && !isRaiseDominant(hands[h], SB_RAISE_MIN)) continue;
     out.push(h);
   }

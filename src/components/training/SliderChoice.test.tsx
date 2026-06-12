@@ -4,6 +4,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, userEvent } from '../../test/ui';
 import { SliderChoice } from './SliderChoice';
+import { ACTION_COLOR } from '../../styles/actionColors';
+
+/** ボタンの inline style 文字列 (小文字・空白除去)。 */
+function styleOf(name: string): string {
+  const el = screen.getByRole('button', { name });
+  return (el.getAttribute('style') ?? '').toLowerCase().replace(/\s/g, '');
+}
+/** "#D8443C" → "rgb(216,68,60)" (jsdom 正規化に備える)。 */
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255})`;
+}
 
 describe('SliderChoice ショートカットボタン', () => {
   it('「100%レイズ」「100%フォールド」ボタンが表示される', () => {
@@ -44,6 +56,16 @@ describe('SliderChoice ショートカットボタン', () => {
     expect(onSubmit).toHaveBeenCalledWith(50); // 既定スライダー値
     await user.click(screen.getByRole('button', { name: 'この問題を飛ばす' }));
     expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+
+  it('100%レイズは raise 色、100%フォールドは fold 色で描画される', () => {
+    render(<SliderChoice actionLabel="レイズ" onSubmit={vi.fn()} onSkip={vi.fn()} />);
+    const raise = styleOf('100%レイズ');
+    const fold = styleOf('100%フォールド');
+    const raiseHex = ACTION_COLOR.raise.toLowerCase();
+    const foldHex = ACTION_COLOR.fold.toLowerCase();
+    expect(raise.includes(raiseHex) || raise.includes(hexToRgb(ACTION_COLOR.raise))).toBe(true);
+    expect(fold.includes(foldHex) || fold.includes(hexToRgb(ACTION_COLOR.fold))).toBe(true);
   });
 
   it('disabled 時はショートカットも無効', async () => {

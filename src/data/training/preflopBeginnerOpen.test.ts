@@ -4,6 +4,8 @@ import {
   PER_POSITION,
   MAX_BOUNDARY,
   SB_RAISE_MIN,
+  TOO_STRONG_MAX_TOPPCT,
+  isTooStrongForBeginner,
   candidatesFor,
   buildBeginnerOpenQuestions,
   type NodesByPosition,
@@ -13,8 +15,10 @@ import { EV_RANKING } from '../evRanking';
 import type { HandStrategy } from './preflopBeginner';
 import type { Hand, Position } from '../../types/strategy';
 
-// EV 閾値 (topPct<=40) を満たすハンド一覧 (生成側と同じ判定)。
-const ELIGIBLE: Hand[] = (Object.keys(EV_RANKING) as Hand[]).filter((h) => isEligibleByEvThreshold(h));
+// 出題候補 = EV 閾値 (topPct<=40) かつ 強すぎない (AQo 未満でない) ハンド。
+const ELIGIBLE: Hand[] = (Object.keys(EV_RANKING) as Hand[]).filter(
+  (h) => isEligibleByEvThreshold(h) && !isTooStrongForBeginner(h),
+);
 
 /** 指定ハンド群を raise=value の戦略にした hands マップ。 */
 function handsWithRaise(hands: Hand[], raise: number): Record<string, HandStrategy> {
@@ -31,7 +35,39 @@ function fullNodes(): NodesByPosition {
   return nodes;
 }
 
+describe('isTooStrongForBeginner (強すぎるハンド除外)', () => {
+  it('閾値は topPct < 7.25 (AQo を含めて除外)', () => {
+    expect(TOO_STRONG_MAX_TOPPCT).toBe(7.25);
+  });
+
+  it('AQo・AJs・88 とそれ以上に強いハンドは除外対象 (true)', () => {
+    for (const h of ['AQo', 'AJs', '88', 'AA', 'KK', 'QQ', 'JJ', 'TT', '99', '77', 'AKs', 'AKo', 'AQs', 'ATs', 'KQs', 'KJs'] as Hand[]) {
+      expect(isTooStrongForBeginner(h)).toBe(true);
+    }
+  });
+
+  it('AQo より弱いハンド (topPct>=7.25) は除外しない (false)', () => {
+    // QJs(7.84) / KTs(7.54) / KQo(12.07) / ATo(14.48) などは残る。
+    for (const h of ['QJs', 'KTs', 'KQo', 'AJo', 'ATo', 'KJo', '66', '55', '44', '33', '22'] as Hand[]) {
+      expect(isTooStrongForBeginner(h)).toBe(false);
+    }
+  });
+
+  it('未登録ハンドは false', () => {
+    expect(isTooStrongForBeginner('72o' as Hand)).toBe(false);
+  });
+});
+
 describe('candidatesFor', () => {
+  it('強すぎるハンド (AQo 以上) は候補から除外', () => {
+    const hands = handsWithRaise([ELIGIBLE[0], 'AQo' as Hand, 'AA' as Hand, '88' as Hand], 100);
+    const out = candidatesFor('UTG', hands);
+    expect(out).toContain(ELIGIBLE[0]);
+    expect(out).not.toContain('AQo');
+    expect(out).not.toContain('AA');
+    expect(out).not.toContain('88');
+  });
+
   it('EV<=40 のハンドのみ候補 (EV>40 は除外)', () => {
     const ineligible = (Object.keys(EV_RANKING) as Hand[]).find((h) => !isEligibleByEvThreshold(h))!;
     const hands = handsWithRaise([ELIGIBLE[0], ineligible], 100);
@@ -70,9 +106,12 @@ describe('buildBeginnerOpenQuestions', () => {
     for (const pos of OPEN_POSITIONS) expect(byPos[pos]).toBe(PER_POSITION);
   });
 
-  it('全問が EV<=40 のハンド', () => {
+  it('全問が EV<=40 かつ AQo 未満の強さ (強ハンド除外)', () => {
     const qs = buildBeginnerOpenQuestions(fullNodes());
-    for (const q of qs) expect(isEligibleByEvThreshold(q.hand)).toBe(true);
+    for (const q of qs) {
+      expect(isEligibleByEvThreshold(q.hand)).toBe(true);
+      expect(isTooStrongForBeginner(q.hand)).toBe(false);
+    }
   });
 
   it('raisePct は GTO の raise 値、nodeFile は {pos}.json', () => {

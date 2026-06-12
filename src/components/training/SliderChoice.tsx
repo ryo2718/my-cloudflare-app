@@ -7,6 +7,7 @@
 import { useState, type CSSProperties } from 'react';
 import { SLIDER_MAX, SLIDER_MIN, SLIDER_STEP } from '../../data/training/sliderScoring';
 import { THEME } from '../../styles/theme';
+import { ACTION_COLOR } from '../../styles/actionColors';
 
 export interface SliderChoiceProps {
   /** スライダーで頻度を問うアクション名 (表示用、例: "レイズ")。 */
@@ -184,15 +185,15 @@ const quickBtnBase: CSSProperties = {
 };
 const quickRaiseStyle: CSSProperties = {
   ...quickBtnBase,
-  background: '#FDE6CC',
-  color: '#993C1D',
-  borderColor: '#E5A551',
+  background: ACTION_COLOR.raise,
+  color: '#fff',
+  borderColor: ACTION_COLOR.raise,
 };
 const quickFoldStyle: CSSProperties = {
   ...quickBtnBase,
-  background: '#fff',
-  color: THEME.textPrimary,
-  borderColor: THEME.border,
+  background: ACTION_COLOR.fold,
+  color: '#fff',
+  borderColor: ACTION_COLOR.fold,
 };
 
 const scaleRowStyle: CSSProperties = {
