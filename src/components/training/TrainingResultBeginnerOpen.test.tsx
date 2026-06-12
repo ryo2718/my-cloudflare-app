@@ -68,12 +68,21 @@ describe('初級オープン 結果画面の答え一覧', () => {
     expect(await screen.findByText('答え一覧 (3問)')).toBeTruthy();
   });
 
-  it('各問のポジション+ハンドが出る', async () => {
+  it('各問のシナリオ (ポジション + オープン) が初級基礎と同じ pill で出る', async () => {
     saveBeginnerOpenRecords(OPEN.key, RECORDS);
     renderResult();
-    expect(await screen.findByText('HJ Q7s')).toBeTruthy();
-    expect(screen.getByText('BTN K9o')).toBeTruthy();
-    expect(screen.getByText('SB A5s')).toBeTruthy();
+    expect(await screen.findByText('HJ オープン')).toBeTruthy();
+    expect(screen.getByText('BTN オープン')).toBeTruthy();
+    expect(screen.getByText('SB オープン')).toBeTruthy();
+  });
+
+  it('正解=○ / 不正解=✕ の判定アイコンが出る', async () => {
+    saveBeginnerOpenRecords(OPEN.key, RECORDS);
+    const { container } = renderResult();
+    await screen.findByText('答え一覧 (3問)');
+    const text = container.textContent ?? '';
+    expect(text).toContain('○'); // 2問目 (points>0)
+    expect(text).toContain('✕'); // 1・3問目 (points=0)
   });
 
   it('正解レイズ% と 自分の回答% が出る (スキップ/時間切れは —)', async () => {

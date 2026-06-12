@@ -24,6 +24,7 @@ import {
   loadBeginnerOpenRecords,
   type BeginnerOpenRecord,
 } from '../../data/training/beginnerOpenRecordsStore';
+import { handToCards } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
@@ -440,19 +441,28 @@ function MissedCard({
   );
 }
 
-/** 初級オープンの答え一覧 1 行 (ポジション+ハンド / 正解レイズ% / 自分の回答%)。 */
+/**
+ * 初級オープンの答え一覧 1 行。初級基礎の振り返りカードと同じ作り
+ * (○/✕ 判定 + シナリオ + ハンドのカード画像 + あなた/正解)。
+ */
 function OpenAnswerCard({ record }: { record: BeginnerOpenRecord }) {
   const correct = record.points > 0;
   const icon = correct ? '○' : '✕';
   const color = correct ? '#3B6D11' : '#A32D2D';
   const answerText = record.answerPct === null ? '—' : `${record.answerPct}%`;
+  const cards = handToCards(record.hand);
   return (
     <div style={missedCardStyle}>
       <span style={{ ...iconBadgeStyle, color }} aria-label={`判定: ${icon}`}>
         {icon}
       </span>
       <div style={missedCardLeftStyle}>
-        <span style={missedScenarioStyle}>{record.position} {record.hand}</span>
+        <span style={missedScenarioStyle}>{record.position} オープン</span>
+        <CardSet
+          cards={cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))}
+          size="md"
+          gap={4}
+        />
         <div style={missedAnswerLineStyle}>
           あなた: <span style={userAnswerStyle}>{answerText}</span>
           {' | '}
