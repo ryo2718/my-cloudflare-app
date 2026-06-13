@@ -1,5 +1,5 @@
 // フロップトレーニング「CB」(レンジベット) の問題画面。CB SRP / CB 3BP4BP5BP 共用。
-//   - 全30問・1問2pt・満点60・時間制限なし。全問 CB(サイズ複数選択)。モードは level.key で決定。
+//   - 全30問・1問2pt・満点60・制限時間 30s/問 (timeLimitSec)。全問 CB(サイズ複数選択)。モードは level.key で決定。
 //   - テーブル図・カード・アニメは初級 (TrainingPlayFlop) を流用。CB=ChoiceButtons。
 //   - 即時フィードバックで GTO サイズ構成 + 「似た頻度のボード」を併せて表示。
 
@@ -27,6 +27,7 @@ import { ActionTable } from './ActionTable';
 import { PokerTable } from './PokerTable';
 import { FlopBoard } from './FlopBoard';
 import { ChoiceButtons } from './ChoiceButtons';
+import { Countdown } from './Countdown';
 import { DebugAnswerBar } from './DebugAnswerBar';
 import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import { FlopSimilarBoards } from './FlopSimilarBoards';
@@ -44,7 +45,8 @@ const CHECK_TO_TURN_MS = 200;
 /** 1問満点 (これ未満を「間違えた問題」として記録)。 */
 const FLOP_RB_PERFECT = 2;
 
-const selOf = (r: FlopRbResponse | null): ReadonlyArray<string> => r?.selections ?? [];
+const selOf = (r: FlopRbResponse | null): ReadonlyArray<string> =>
+  r && r.kind === 'select' ? r.selections : [];
 
 /** 復習(再出題)モード設定。指定時は通常生成・記録の代わりに使う。 */
 export interface FlopRbReview {
@@ -87,7 +89,7 @@ export function TrainingPlayFlopIntermediate({ level, review }: TrainingPlayFlop
         three_bettor_position: null,
         hand: '-',
         score_obtained: r.finalScore,
-        is_timeout: false,
+        is_timeout: r.response.kind === 'timeout',
       }));
       void apiPostProblemAttempts(auth.sessionId, attempts).catch(() => {
         /* silent fallback */
@@ -244,16 +246,25 @@ export function TrainingPlayFlopIntermediate({ level, review }: TrainingPlayFlop
               <FlopSimilarBoards similar={q.similar} />
             </InstantFeedback>
           ) : (
-            <ChoiceButtons
-              key={`cb-${state.current}`}
-              availableActions={q.choices}
-              actionLabels={flopCbLabels(q.choices)}
-              order={FLOP_CB_ORDER}
-              resolveColor={flopCbColor}
-              showColorChip
-              prompt={flopRbPrompt(q.kind)}
-              onSubmit={(selections) => handleAnswer({ kind: 'select', selections: [...selections] })}
-            />
+            <>
+              {typeof level.timeLimitSec === 'number' && (
+                <Countdown
+                  key={`cd-${state.current}`}
+                  seconds={level.timeLimitSec}
+                  onTimeUp={() => handleAnswer({ kind: 'timeout' })}
+                />
+              )}
+              <ChoiceButtons
+                key={`cb-${state.current}`}
+                availableActions={q.choices}
+                actionLabels={flopCbLabels(q.choices)}
+                order={FLOP_CB_ORDER}
+                resolveColor={flopCbColor}
+                showColorChip
+                prompt={flopRbPrompt(q.kind)}
+                onSubmit={(selections) => handleAnswer({ kind: 'select', selections: [...selections] })}
+              />
+            </>
           ))}
       </main>
     </div>

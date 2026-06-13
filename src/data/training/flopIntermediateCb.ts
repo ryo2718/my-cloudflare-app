@@ -86,8 +86,10 @@ export interface FlopRbQuestion {
   similar: SimilarBoard[];
 }
 
-/** 回答: サイズ複数選択。 */
-export type FlopRbResponse = { kind: 'select'; selections: ReadonlyArray<string> };
+/** 回答: サイズ複数選択。timeout は制限時間切れ (0 点扱い)。 */
+export type FlopRbResponse =
+  | { kind: 'select'; selections: ReadonlyArray<string> }
+  | { kind: 'timeout' };
 
 /** 1問の回答記録 (結果画面の振り返り用)。 */
 export type FlopRbRecord = FlopRbQuestion & {

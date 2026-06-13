@@ -48,11 +48,11 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       // 既存テストを保つため (tier グルーピングで表示順は「初級 基礎」の後になる)。
       // 初級オープン: 各ポジションのオープン頻度をスライダーで回答。1問0.5pt × 20問 = 10pt。
       //   best_score は正解数 (0-20) で保存し、pt は points=0.5 で換算 (best_score INTEGER のため)。
-      { key: 'preflop_beginner_open',         label: '初級 オープン',          points: 0.5, questionCount: 20, timeLimitSec: 50, implemented: true },
+      { key: 'preflop_beginner_open',         label: '初級 オープン',          points: 0.5, questionCount: 20, timeLimitSec: 20, implemented: true },
       // 初級 vs オープン: 相手のオープンへの応答を複数選択 (allin/raise/call/fold)。1問1pt × 20問 = 20pt。
-      { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
+      { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: 1,    questionCount: 20,   timeLimitSec: 20, implemented: true  },
       // 初級 vs 3bet/4bet: 相手の 3bet/4bet への応答を複数選択。1問1pt × 20問 = 20pt。
-      { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
+      { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: 1,    questionCount: 20,   timeLimitSec: 20, implemented: true  },
     ],
   },
   {
@@ -64,10 +64,10 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       // 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
       //   CB SRP        : SRP 30 (ランダム)。
       //   CB 3BP/4BP/5BP: 3bet21 / 4bet6 / 5bet3 (= 7:2:1)。
-      { key: 'flop_cb_srp', label: 'レンジCB SRP',          points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
-      { key: 'flop_cb_3bp', label: 'レンジCB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_cb_srp', label: 'レンジCB SRP',          points: 1, questionCount: 30, timeLimitSec: 30, implemented: true },
+      { key: 'flop_cb_3bp', label: 'レンジCB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 30, implemented: true },
       // ドンク/BMCB: ドンク15 (OOPリード) + BMCB15 (相手チェック後IPスタブ)。SRP+3bet。
-      { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 30, implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],

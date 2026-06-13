@@ -192,7 +192,7 @@ export function TrainingResultFlopIntermediate({ level }: TrainingResultFlopInte
                         <FlopCbReviewDetail
                           choices={r.choices}
                           strat={r.strat}
-                          selections={r.response.selections}
+                          selections={r.response.kind === 'select' ? r.response.selections : []}
                         />
                         <FlopSimilarBoards similar={r.similar} />
                       </div>

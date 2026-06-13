@@ -62,27 +62,43 @@ describe('TRAINING_CATALOG', () => {
     }
   });
 
-  it('初級 vs 3bet/4bet: points=1, questionCount=20, timeLimitSec=50, implemented=true', () => {
+  it('初級 vs 3bet/4bet: points=1, questionCount=20, timeLimitSec=20, implemented=true', () => {
     const vs = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_vs_3bet_4bet');
     expect(vs?.points).toBe(1);
     expect(vs?.questionCount).toBe(20);
-    expect(vs?.timeLimitSec).toBe(50);
+    expect(vs?.timeLimitSec).toBe(20);
     expect(vs?.implemented).toBe(true);
   });
 
-  it('初級オープン: points=0.5, questionCount=20, timeLimitSec=50, implemented=true', () => {
+  it('初級オープン: points=0.5, questionCount=20, timeLimitSec=20, implemented=true', () => {
     const open = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_open');
     expect(open?.points).toBe(0.5);
     expect(open?.questionCount).toBe(20);
-    expect(open?.timeLimitSec).toBe(50);
+    expect(open?.timeLimitSec).toBe(20);
     expect(open?.implemented).toBe(true);
   });
 
-  it('初級 vs オープン: points=1, questionCount=20, timeLimitSec=50, implemented=true', () => {
+  it('初級拡張3モード (基礎以外) は制限時間 20s', () => {
+    for (const k of ['preflop_beginner_open', 'preflop_beginner_vs_open', 'preflop_beginner_vs_3bet_4bet']) {
+      expect(TRAINING_CATALOG[0].levels.find((l) => l.key === k)?.timeLimitSec).toBe(20);
+    }
+    // 基礎は制限時間なしのまま。
+    expect(TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner')?.timeLimitSec).toBe('none');
+  });
+
+  it('ポストフロップ中級3モードは制限時間 30s', () => {
+    for (const k of ['flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb']) {
+      expect(TRAINING_CATALOG[1].levels.find((l) => l.key === k)?.timeLimitSec).toBe(30);
+    }
+    // ポストフロップ初級は制限時間なしのまま。
+    expect(TRAINING_CATALOG[1].levels.find((l) => l.key === 'flop_beginner')?.timeLimitSec).toBe('none');
+  });
+
+  it('初級 vs オープン: points=1, questionCount=20, timeLimitSec=20, implemented=true', () => {
     const vs = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_vs_open');
     expect(vs?.points).toBe(1);
     expect(vs?.questionCount).toBe(20);
-    expect(vs?.timeLimitSec).toBe(50);
+    expect(vs?.timeLimitSec).toBe(20);
     expect(vs?.implemented).toBe(true);
   });
 

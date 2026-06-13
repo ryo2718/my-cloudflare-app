@@ -203,6 +203,9 @@ describe('scoreFlopRb (CB=複数選択)', () => {
   it('無回答 (選択なし) は 0', () => {
     expect(scoreFlopRb(cbQ, { kind: 'select', selections: [] })).toBe(0);
   });
+  it('timeout (制限時間切れ) は 0', () => {
+    expect(scoreFlopRb(cbQ, { kind: 'timeout' })).toBe(0);
+  });
 });
 
 describe('flopRbScenarioLabel', () => {
