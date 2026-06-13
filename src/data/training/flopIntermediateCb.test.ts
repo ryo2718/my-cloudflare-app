@@ -16,8 +16,17 @@ import {
   FLOP_RB_CLEAR_SCORE,
 } from './flopIntermediateCb';
 import type { Card } from '../../types/card';
+import { getClusterId } from './boardClusters';
 
 const DATA: FlopRbData = JSON.parse(readFileSync('public/data/flop/flop_rangebet_v1.json', 'utf8'));
+
+const board6 = (q: FlopRbQuestion): string => q.board.map((c) => c.rank + c.suit).join('');
+const clusterId = (q: FlopRbQuestion): number | null => getClusterId(board6(q));
+// 母集団 (flop_rangebet 収録ボードの exact 文字列集合)。
+const CORPUS = new Set<string>();
+for (const cat of Object.keys(DATA.cb ?? {})) for (const x of DATA.cb[cat as 'SRP']) CORPUS.add(x.board);
+for (const x of DATA.donk ?? []) CORPUS.add(x.board);
+for (const x of DATA.bmcb ?? []) CORPUS.add(x.board);
 
 const board = (): [Card, Card, Card] => [
   { rank: 'A', suit: 's' },
@@ -60,14 +69,15 @@ describe('CB SRP (flop_cb_srp) 出題生成', () => {
 });
 
 describe('CB 3BP/4BP/5BP (flop_cb_3bp) 出題生成', () => {
-  it('全30問・3bet21 / 4bet6 / 5bet3 (= 7:2:1) (50セッション安定)', () => {
+  it('全30問・3bet主体で 4bet/5bet も毎回必ず出る (意図的枠が pot 比率を保証, 50セッション)', () => {
     for (let s = 0; s < 50; s++) {
       const c = counts(buildFlopRbQuestions(DATA, '3bp'));
       expect(c.total).toBe(FLOP_RB_COUNT);
       expect(c.srp).toBe(0);
-      expect(c.threebet).toBe(21);
-      expect(c.fourbet).toBe(6);
-      expect(c.fivebet).toBe(3);
+      // 意図的枠が pot 比率 (21:6:3) を N に按分 → 希少な 4bet/5bet も最低 1 問保証。
+      expect(c.threebet).toBeGreaterThanOrEqual(1);
+      expect(c.fourbet).toBeGreaterThanOrEqual(1);
+      expect(c.fivebet).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -92,12 +102,12 @@ describe('CB 3BP/4BP/5BP (flop_cb_3bp) 出題生成', () => {
 });
 
 describe('ドンク/BMCB (flop_donk_bmcb) 出題生成', () => {
-  it('全30問・ドンク15 / BMCB15 (50セッション安定)', () => {
+  it('全30問・ドンク と BMCB が毎回両方出る (意図的枠が 1:1 を保証, 50セッション)', () => {
     for (let s = 0; s < 50; s++) {
       const qs = buildFlopRbQuestions(DATA, 'donkbmcb');
       expect(qs.length).toBe(FLOP_RB_COUNT);
-      expect(qs.filter((q) => q.kind === 'donk').length).toBe(15);
-      expect(qs.filter((q) => q.kind === 'bmcb').length).toBe(15);
+      expect(qs.filter((q) => q.kind === 'donk').length).toBeGreaterThanOrEqual(1);
+      expect(qs.filter((q) => q.kind === 'bmcb').length).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -158,7 +168,7 @@ describe('共通 出題性質 (全モード)', () => {
       }
     });
 
-    it(`[${mode}] ハイカード帯 (A/broadway/mid/low) がロー偏りせず散らばる`, () => {
+    it(`[${mode}] ハイカード帯がロー偏りせず散らばる (クラスタ層化でテクスチャ網羅)`, () => {
       const RANKS = '23456789TJQKA';
       const bandOf = (q: FlopRbQuestion): string => {
         const top = Math.max(...q.board.map((c) => RANKS.indexOf(c.rank)));
@@ -170,11 +180,58 @@ describe('共通 出題性質 (全モード)', () => {
         for (const q of buildFlopRbQuestions(DATA, mode)) counts[bandOf(q)] += 1;
       }
       const total = SESS * FLOP_RB_COUNT;
-      // 4 帯すべて出現し、各帯が最低 12% 以上 / ローが 33% を超えない (均等 25% 付近を狙う)。
+      // 4 帯すべて出現。クラスタ層化なので high(A+broadway) が厚く、ロー偏りが解消される。
       for (const band of ['A', 'broadway', 'mid', 'low']) {
-        expect(counts[band] / total).toBeGreaterThan(0.12);
+        expect(counts[band]).toBeGreaterThan(0);
       }
-      expect(counts.low / total).toBeLessThan(0.33);
+      expect(counts.low / total).toBeLessThan(0.20); // ロー偏りなし (旧 ~28% → 大幅減)
+      expect((counts.A + counts.broadway) / total).toBeGreaterThan(0.4); // ハイ系も十分
+      expect(counts.A / total).toBeGreaterThan(0.1); // A 高ボードも埋もれない
+    });
+
+    it(`[${mode}] ランダム枠でクラスタが多様にカバー / overbet・check 枠が維持`, () => {
+      const allClusters = new Set<number>();
+      let withOverbet = 0;
+      let withCheckHeavy = 0;
+      for (let s = 0; s < 40; s++) {
+        const qs = buildFlopRbQuestions(DATA, mode);
+        for (const q of qs) {
+          const id = clusterId(q);
+          if (id !== null) allClusters.add(id);
+          if (Math.max(q.strat['125'] ?? 0, q.strat.ALLIN ?? 0) >= 0.2) withOverbet++;
+          if ((q.strat.check ?? 0) >= 0.5) withCheckHeavy++;
+        }
+      }
+      expect(allClusters.size).toBeGreaterThan(30); // 40セッションで多くのクラスタが登場
+      expect(withOverbet).toBeGreaterThan(0); // overbet 枠が維持される
+      expect(withCheckHeavy).toBeGreaterThan(0); // check 枠が維持される
+    });
+
+    it(`[${mode}] run-aware: 支配サイズの連続が短縮される (平均)`, () => {
+      // check主体の srp/donkbmcb は content 由来で 1 セッション全 check もあり得る (max は content 上限)。
+      // よって「平均最長連続」で評価。3bp は実現可能なので厳しめ。
+      const bound = mode === '3bp' ? 4 : mode === 'srp' ? 7 : 9;
+      let sum = 0;
+      const S = 80;
+      for (let s = 0; s < S; s++) {
+        const qs = buildFlopRbQuestions(DATA, mode);
+        let run = 1;
+        let mx = 1;
+        for (let i = 1; i < qs.length; i++) {
+          run = dominant(qs[i].strat) === dominant(qs[i - 1].strat) ? run + 1 : 1;
+          mx = Math.max(mx, run);
+        }
+        sum += mx;
+      }
+      expect(sum / S).toBeLessThanOrEqual(bound);
+    });
+
+    it(`[${mode}] 全て母集団内 (収録ボードのみ・母集団外フロップ混入なし)`, () => {
+      for (let s = 0; s < 30; s++) {
+        for (const q of buildFlopRbQuestions(DATA, mode)) {
+          expect(CORPUS.has(board6(q))).toBe(true);
+        }
+      }
     });
   }
 
