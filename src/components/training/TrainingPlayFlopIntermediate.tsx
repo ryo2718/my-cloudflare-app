@@ -11,7 +11,7 @@ import {
   flopRbPrompt,
   scoreFlopRb,
   flopRbScenarioLabel,
-  FLOP_RB_MAX_SCORE,
+  flopRbMaxScoreFor,
   type FlopRbQuestion,
   type FlopRbResponse,
   type FlopRbRecord,
@@ -101,7 +101,7 @@ export function TrainingPlayFlopIntermediate({ level, review }: TrainingPlayFlop
       }
     }
     const finalSum = records.reduce((s, r) => s + r.finalScore, 0);
-    const params = new URLSearchParams({ score: String(finalSum), total: String(FLOP_RB_MAX_SCORE) });
+    const params = new URLSearchParams({ score: String(finalSum), total: String(flopRbMaxScoreFor(flopRbModeOf(level.key))) });
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 

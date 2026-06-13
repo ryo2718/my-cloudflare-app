@@ -60,14 +60,14 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'ポストフロップトレーニング',
     levels: [
       { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      // CB (レンジベット): 全20問 CB(サイズ複数選択)。best_score が finalSum (0-40,
-      // 1問 -1〜+2pt × 20問) を直接表す。points=1 で累計と整合。Blind 絡みで5モードに分割。
-      //   SRP/3bp は「Blind以外」と「Blind(リンプ含む)」に分割 (非Blind は 5bet なし)。
-      { key: 'srp_non_blind',          label: 'レンジCB SRP Blind以外',        points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
-      { key: 'srp_limp_blind',         label: 'レンジCB SRP リンプ&Blind',     points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
-      { key: '3bp_4bp_5bp_non_blind',  label: 'レンジCB 3BP/4BP Blind以外',     points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
-      { key: '3bp_4bp_5bp_blind',      label: 'レンジCB 3BP/4BP/5BP Blind',    points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
-      { key: 'donk_bmcb',              label: 'レンジドンク/BMCB',             points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      // CB (レンジベット): CB(サイズ複数選択)。best_score が finalSum (1問 -1〜+2pt) を直接表す。
+      // Blind=両者Blind(SB vs BB) のみ。Blind モードは半分の 10問 (20pt 満点)、非Blind/donk は 20問 (40pt)。
+      // 5bet は両者Blind に存在しない → 非Blind 側 (3BP/4BP/5BP)、Blind 側は 3BP/4BP のみ。
+      { key: 'srp_non_blind',          label: 'レンジCB SRP Blind以外',         points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      { key: 'srp_limp_blind',         label: 'レンジCB SRP リンプ&Blind',      points: 1, questionCount: 10, timeLimitSec: 30, implemented: true },
+      { key: '3bp_4bp_5bp_non_blind',  label: 'レンジCB 3BP/4BP/5BP Blind以外',  points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      { key: '3bp_4bp_5bp_blind',      label: 'レンジCB 3BP/4BP Blind',         points: 1, questionCount: 10, timeLimitSec: 30, implemented: true },
+      { key: 'donk_bmcb',              label: 'レンジドンク/BMCB',              points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
