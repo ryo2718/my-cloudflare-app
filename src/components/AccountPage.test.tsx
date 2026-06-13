@@ -51,6 +51,15 @@ describe('<AccountPage />', () => {
     expect(html).toContain('未実装');
   });
 
+  it('正答率トグル (プリフロップ/ポストフロップ) を表示し、既定はプリフロップ (ポジション別)', () => {
+    const html = render(makeAuth());
+    expect(html).toContain('プリフロップ');
+    expect(html).toContain('ポストフロップ');
+    // 既定 preflop ビュー → ポジション別/シナリオ別を表示。
+    expect(html).toContain('正答率(ポジション別)');
+    expect(html).toContain('正答率(シナリオ別)');
+  });
+
   it('「← ホーム」リンク (AppHeader showBack)', () => {
     const html = render(makeAuth());
     expect(html).toContain('href="/"');

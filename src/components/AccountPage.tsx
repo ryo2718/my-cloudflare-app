@@ -32,6 +32,7 @@ import {
   maxScoreFor,
   type TrainingLevel,
 } from '../data/trainingCatalog';
+import { loadStatsCategory, saveStatsCategory, type StatsCategory } from '../data/userPreferences';
 import { AppHeader } from './AppHeader';
 import { calculateRank } from '../utils/rank';
 import { THEME } from '../styles/theme';
@@ -47,6 +48,12 @@ export function AccountPage() {
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [stats, setStats] = useState<StatisticsResponse | null>(null);
   const [unlocked, setUnlocked] = useState<string[] | null>(null);
+  const [statsCategory, setStatsCategory] = useState<StatsCategory>(loadStatsCategory);
+
+  const selectStatsCategory = (c: StatsCategory) => {
+    setStatsCategory(c);
+    saveStatsCategory(c); // 前回選択を永続化
+  };
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -144,18 +151,36 @@ export function AccountPage() {
             </section>
           ))}
 
-        <StatsSection
-          title="正答率(ポジション別)"
-          rows={buildPositionRows(stats)}
-        />
-        <StatsSection
-          title="正答率(シナリオ別)"
-          rows={buildScenarioRows(stats)}
-        />
-        <StatsSection
-          title="正答率(モード別)"
-          rows={buildLevelRows(stats)}
-        />
+        <div style={statsToggleRowStyle} role="radiogroup" aria-label="正答率カテゴリ">
+          <span style={statsToggleLabelStyle}>正答率</span>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={statsCategory === 'preflop'}
+            onClick={() => selectStatsCategory('preflop')}
+            style={statsCategory === 'preflop' ? statsToggleActiveStyle : statsToggleStyle}
+          >
+            プリフロップ
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={statsCategory === 'flop'}
+            onClick={() => selectStatsCategory('flop')}
+            style={statsCategory === 'flop' ? statsToggleActiveStyle : statsToggleStyle}
+          >
+            ポストフロップ
+          </button>
+        </div>
+
+        {statsCategory === 'preflop' ? (
+          <>
+            <StatsSection title="正答率(ポジション別)" rows={buildPositionRows(stats)} />
+            <StatsSection title="正答率(シナリオ別)" rows={buildScenarioRows(stats)} />
+          </>
+        ) : (
+          <StatsSection title="正答率(モード別)" rows={buildLevelRows(stats, 'flop')} />
+        )}
 
         <ResetResultsSection />
       </main>
@@ -202,18 +227,18 @@ function buildPositionRows(stats: StatisticsResponse | null): StatsRow[] {
   });
 }
 
-// モード別 (training_type) 正答率。 by_level (全モード集計) を カタログ順 / カタログラベルで表示。
-// ポストフロップを含む全記録モードがここに出る (ポジ別/シナリオ別はプリフロップ限定のため)。
-function buildLevelRows(stats: StatisticsResponse | null): StatsRow[] {
+// モード別 (training_type) 正答率。 指定カテゴリの実装済みモードを一覧表示 (by_level を参照)。
+// 未プレイのモードは total=0 → StatsSection が「データなし」表示。
+function buildLevelRows(stats: StatisticsResponse | null, category: 'preflop' | 'flop'): StatsRow[] {
   const map = new Map<string, StatGroup>();
   for (const g of stats?.by_level ?? []) map.set(g.key, g);
   const rows: StatsRow[] = [];
   for (const cat of TRAINING_CATALOG) {
+    if (cat.key !== category) continue;
     for (const lv of cat.levels) {
+      if (!isPlayable(lv)) continue; // 実装済みモードのみ
       const g = map.get(lv.key);
-      if (!g || g.total === 0) continue;
-      const prefix = cat.key === 'flop' ? 'ポスト' : 'プリ';
-      rows.push({ key: lv.key, label: `${prefix} ${lv.label}`, total: g.total, correctRate: g.correct_rate });
+      rows.push({ key: lv.key, label: lv.label, total: g?.total ?? 0, correctRate: g?.correct_rate ?? 0 });
     }
   }
   return rows;
@@ -638,6 +663,35 @@ const statsSectionStyle: CSSProperties = {
   flexDirection: 'column',
   gap: '0.4rem',
   marginTop: '0.6rem',
+};
+const statsToggleRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginTop: '0.6rem',
+};
+const statsToggleLabelStyle: CSSProperties = {
+  fontSize: '0.92rem',
+  fontWeight: 700,
+  color: '#5F5E5A',
+  marginRight: '0.2rem',
+};
+const statsToggleStyle: CSSProperties = {
+  padding: '0.35rem 0.9rem',
+  background: '#fff',
+  color: '#5F5E5A',
+  border: '1px solid #D6CFC1',
+  borderRadius: '999px',
+  fontSize: '0.85rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+const statsToggleActiveStyle: CSSProperties = {
+  ...statsToggleStyle,
+  background: '#993C1D',
+  color: '#fff',
+  borderColor: '#993C1D',
 };
 const statsHeaderStyle: CSSProperties = {
   fontSize: '13px',
