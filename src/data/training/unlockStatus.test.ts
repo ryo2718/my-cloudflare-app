@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ADVANCED_UNLOCK_THRESHOLD,
   INTERMEDIATE_UNLOCK_THRESHOLD,
+  FLOP_INTERMEDIATE_UNLOCK_THRESHOLD,
   computeUnlockStatus,
   isLevelUnlocked,
   lockHintFor,
@@ -65,6 +66,12 @@ describe('computeUnlockStatus (アンロック判定)', () => {
     expect(computeUnlockStatus([]).flopBeginnerUnlocked).toBe(false);
   });
 
+  it('フロップ初級 18/20 (90%) → フロップ中級アンロック / 17 では不可 (境界値)', () => {
+    expect(computeUnlockStatus([rec('flop_beginner', 18)]).flopIntermediateUnlocked).toBe(true);
+    expect(computeUnlockStatus([rec('flop_beginner', 17)]).flopIntermediateUnlocked).toBe(false);
+    expect(computeUnlockStatus([]).flopIntermediateUnlocked).toBe(false);
+  });
+
   it('中級 0pt → 上級ロック', () => {
     const s = computeUnlockStatus([
       rec('preflop_beginner', 20),
@@ -108,6 +115,7 @@ describe('computeUnlockStatus (アンロック判定)', () => {
   it('閾値定数の確認', () => {
     expect(INTERMEDIATE_UNLOCK_THRESHOLD).toBe(20);
     expect(ADVANCED_UNLOCK_THRESHOLD).toBe(20);
+    expect(FLOP_INTERMEDIATE_UNLOCK_THRESHOLD).toBe(18);
   });
 });
 
@@ -189,5 +197,10 @@ describe('lockHintFor (ロック中ヒント文)', () => {
   });
   it('初級: null', () => {
     expect(lockHintFor('preflop_beginner')).toBeNull();
+  });
+  it('フロップ中級: "フロップ初級で 18/20 取るとアンロック"', () => {
+    expect(lockHintFor('flop_cb_srp')).toBe('フロップ初級で 18/20 取るとアンロック');
+    expect(lockHintFor('flop_cb_3bp')).toBe('フロップ初級で 18/20 取るとアンロック');
+    expect(lockHintFor('flop_donk_bmcb')).toBe('フロップ初級で 18/20 取るとアンロック');
   });
 });

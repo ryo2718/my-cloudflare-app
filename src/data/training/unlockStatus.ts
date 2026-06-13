@@ -17,8 +17,8 @@ export const INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 export const ADVANCED_UNLOCK_THRESHOLD = 20;
 /** フロップ初級アンロックに必要なプリフロップ初級ベストスコア (= 20/20 クリア)。 */
 export const FLOP_BEGINNER_UNLOCK_THRESHOLD = 20;
-/** フロップ中級アンロックに必要なフロップ初級ベストスコア (= 20/20 クリア)。 */
-export const FLOP_INTERMEDIATE_UNLOCK_THRESHOLD = 20;
+/** フロップ中級アンロックに必要なフロップ初級ベストスコア (= 18/20 = 90% クリア)。 */
+export const FLOP_INTERMEDIATE_UNLOCK_THRESHOLD = 18;
 
 export interface UnlockStatus {
   beginnerUnlocked: boolean;        // 常に true
