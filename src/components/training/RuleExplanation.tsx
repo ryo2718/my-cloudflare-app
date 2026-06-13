@@ -16,6 +16,7 @@ import { FlopCbReviewDetail } from './FlopCbReviewDetail';
 import type { FlopCbStrat } from '../../data/training/flopIntermediateCb';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
+import { ACTION_COLOR } from '../../styles/actionColors';
 import type { Rank, Suit } from '../../types/card';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
@@ -59,6 +60,7 @@ export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_intermediate_ep') return <PositionalRule mode="ep" />;
   if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
   if (levelKey === 'preflop_intermediate_blind') return <PositionalRule mode="blind" />;
+  if (levelKey === 'flop_beginner') return <FlopBeginnerRule />;
   if (levelKey === 'flop_cb_srp' || levelKey === 'flop_cb_3bp' || levelKey === 'flop_donk_bmcb')
     return <PostflopRule />;
   return null;
@@ -145,6 +147,149 @@ function PostflopBoardExample({
         <p style={bodyTextStyle}>{note}</p>
       </Card>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ポストフロップ初級 (flop_beginner)
+//
+// 中級 PostflopRule の「ボード比較」思想を二値版に転用。
+//   - 「自分の手」ではなく「ボード × レンジ」で打つか決める、を伝える。
+//   - CB / ドンクそれぞれ「打つボード」と「打たないボード」を対で見せる。
+//   - 頻度は 2 値 (打つ / 打たない) のみ。中級のサイズ別バー (FlopCbReviewDetail) は使わない。
+// ※ 全頻度はルール説明用の固定例 (実データ取得ではない手置き値。ryoji が後で調整しうる)。
+// ---------------------------------------------------------------------------
+
+// 固定例の頻度 (打つ%)。打たない% = 100 - 打つ%。
+const FLOP_RULE_CB_EASY_BET = 90; // AK3: ほぼ全部 CB
+const FLOP_RULE_CB_HARD_BET = 25; // 765: チェック中心
+const FLOP_RULE_DONK_YES_BET = 90; // 876: よくドンク (実データ ~95%)
+const FLOP_RULE_DONK_NO_BET = 0; // AJT: 完全チェック
+
+function FlopBeginnerRule() {
+  return (
+    <div>
+      <SectionTitle>フロップは“自分の手”でなく“ボード × レンジ”で打つか決める</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          自分の 2 枚のハンドではなく、ボードに対して
+          <strong>レンジ全体として「打つか・打たないか」</strong>を考えます。
+          ボードによって打つ頻度は大きく変わります。
+        </p>
+      </Card>
+
+      <FlopBeginnerBoardExample
+        title="打ちやすいボード(例:A K 3)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'K' as Rank, suit: 'h' as Suit },
+          { rank: '3' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="ほぼ全部CB"
+        verb="CB"
+        betPct={FLOP_RULE_CB_EASY_BET}
+        note="強いボードはレンジ全体でほとんどCB。"
+      />
+
+      <FlopBeginnerBoardExample
+        title="打ちにくいボード(例:7 6 5)"
+        cards={[
+          { rank: '7' as Rank, suit: 's' as Suit },
+          { rank: '6' as Rank, suit: 'h' as Suit },
+          { rank: '5' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="ほとんど打たない"
+        verb="CB"
+        betPct={FLOP_RULE_CB_HARD_BET}
+        note="BBに有利な低くつながったボードはチェック中心。"
+      />
+
+      <FlopBeginnerBoardExample
+        title="ドンクするボード(例:8 7 6)"
+        cards={[
+          { rank: '8' as Rank, suit: 'h' as Suit },
+          { rank: '7' as Rank, suit: 'd' as Suit },
+          { rank: '6' as Rank, suit: 'c' as Suit },
+        ]}
+        tagline="よくドンク"
+        verb="ドンク"
+        betPct={FLOP_RULE_DONK_YES_BET}
+        note="BBに有利な低くつながったボードでは、BBが高頻度でリード(ドンク)する。"
+      />
+
+      <FlopBeginnerBoardExample
+        title="ドンクしないボード(例:A J T)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'J' as Rank, suit: 'd' as Suit },
+          { rank: 'T' as Rank, suit: 'c' as Suit },
+        ]}
+        tagline="絶対チェック"
+        verb="ドンク"
+        betPct={FLOP_RULE_DONK_NO_BET}
+        note="BTNに圧倒的に有利なボードはBBが完全にチェック。"
+      />
+
+      <SectionTitle>採点ルール</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>レンジのCB頻度が70%以上なら「打つ」が正解(ドンクは60%)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>正解 <span style={ptGreenStyle}>+1pt</span> / 不正解 ±0(減点なし)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>20問・満点 20pt・90%(18pt)でクリア</p>
+      </div>
+
+      <SectionTitle>用語</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}><strong>CB(コンティニュエーションベット)</strong>:プリフロップでレイズした側がフロップでベットすること。</p>
+        <p style={bodyTextStyle}><strong>ドンク</strong>:プリフロップでコールした側がフロップで先にベット(リード)すること。</p>
+      </Card>
+    </div>
+  );
+}
+
+function FlopBeginnerBoardExample({
+  title,
+  cards,
+  tagline,
+  verb,
+  betPct,
+  note,
+}: {
+  title: string;
+  cards: ReadonlyArray<{ rank: Rank; suit: Suit }>;
+  tagline: string;
+  verb: string;
+  betPct: number;
+  note: string;
+}) {
+  return (
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      <Card>
+        <div style={boardRowStyle}>
+          <CardSet cards={cards} size="md" gap={4} />
+          <span style={taglineStyle}>{tagline}</span>
+        </div>
+        <TwoValueBar verb={verb} betPct={betPct} />
+        <p style={bodyTextStyle}>{note}</p>
+      </Card>
+    </>
+  );
+}
+
+/** 初級ルール説明用の二値バー (左=打つ 赤 / 右=打たない 緑)。中級のサイズ別バーとは別の軽量部品。 */
+function TwoValueBar({ verb, betPct }: { verb: string; betPct: number }) {
+  const checkPct = 100 - betPct;
+  return (
+    <div style={twoBarWrapStyle}>
+      <div style={twoBarTrackStyle} aria-hidden>
+        {betPct > 0 && <div style={{ ...twoBarSegStyle, width: `${betPct}%`, background: ACTION_COLOR.raise }} />}
+        {checkPct > 0 && <div style={{ ...twoBarSegStyle, width: `${checkPct}%`, background: ACTION_COLOR.check }} />}
+      </div>
+      <div style={twoBarLegendStyle}>
+        <span style={{ color: ACTION_COLOR.raise, fontWeight: 700 }}>{verb}打つ {betPct}%</span>
+        <span style={{ color: ACTION_COLOR.check, fontWeight: 700 }}>打たない {checkPct}%</span>
+      </div>
+    </div>
   );
 }
 
@@ -1053,4 +1198,29 @@ const taglineStyle: CSSProperties = {
   border: '1px solid #E5A551',
   borderRadius: '999px',
   padding: '0.15rem 0.6rem',
+};
+
+// ポストフロップ初級 ルール説明 二値バー
+const twoBarWrapStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  marginBottom: '8px',
+};
+const twoBarTrackStyle: CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  height: '18px',
+  borderRadius: '4px',
+  overflow: 'hidden',
+  border: '1px solid #D3D1C7',
+};
+const twoBarSegStyle: CSSProperties = {
+  height: '100%',
+};
+const twoBarLegendStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  fontSize: '12px',
+  fontVariantNumeric: 'tabular-nums',
 };
