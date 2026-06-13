@@ -80,9 +80,9 @@ export function TrainingPlayFlopIntermediate({ level, review }: TrainingPlayFlop
         .filter((r) => r.finalScore < FLOP_RB_PERFECT)
         .map((r) => flopRbMissedInput(level.key as FlopTrainingType, r, r.finalScore));
       // 正答率集計用に全問を problem_attempts へ記録 (ポストフロップ中級)。
-      const scenarioTag = level.key === 'flop_donk_bmcb' ? 'flop_donk' : 'flop_cb';
+      const scenarioTag = level.key === 'donk_bmcb' ? 'flop_donk' : 'flop_cb';
       const attempts: ProblemAttemptInput[] = records.map((r) => ({
-        training_type: level.key as 'flop_cb_srp' | 'flop_cb_3bp' | 'flop_donk_bmcb',
+        training_type: level.key as ProblemAttemptInput['training_type'],
         scenario_type: scenarioTag,
         hero_position: r.hero,
         opener_position: null,

@@ -42,7 +42,7 @@ function beginnerQuestion(): FlopQuestion {
 
 function rowWith(meta: object, over: Partial<MissedProblemRow> = {}): MissedProblemRow {
   return {
-    id: 1, account_id: 1, training_type: 'flop_cb_srp', scenario_type: 'flop_cb',
+    id: 1, account_id: 1, training_type: 'srp_non_blind', scenario_type: 'flop_cb',
     hero_position: 'BTN', opener_position: 'BB', three_bettor_position: null, hand: '-',
     user_selections: '[]', gto_strategy: '{}', score_obtained: 0, is_timeout: 0,
     is_removed_from_review: 0, created_at: 0, metadata: JSON.stringify(meta), ...over,
@@ -58,8 +58,8 @@ describe('flopMissedMode board 変換', () => {
 
 describe('flopMissedMode 記録入力', () => {
   it('flopRbMissedInput: training_type / scenario_type / metadata', () => {
-    const inp = flopRbMissedInput('flop_cb_srp', rbQuestion(), 0);
-    expect(inp.training_type).toBe('flop_cb_srp');
+    const inp = flopRbMissedInput('srp_non_blind', rbQuestion(), 0);
+    expect(inp.training_type).toBe('srp_non_blind');
     expect(inp.scenario_type).toBe('flop_cb');
     expect(inp.hero_position).toBe('CO');
     expect(inp.opener_position).toBe('BTN');

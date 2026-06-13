@@ -30,7 +30,7 @@ import { generateFlopRbQuestions } from '../../data/training/flopIntermediateCb'
 import { apiPostMissedProblems } from '../../api/missedProblems';
 import { TrainingPlayFlopIntermediate } from './TrainingPlayFlopIntermediate';
 
-const LEVEL = TRAINING_CATALOG[1].levels[1]; // flop_cb_srp
+const LEVEL = TRAINING_CATALOG[1].levels[1]; // srp_non_blind
 const board = (): FlopRbQuestion['board'] => [
   { rank: 'A', suit: 's' }, { rank: 'K', suit: 'd' }, { rank: '2', suit: 'c' },
 ];
@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe('TrainingPlayFlopIntermediate 間違えた問題の記録', () => {
-  it('全問不正解で apiPostMissedProblems に flop_cb_srp + metadata を送る', async () => {
+  it('全問不正解で apiPostMissedProblems に srp_non_blind + metadata を送る', async () => {
     const user = userEvent.setup();
     render(<TrainingPlayFlopIntermediate level={LEVEL} />);
     await user.click(await screen.findByRole('button', { name: '全問不正解' }));
@@ -60,7 +60,7 @@ describe('TrainingPlayFlopIntermediate 間違えた問題の記録', () => {
     expect(apiPostMissedProblems).toHaveBeenCalledTimes(1);
     const [, records] = vi.mocked(apiPostMissedProblems).mock.calls[0];
     expect(records).toHaveLength(2);
-    expect(records[0].training_type).toBe('flop_cb_srp');
+    expect(records[0].training_type).toBe('srp_non_blind');
     expect(records[0].scenario_type).toBe('flop_cb');
     const meta = JSON.parse(records[0].metadata!);
     expect(meta).toMatchObject({ board: 'AsKd2c', variant: 'cor_btnc', pot: 'SRP', kind: 'cb' });

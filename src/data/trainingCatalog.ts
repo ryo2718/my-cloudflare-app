@@ -60,14 +60,14 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     label: 'ポストフロップトレーニング',
     levels: [
       { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
-      // CB (レンジベット): 全30問 CB(サイズ複数選択)。best_score が finalSum (0-60,
-      // 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
-      //   CB SRP        : SRP 30 (ランダム)。
-      //   CB 3BP/4BP/5BP: 3bet21 / 4bet6 / 5bet3 (= 7:2:1)。
-      { key: 'flop_cb_srp', label: 'レンジCB SRP',          points: 1, questionCount: 30, timeLimitSec: 30, implemented: true },
-      { key: 'flop_cb_3bp', label: 'レンジCB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 30, implemented: true },
-      // ドンク/BMCB: ドンク15 (OOPリード) + BMCB15 (相手チェック後IPスタブ)。SRP+3bet。
-      { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 30, implemented: true },
+      // CB (レンジベット): 全20問 CB(サイズ複数選択)。best_score が finalSum (0-40,
+      // 1問 -1〜+2pt × 20問) を直接表す。points=1 で累計と整合。Blind 絡みで5モードに分割。
+      //   SRP/3bp は「Blind以外」と「Blind(リンプ含む)」に分割 (非Blind は 5bet なし)。
+      { key: 'srp_non_blind',          label: 'レンジCB SRP Blind以外',        points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      { key: 'srp_limp_blind',         label: 'レンジCB SRP リンプ&Blind',     points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      { key: '3bp_4bp_5bp_non_blind',  label: 'レンジCB 3BP/4BP Blind以外',     points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      { key: '3bp_4bp_5bp_blind',      label: 'レンジCB 3BP/4BP/5BP Blind',    points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
+      { key: 'donk_bmcb',              label: 'レンジドンク/BMCB',             points: 1, questionCount: 20, timeLimitSec: 30, implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -91,10 +91,11 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
   }
-  // フロップ CB/ドンクBMCB は満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
-  if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
-    const qc = level.questionCount ?? 30;
-    return `${qc}問・最大 ${qc * 2}pt・制限時間なし`;
+  // フロップ CB/ドンクBMCB 中級5モードは満点 40pt 表記 (1問 -1〜+2pt × 20問)。
+  if (FLOP_INTERMEDIATE_KEYS.includes(level.key)) {
+    const qc = level.questionCount ?? 20;
+    const time = typeof level.timeLimitSec === 'number' ? `制限時間 ${level.timeLimitSec}s` : '制限時間なし';
+    return `${qc}問・最大 ${qc * 2}pt・${time}`;
   }
   // 中級ポジション別 (EP/LP/Blind) は満点 = questionCount (素点÷2)。
   if (
@@ -129,14 +130,18 @@ export function formatLevelInfo(level: TrainingLevel): string {
  *  - 中級: questionCount * 2 (= 40, 1問最大 2pt の合計)
  *  - 未計画 (questionCount=null) は 0
  */
+/** ポストフロップ中級5モード (1問最大2pt)。 */
+export const FLOP_INTERMEDIATE_KEYS: ReadonlyArray<string> = [
+  'srp_non_blind',
+  'srp_limp_blind',
+  '3bp_4bp_5bp_non_blind',
+  '3bp_4bp_5bp_blind',
+  'donk_bmcb',
+];
+
 export function maxScoreFor(level: TrainingLevel): number {
   if (level.questionCount === null) return 0;
-  if (
-    level.key === 'preflop_intermediate' ||
-    level.key === 'flop_cb_srp' ||
-    level.key === 'flop_cb_3bp' ||
-    level.key === 'flop_donk_bmcb'
-  )
+  if (level.key === 'preflop_intermediate' || FLOP_INTERMEDIATE_KEYS.includes(level.key))
     return level.questionCount * 2;
   // 初級オープン: 満点 pt = questionCount * 0.5 (= 10)。best_score は正解数 (0-20)。
   if (level.key === 'preflop_beginner_open') return level.questionCount * 0.5;

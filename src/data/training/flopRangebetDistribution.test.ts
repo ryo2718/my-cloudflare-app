@@ -43,8 +43,8 @@ describe('出題のランダム選択', () => {
   it('SRP 出題はセッション間でボード集合が変わる (ランダム)', () => {
     const key = (qs: { board: { rank: string; suit: string }[] }[]) =>
       qs.map((q) => q.board.map((c) => `${c.rank}${c.suit}`).join('')).join(',');
-    const a = key(buildFlopRbQuestions(DATA, 'srp'));
-    const b = key(buildFlopRbQuestions(DATA, 'srp'));
+    const a = key(buildFlopRbQuestions(DATA, 'srp_non_blind'));
+    const b = key(buildFlopRbQuestions(DATA, 'srp_non_blind'));
     expect(a).not.toBe(b); // 毎回同じ固定ボードではない
   });
 
@@ -53,7 +53,7 @@ describe('出題のランダム選択', () => {
     let n = 0;
     let le7 = 0;
     for (let i = 0; i < 30; i++) {
-      for (const q of buildFlopRbQuestions(DATA, 'srp')) {
+      for (const q of buildFlopRbQuestions(DATA, 'srp_non_blind')) {
         const h = highOfCards(q.board);
         highs[h] = (highs[h] || 0) + 1;
         n++;

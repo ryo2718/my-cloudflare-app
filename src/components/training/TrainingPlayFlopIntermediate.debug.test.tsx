@@ -63,7 +63,7 @@ describe('TrainingPlayFlopIntermediate admin デバッグ (全CB)', () => {
     expect(records).toHaveLength(2);
     expect(records.every((r) => r.finalScore === 2)).toBe(true);
     expect(vi.mocked(navigate).mock.calls[0][0]).toContain('score=4'); // 2問×2pt
-    expect(vi.mocked(navigate).mock.calls[0][0]).toContain('total=60');
+    expect(vi.mocked(navigate).mock.calls[0][0]).toContain('total=40');
   });
 
   it('非 admin にはデバッグバーを出さない', async () => {

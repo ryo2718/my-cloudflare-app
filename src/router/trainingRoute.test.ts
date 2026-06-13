@@ -3,15 +3,15 @@ import { matchTrainingRoute } from './trainingRoute';
 import { TRAINING_CATALOG, isPlayable, trainingPath } from '../data/trainingCatalog';
 
 describe('matchTrainingRoute', () => {
-  it('数字を含む slug (flop-cb-3bp) の play をマッチする (回帰: 数字欠落でホームに戻るバグ)', () => {
-    const m = matchTrainingRoute('/training/flop-cb-3bp/play');
+  it('数字を含む slug (3bp-4bp-5bp-blind) の play をマッチする (回帰: 数字欠落でホームに戻るバグ)', () => {
+    const m = matchTrainingRoute('/training/3bp-4bp-5bp-blind/play');
     expect(m).not.toBeNull();
-    expect(m?.level.key).toBe('flop_cb_3bp');
+    expect(m?.level.key).toBe('3bp_4bp_5bp_blind');
     expect(m?.screen).toBe('play');
   });
 
-  it('flop-cb-srp の play もマッチする', () => {
-    expect(matchTrainingRoute('/training/flop-cb-srp/play')?.level.key).toBe('flop_cb_srp');
+  it('srp-non-blind の play もマッチする', () => {
+    expect(matchTrainingRoute('/training/srp-non-blind/play')?.level.key).toBe('srp_non_blind');
   });
 
   it('実装済み全 level の confirm/play/result/rules パスがマッチする', () => {
@@ -28,13 +28,13 @@ describe('matchTrainingRoute', () => {
   });
 
   it('review パス (index 付き) もマッチする', () => {
-    const m = matchTrainingRoute('/training/flop-cb-3bp/review/2');
+    const m = matchTrainingRoute('/training/3bp-4bp-5bp-blind/review/2');
     expect(m).toMatchObject({ screen: 'review', index: 2 });
-    expect(m?.level.key).toBe('flop_cb_3bp');
+    expect(m?.level.key).toBe('3bp_4bp_5bp_blind');
   });
 
   it('未知 slug / 不正 screen は null', () => {
     expect(matchTrainingRoute('/training/nope/play')).toBeNull();
-    expect(matchTrainingRoute('/training/flop-cb-3bp/bogus')).toBeNull();
+    expect(matchTrainingRoute('/training/3bp-4bp-5bp-blind/bogus')).toBeNull();
   });
 });

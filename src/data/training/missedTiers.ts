@@ -41,7 +41,7 @@ export const MISSED_TIERS: ReadonlyArray<MissedTierDef> = [
     key: 'tier_flop_intermediate',
     category: 'flop',
     label: '中級',
-    trainingTypes: ['flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb'],
+    trainingTypes: ['srp_non_blind', 'srp_limp_blind', '3bp_4bp_5bp_non_blind', '3bp_4bp_5bp_blind', 'donk_bmcb'],
   },
 ];
 

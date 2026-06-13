@@ -99,13 +99,13 @@ describe('missed-problems GET (階級プール)', () => {
     expect(sel!.args).toContain('preflop_beginner_vs_3bet_4bet');
   });
 
-  it('tier_flop_intermediate は CB系3種を IN で取得', async () => {
+  it('tier_flop_intermediate は中級5モードを IN で取得', async () => {
     const { db, exec } = makeFakeDb();
     await onRequestGet(getCtx('tier_flop_intermediate', db));
     const sel = exec.find((e) => e.sql.includes('SELECT * FROM missed_problems'));
-    expect(sel!.sql).toContain('IN (?, ?, ?)');
-    expect(sel!.args).toContain('flop_cb_srp');
-    expect(sel!.args).toContain('flop_donk_bmcb');
+    expect(sel!.sql).toContain('IN (?, ?, ?, ?, ?)');
+    expect(sel!.args).toContain('srp_non_blind');
+    expect(sel!.args).toContain('donk_bmcb');
   });
 
   it('従来の単一 level (beginner) は単一 training_type で取得', async () => {
@@ -119,7 +119,7 @@ describe('missed-problems GET (階級プール)', () => {
 
 describe('missed-problems POST (flop)', () => {
   const FLOP_VALID = {
-    training_type: 'flop_cb_srp',
+    training_type: 'srp_non_blind',
     scenario_type: 'flop_cb',
     hero_position: 'BTN',
     opener_position: 'BB',
@@ -138,7 +138,7 @@ describe('missed-problems POST (flop)', () => {
     const insert = exec.find((e) => e.sql.includes('INSERT INTO missed_problems'));
     expect(insert).toBeDefined();
     expect(insert!.sql).toContain('metadata');
-    expect(insert!.args).toContain('flop_cb_srp');
+    expect(insert!.args).toContain('srp_non_blind');
     expect(insert!.args).toContain(FLOP_VALID.metadata);
   });
 

@@ -66,9 +66,9 @@ describe('<QuizPage /> 静的表示', () => {
     expect(html).toContain('/ 70pt');
     // preflop 中級 = 総合40 + EP20 + LP20 + Blind30 = 110pt。
     expect(html).toContain('/ 110pt');
-    // flop 初級 = 20pt、flop 中級 = CB60×2 + ドンク60 = 180pt。
+    // flop 初級 = 20pt、flop 中級 = 5モード × 40pt = 200pt。
     expect(html).toContain('/ 20pt');
-    expect(html).toContain('/ 180pt');
+    expect(html).toContain('/ 200pt');
   });
 
   it('全モード未実装の階級 (上級/超上級) は合計点の代わりに「未実装」表示', () => {

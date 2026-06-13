@@ -45,8 +45,8 @@ describe('RuleExplanation ポストフロップ初級 (flop_beginner)', () => {
     expect(screen.queryByText('ボードによって戦略はガラッと変わる')).toBeNull();
   });
 
-  it('回帰: 中級 flop_cb_srp は従来どおりボード比較を表示', () => {
-    render(<RuleExplanation levelKey="flop_cb_srp" />);
+  it('回帰: 中級 srp_non_blind は従来どおりボード比較を表示', () => {
+    render(<RuleExplanation levelKey="srp_non_blind" />);
     expect(screen.getByText('ボードによって戦略はガラッと変わる')).toBeTruthy();
     expect(screen.getByText('ボードA(AK3)')).toBeTruthy();
   });

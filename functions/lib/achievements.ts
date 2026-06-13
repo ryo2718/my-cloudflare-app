@@ -68,18 +68,22 @@ export async function evaluateAchievements(
   tryUnlock('fish_pf_ep', best('preflop_intermediate_ep') >= 16);
   tryUnlock('fish_pf_lp', best('preflop_intermediate_lp') >= 16);
   tryUnlock('fish_pf_blind', best('preflop_intermediate_blind') >= 24);
-  tryUnlock('fish_flop_cb_srp', best('flop_cb_srp') >= 48);
-  tryUnlock('fish_flop_cb_3bp', best('flop_cb_3bp') >= 48);
-  tryUnlock('fish_flop_donk', best('flop_donk_bmcb') >= 48);
+  tryUnlock('fish_flop_srp_non_blind', best('srp_non_blind') >= 32);
+  tryUnlock('fish_flop_srp_limp_blind', best('srp_limp_blind') >= 32);
+  tryUnlock('fish_flop_3bp_4bp_5bp_non_blind', best('3bp_4bp_5bp_non_blind') >= 32);
+  tryUnlock('fish_flop_3bp_4bp_5bp_blind', best('3bp_4bp_5bp_blind') >= 32);
+  tryUnlock('fish_flop_donk_bmcb', best('donk_bmcb') >= 32);
 
   // プロフェッショナル (shark): 中級 100% (判定・記録のみ)。
   tryUnlock('shark_pf_intermediate', best('preflop_intermediate') >= 40);
   tryUnlock('shark_pf_ep', best('preflop_intermediate_ep') >= 20);
   tryUnlock('shark_pf_lp', best('preflop_intermediate_lp') >= 20);
   tryUnlock('shark_pf_blind', best('preflop_intermediate_blind') >= 30);
-  tryUnlock('shark_flop_cb_srp', best('flop_cb_srp') >= 60);
-  tryUnlock('shark_flop_cb_3bp', best('flop_cb_3bp') >= 60);
-  tryUnlock('shark_flop_donk', best('flop_donk_bmcb') >= 60);
+  tryUnlock('shark_flop_srp_non_blind', best('srp_non_blind') >= 40);
+  tryUnlock('shark_flop_srp_limp_blind', best('srp_limp_blind') >= 40);
+  tryUnlock('shark_flop_3bp_4bp_5bp_non_blind', best('3bp_4bp_5bp_non_blind') >= 40);
+  tryUnlock('shark_flop_3bp_4bp_5bp_blind', best('3bp_4bp_5bp_blind') >= 40);
+  tryUnlock('shark_flop_donk_bmcb', best('donk_bmcb') >= 40);
 
   if (newUnlocks.length === 0) return [];
 

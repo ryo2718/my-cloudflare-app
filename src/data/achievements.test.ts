@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { ACHIEVEMENTS, TIERS, achievementsByTier, tierById } from './achievements';
 
 describe('ACHIEVEMENTS マスタ (再設計後)', () => {
-  it('ビギナー 3 + スタンダード 11 + プロ 7 = 21 個', () => {
+  it('ビギナー 3 + スタンダード 13 + プロ 9 = 25 個', () => {
     expect(achievementsByTier('shrimp')).toHaveLength(3);
-    expect(achievementsByTier('fish')).toHaveLength(11);
-    expect(achievementsByTier('shark')).toHaveLength(7);
+    expect(achievementsByTier('fish')).toHaveLength(13);
+    expect(achievementsByTier('shark')).toHaveLength(9);
     expect(achievementsByTier('whale')).toHaveLength(0);
-    expect(ACHIEVEMENTS).toHaveLength(21);
+    expect(ACHIEVEMENTS).toHaveLength(25);
   });
 
   it('旧 fish_1 / fish_2 は廃止されている', () => {
@@ -20,8 +20,8 @@ describe('ACHIEVEMENTS マスタ (再設計後)', () => {
     expect(achievementsByTier('shrimp').map((a) => a.id)).toEqual(['shrimp_1', 'shrimp_2', 'shrimp_3']);
   });
 
-  it('スタンダード = fish、 rankThreshold 8 (部分達成許容)', () => {
-    expect(tierById('fish')?.rankThreshold).toBe(8);
+  it('スタンダード = fish、 rankThreshold 10 (部分達成許容)', () => {
+    expect(tierById('fish')?.rankThreshold).toBe(10);
   });
 
   it('プロ (shark) は implemented=false (ランクUI非表示、 判定記録のみ)', () => {
@@ -52,7 +52,7 @@ describe('ACHIEVEMENTS マスタ (再設計後)', () => {
   });
 
   it('名前は「カテゴリ 階級 …」形式 (どのトレーニングか明示)', () => {
-    expect(ACHIEVEMENTS.find((a) => a.id === 'fish_flop_cb_srp')?.name).toBe('ポストフロップ 中級 レンジCB SRP 80%');
+    expect(ACHIEVEMENTS.find((a) => a.id === 'fish_flop_srp_non_blind')?.name).toBe('ポストフロップ 中級 SRP Blind以外 80%');
     expect(ACHIEVEMENTS.find((a) => a.id === 'shark_pf_intermediate')?.name).toBe('プリフロップ 中級 総合 100%');
   });
 });

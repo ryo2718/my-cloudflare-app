@@ -16,6 +16,7 @@ import {
   maxScoreFor,
   computeLevelGroupScore,
   trainingPath,
+  FLOP_INTERMEDIATE_KEYS,
   type TrainingLevel,
 } from '../data/trainingCatalog';
 import {
@@ -54,8 +55,8 @@ function formatPt(n: number): string {
 
 /** level.key → 難易度 tier。 */
 function tierOf(key: string): TierId {
-  // フロップ CB / ドンクBMCB (flop_cb_* / flop_donk_bmcb) は中級枠。
-  if (key.includes('intermediate') || key.startsWith('flop_cb') || key === 'flop_donk_bmcb') return '中級';
+  // フロップ中級5モード (Blind 分割) + プリフロップ中級は中級枠。
+  if (key.includes('intermediate') || FLOP_INTERMEDIATE_KEYS.includes(key)) return '中級';
   if (key.includes('advanced')) return '上級';
   if (key.includes('expert')) return '超上級';
   return '初級';

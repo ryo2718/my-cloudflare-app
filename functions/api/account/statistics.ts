@@ -28,7 +28,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     END)`;
   // 1 問の理論最大点。 中級総合・フロップ中級 (CB/ドンク) は 2pt、 それ以外は 1pt。
   const MAX_EXPR = `(CASE
-      WHEN training_type IN ('preflop_intermediate', 'flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb') THEN 2
+      WHEN training_type IN ('preflop_intermediate', 'srp_non_blind', 'srp_limp_blind', '3bp_4bp_5bp_non_blind', '3bp_4bp_5bp_blind', 'donk_bmcb') THEN 2
       ELSE 1
     END)`;
 

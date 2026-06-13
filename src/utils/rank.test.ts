@@ -11,9 +11,11 @@ const FISH_ALL = [
   'fish_pf_ep',
   'fish_pf_lp',
   'fish_pf_blind',
-  'fish_flop_cb_srp',
-  'fish_flop_cb_3bp',
-  'fish_flop_donk',
+  'fish_flop_srp_non_blind',
+  'fish_flop_srp_limp_blind',
+  'fish_flop_3bp_4bp_5bp_non_blind',
+  'fish_flop_3bp_4bp_5bp_blind',
+  'fish_flop_donk_bmcb',
 ];
 
 describe('calculateRank (実績 ID → ランク)', () => {
@@ -35,23 +37,23 @@ describe('calculateRank (実績 ID → ランク)', () => {
     expect(r.image).not.toBeNull();
   });
 
-  it('ビギナー全 + スタンダード 7 個 → ビギナーで止まる (8 個未満)', () => {
-    const r = calculateRank([...SHRIMP, ...FISH_ALL.slice(0, 7)]);
+  it('ビギナー全 + スタンダード 9 個 → ビギナーで止まる (10 個未満)', () => {
+    const r = calculateRank([...SHRIMP, ...FISH_ALL.slice(0, 9)]);
     expect(r.tier).toBe('shrimp');
   });
 
-  it('ビギナー全 + スタンダード 8 個 → スタンダードランク (8/11 で到達)', () => {
-    const r = calculateRank([...SHRIMP, ...FISH_ALL.slice(0, 8)]);
+  it('ビギナー全 + スタンダード 10 個 → スタンダードランク (10/13 で到達)', () => {
+    const r = calculateRank([...SHRIMP, ...FISH_ALL.slice(0, 10)]);
     expect(r.tier).toBe('fish');
     expect(r.label).toBe('スタンダード');
   });
 
-  it('ビギナー全 + スタンダード 11 個全部 → スタンダードランク', () => {
+  it('ビギナー全 + スタンダード 13 個全部 → スタンダードランク', () => {
     expect(calculateRank([...SHRIMP, ...FISH_ALL]).tier).toBe('fish');
   });
 
-  it('スタンダード 8 個だけ (ビギナー未達) → ランクなし (下位 tier 必須)', () => {
-    expect(calculateRank(FISH_ALL.slice(0, 8)).tier).toBeNull();
+  it('スタンダード 10 個だけ (ビギナー未達) → ランクなし (下位 tier 必須)', () => {
+    expect(calculateRank(FISH_ALL.slice(0, 10)).tier).toBeNull();
   });
 
   it('プロ (shark) 実績は達成してもランクには影響しない (最高はスタンダード)', () => {
@@ -59,7 +61,7 @@ describe('calculateRank (実績 ID → ランク)', () => {
       ...SHRIMP,
       ...FISH_ALL,
       'shark_pf_intermediate',
-      'shark_flop_cb_srp',
+      'shark_flop_srp_non_blind',
     ]);
     expect(r.tier).toBe('fish');
   });

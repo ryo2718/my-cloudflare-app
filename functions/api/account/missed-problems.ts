@@ -19,9 +19,11 @@ const ALLOWED_TRAINING_TYPES = new Set([
   'preflop_intermediate_blind',
   // ポストフロップ (フロップ)。フロップ固有情報は metadata(JSON)に持つ。
   'flop_beginner',
-  'flop_cb_srp',
-  'flop_cb_3bp',
-  'flop_donk_bmcb',
+  'srp_non_blind',
+  'srp_limp_blind',
+  '3bp_4bp_5bp_non_blind',
+  '3bp_4bp_5bp_blind',
+  'donk_bmcb',
 ]);
 const ALLOWED_SCENARIOS = new Set([
   'bb_response',
@@ -44,9 +46,10 @@ const ALLOWED_SCENARIOS = new Set([
 ]);
 const ALLOWED_POSITIONS = new Set(['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']);
 
-/** フロップ training_type か。 */
+/** フロップ training_type か (flop_beginner + 中級5モードは接頭辞なし)。 */
+const FLOP_INTERMEDIATE_TYPES = ['srp_non_blind', 'srp_limp_blind', '3bp_4bp_5bp_non_blind', '3bp_4bp_5bp_blind', 'donk_bmcb'];
 function isFlopType(t: string): boolean {
-  return t.startsWith('flop_');
+  return t.startsWith('flop_') || FLOP_INTERMEDIATE_TYPES.includes(t);
 }
 
 /** level クエリ → training_type。フロップは level=training_type をそのまま使う。 */
@@ -82,7 +85,7 @@ const TIER_TO_TRAINING_TYPES: Record<string, string[]> = {
     'preflop_intermediate_blind',
   ],
   tier_flop_beginner: ['flop_beginner'],
-  tier_flop_intermediate: ['flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb'],
+  tier_flop_intermediate: ['srp_non_blind', 'srp_limp_blind', '3bp_4bp_5bp_non_blind', '3bp_4bp_5bp_blind', 'donk_bmcb'],
 };
 
 /** level クエリを training_type 群へ解決 (tier は複数、それ以外は単一)。 */

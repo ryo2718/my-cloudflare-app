@@ -61,7 +61,13 @@ export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
   if (levelKey === 'preflop_intermediate_blind') return <PositionalRule mode="blind" />;
   if (levelKey === 'flop_beginner') return <FlopBeginnerRule />;
-  if (levelKey === 'flop_cb_srp' || levelKey === 'flop_cb_3bp' || levelKey === 'flop_donk_bmcb')
+  if (
+    levelKey === 'srp_non_blind' ||
+    levelKey === 'srp_limp_blind' ||
+    levelKey === '3bp_4bp_5bp_non_blind' ||
+    levelKey === '3bp_4bp_5bp_blind' ||
+    levelKey === 'donk_bmcb'
+  )
     return <PostflopRule />;
   return null;
 }

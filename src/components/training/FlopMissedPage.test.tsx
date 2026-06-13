@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '../../test/ui';
 import type { MissedProblemRow } from '../../api/missedProblems';
 
-vi.mock('../../router/router-core', () => ({ navigate: vi.fn(), useRoute: () => '/quiz/review/flop/flop_cb_srp' }));
+vi.mock('../../router/router-core', () => ({ navigate: vi.fn(), useRoute: () => '/quiz/review/flop/srp_non_blind' }));
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ account: null, sessionId: 'sid' }) }));
 vi.mock('../AppHeader', () => ({ AppHeader: () => null }));
 vi.mock('../../api/missedProblems', async (orig) => ({
@@ -25,7 +25,7 @@ import { FlopMissedListPage, FlopMissedPlayPage } from './FlopMissedPage';
 
 function flopRow(id: number, meta: object, over: Partial<MissedProblemRow> = {}): MissedProblemRow {
   return {
-    id, account_id: 1, training_type: 'flop_cb_srp', scenario_type: 'flop_cb',
+    id, account_id: 1, training_type: 'srp_non_blind', scenario_type: 'flop_cb',
     hero_position: 'BTN', opener_position: 'BB', three_bettor_position: null, hand: '-',
     user_selections: '[]', gto_strategy: '{}', score_obtained: 0, is_timeout: 0,
     is_removed_from_review: 0, created_at: 0, metadata: JSON.stringify(meta), ...over,
@@ -42,7 +42,7 @@ describe('FlopMissedListPage', () => {
       flopRow(1, { board: 'AdAc3d', variant: 'v1', pot: 'SRP', kind: 'cb' }),
       flopRow(2, { board: 'Kh9s7s', variant: 'v2', pot: '3bet', kind: 'cb' }, { hero_position: 'BB', opener_position: 'BTN' }),
     ]);
-    render(<FlopMissedListPage trainingType="flop_cb_srp" />);
+    render(<FlopMissedListPage trainingType="srp_non_blind" />);
     // testing-library は連続スペースを1つに正規化するため単一スペースで照合。
     expect(await screen.findByText('Ad Ac 3d srp BTN vs BB')).toBeTruthy();
     expect(screen.getByText('Kh 9s 7s 3bp BB vs BTN')).toBeTruthy();
@@ -54,7 +54,7 @@ describe('FlopMissedListPage', () => {
 describe('FlopMissedPlayPage', () => {
   it('間違えた問題が無いと「復習できる問題がありません」', async () => {
     vi.mocked(apiGetMissedProblems).mockResolvedValue([]);
-    render(<FlopMissedPlayPage trainingType="flop_cb_srp" />);
+    render(<FlopMissedPlayPage trainingType="srp_non_blind" />);
     expect(await screen.findByText(/復習できる問題がありません/)).toBeTruthy();
   });
 });
