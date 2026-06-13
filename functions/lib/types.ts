@@ -91,6 +91,10 @@ export interface AccountPublic {
   poker_name: string;
   is_admin: boolean;
   is_ranking_excluded: boolean;
+  /** migration 0013: group_key 無期限免除。 */
+  tester: boolean;
+  /** migration 0013: VIP 免除の期限 (ms)。 null = なし。 */
+  vip_until: number | null;
 }
 
 /** Admin 画面用 (平文 private_pass + last_login_at + total_points を含む)。 */

@@ -85,4 +85,16 @@ describe('login group_key 免除', () => {
     const res = await onRequestPost(loginCtx(acct({}), { private_pass: 'pw' }));
     expect(res.status).toBe(400);
   });
+
+  it('レスポンス account に is_admin / tester / vip_until が含まれる', async () => {
+    const until = Date.now() + 1_000_000;
+    const res = await onRequestPost(
+      loginCtx(acct({ is_admin: 1, tester: 1, vip_until: until }), { ...base, group_key: '' }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { account: { is_admin: boolean; tester: boolean; vip_until: number | null } };
+    expect(body.account.is_admin).toBe(true);
+    expect(body.account.tester).toBe(true);
+    expect(body.account.vip_until).toBe(until);
+  });
 });

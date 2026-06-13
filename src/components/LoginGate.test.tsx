@@ -119,3 +119,40 @@ describe('<LoginGate /> タブ構成 (保存済み >=1 件)', () => {
     expect(idxRyoji).toBeLessThan(idxTest);
   });
 });
+
+describe('<LoginGate /> 保存済みカードの肩書きラベル', () => {
+  it('admin / tester / VIP がそれぞれ表示される', () => {
+    saveAccount('A', 'p', { is_admin: true });
+    saveAccount('B', 'p', { tester: true });
+    saveAccount('C', 'p', { vip_until: Date.now() + 5 * 86400000 });
+    const html = render(makeAuth());
+    expect(html).toContain('(admin)');
+    expect(html).toContain('(tester)');
+    expect(html).toContain('(VIP・あと');
+  });
+
+  it('複数該当は admin > tester > VIP の優先で 1 つだけ', () => {
+    saveAccount('X', 'p', { is_admin: true, tester: true, vip_until: Date.now() + 99 * 86400000 });
+    const html = render(makeAuth());
+    expect(html).toContain('(admin)');
+    expect(html).not.toContain('(tester)');
+    expect(html).not.toContain('(VIP');
+  });
+
+  it('VIP 期限切れ (vip_until <= now) は肩書きを表示しない', () => {
+    saveAccount('Y', 'p', { vip_until: Date.now() - 1000 });
+    const html = render(makeAuth());
+    expect(html).not.toContain('(VIP');
+    expect(html).not.toContain('(admin)');
+    expect(html).not.toContain('(tester)');
+  });
+
+  it('肩書きなしの一般ユーザーはラベルが付かない', () => {
+    saveAccount('Z', 'p');
+    const html = render(makeAuth());
+    expect(html).toContain('Z');
+    expect(html).not.toContain('(admin)');
+    expect(html).not.toContain('(tester)');
+    expect(html).not.toContain('(VIP');
+  });
+});

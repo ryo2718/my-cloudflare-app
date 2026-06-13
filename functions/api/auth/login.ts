@@ -1,6 +1,6 @@
 // POST /api/auth/login
 //   Body: { poker_name, private_pass, group_key }
-//   Response 200: { session_id, account: { id, poker_name, is_admin } }
+//   Response 200: { session_id, account: { id, poker_name, is_admin, is_ranking_excluded, tester, vip_until } }
 //   Response 400 / 401: { error: '...' }
 //
 // 検証順:

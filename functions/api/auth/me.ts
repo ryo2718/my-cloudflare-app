@@ -1,6 +1,6 @@
 // GET /api/auth/me
 //   Header: Authorization: Bearer <session_id>
-//   Response 200: { account: { id, poker_name, is_admin } }
+//   Response 200: { account: { id, poker_name, is_admin, is_ranking_excluded, tester, vip_until } }
 //   Response 401: { error: 'unauthorized' }
 //
 // 用途: SPA 起動時に LocalStorage の session_id を検証して再ログイン判定。

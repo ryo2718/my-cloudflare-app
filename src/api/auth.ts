@@ -12,6 +12,10 @@ export interface AccountPublic {
   is_admin: boolean;
   /** ranking 除外フラグ。true なら通常ランキングに出さず参考枠に表示。 */
   is_ranking_excluded: boolean;
+  /** group_key 無期限免除。旧クライアント保存分との互換のため optional。 */
+  tester?: boolean;
+  /** VIP 免除の期限 (ms)。null/未設定 = なし。 */
+  vip_until?: number | null;
 }
 
 export interface AuthSuccess {

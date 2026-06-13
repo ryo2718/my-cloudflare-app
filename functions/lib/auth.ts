@@ -71,6 +71,8 @@ export function toAccountPublic(row: AccountRow): AccountPublic {
     poker_name: row.poker_name,
     is_admin: row.is_admin === 1,
     is_ranking_excluded: row.is_ranking_excluded === 1,
+    tester: row.tester === 1,
+    vip_until: row.vip_until,
   };
 }
 
