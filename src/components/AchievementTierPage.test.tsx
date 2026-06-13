@@ -36,5 +36,7 @@ describe('AchievementTierPage (UI)', () => {
     expect(screen.getByText('現在の最高点数 60%')).toBeTruthy();
     // 11 個ぶん表示 (達成数 0/11)。
     expect(screen.getByText('0 / 11 達成')).toBeTruthy();
+    // ランク到達バッジ: 8 個でスタンダード → 0 個達成なので「あと 8 個」。
+    expect(screen.getByText('あと 8 個でスタンダードランク到達')).toBeTruthy();
   });
 });

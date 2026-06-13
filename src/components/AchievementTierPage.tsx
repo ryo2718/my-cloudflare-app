@@ -125,6 +125,16 @@ export function AchievementTierPage({ tier }: Props) {
           <span style={{ ...heroCountStyle, color: tierData.textColor }}>
             {got} / {tierAch.length} 達成
           </span>
+          {(() => {
+            // ランク到達条件 (rankThreshold 指定時はその個数、 未指定は全達成)。
+            const need = tierData.rankThreshold ?? tierAch.length;
+            const reached = got >= need;
+            return (
+              <span style={{ ...rankBadgeStyle, color: tierData.textColor, borderColor: tierData.textColor }}>
+                {reached ? `${tierData.label}ランク到達済み` : `あと ${need - got} 個で${tierData.label}ランク到達`}
+              </span>
+            );
+          })()}
         </div>
 
         {state.kind === 'loading' && <div style={infoStyle}>読み込み中…</div>}
@@ -256,6 +266,14 @@ const heroCountStyle: CSSProperties = {
   fontSize: '0.85rem',
   fontWeight: 700,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+};
+const rankBadgeStyle: CSSProperties = {
+  marginTop: '0.15rem',
+  fontSize: '0.82rem',
+  fontWeight: 700,
+  border: '1.5px solid',
+  borderRadius: '999px',
+  padding: '0.15rem 0.7rem',
 };
 const starStyle: CSSProperties = {
   position: 'absolute',
