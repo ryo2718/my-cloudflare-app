@@ -38,6 +38,13 @@ export interface Achievement {
   tier: TierId;
   name: string;
   desc: string;
+  /** 進捗(現在の最高点数%)計算対象の training_type。 累計系 (初回プレイ/10回) は未指定。 */
+  trainingType?: string;
+  /**
+   * best_score の満点 (= 現在% の分母)。 trainingType 指定時に使う。
+   * ※ オープンは best_score が 0-20 (正解数) なので 20 (pt 表示の 10 ではない)。
+   */
+  maxBest?: number;
 }
 
 export const TIERS: Tier[] = [
@@ -88,32 +95,33 @@ export const TIERS: Tier[] = [
 // 実績 21 件 (ビギナー 3 + スタンダード 11 + プロフェッショナル 7)。
 // マスター (whale) は未定義。 プロ (shark) は判定・記録のみ (ランクUI非表示)。
 export const ACHIEVEMENTS: Achievement[] = [
-  // ビギナー (変更なし)。
+  // ビギナー (キー固定)。 shrimp_2 のみ進捗% を表示。
   { id: 'shrimp_1', tier: 'shrimp', name: 'Welcome!',         desc: 'トレーニングモードを初めてプレイ' },
-  { id: 'shrimp_2', tier: 'shrimp', name: '初心者脱出!',     desc: 'プリフロップトレーニングで初級をクリア (20/20)' },
+  { id: 'shrimp_2', tier: 'shrimp', name: '初心者脱出!',     desc: 'プリフロップ初級で 100% (20/20)', trainingType: 'preflop_beginner', maxBest: 20 },
   { id: 'shrimp_3', tier: 'shrimp', name: 'スタートダッシュ', desc: 'トレーニングモードを 10 回以上プレイ' },
 
   // スタンダード (fish): 各モードを 初級90% / 中級80% で達成。計 11 個 (8 個でランク到達)。
-  { id: 'fish_pf_open',        tier: 'fish', name: 'オープン上手',        desc: '初級 オープンで 90% (18/20)' },
-  { id: 'fish_pf_vs_open',     tier: 'fish', name: 'vs オープン上手',     desc: '初級 vs オープンで 90% (18/20)' },
-  { id: 'fish_pf_vs_3bet_4bet', tier: 'fish', name: 'vs 3ベット上手',     desc: '初級 vs 3ベット/4ベットで 90% (18/20)' },
-  { id: 'fish_flop_beginner',  tier: 'fish', name: 'フロップ初級突破',    desc: 'フロップ初級で 90% (18/20)' },
-  { id: 'fish_pf_intermediate', tier: 'fish', name: '中級者デビュー',     desc: 'プリフロップ中級 総合で 80% (32/40)' },
-  { id: 'fish_pf_ep',          tier: 'fish', name: '中級 EP 80%',         desc: 'プリフロップ中級 EP で 80% (16/20)' },
-  { id: 'fish_pf_lp',          tier: 'fish', name: '中級 LP 80%',         desc: 'プリフロップ中級 LP で 80% (16/20)' },
-  { id: 'fish_pf_blind',       tier: 'fish', name: '中級 Blind 80%',      desc: 'プリフロップ中級 Blind で 80% (24/30)' },
-  { id: 'fish_flop_cb_srp',    tier: 'fish', name: 'レンジCB SRP 80%',    desc: 'フロップ レンジCB SRP で 80% (48/60)' },
-  { id: 'fish_flop_cb_3bp',    tier: 'fish', name: 'レンジCB 3BP 80%',    desc: 'フロップ レンジCB 3BP/4BP/5BP で 80% (48/60)' },
-  { id: 'fish_flop_donk',      tier: 'fish', name: 'レンジドンク 80%',    desc: 'フロップ レンジドンク/BMCB で 80% (48/60)' },
+  // 名前は「{カテゴリ} {階級} {モード} {目標%}」形式 (どのトレーニングか一目で分かるように)。
+  { id: 'fish_pf_open',        tier: 'fish', name: 'プリフロップ 初級 オープン 90%',        desc: '90% (18/20)', trainingType: 'preflop_beginner_open', maxBest: 20 },
+  { id: 'fish_pf_vs_open',     tier: 'fish', name: 'プリフロップ 初級 vsオープン 90%',      desc: '90% (18/20)', trainingType: 'preflop_beginner_vs_open', maxBest: 20 },
+  { id: 'fish_pf_vs_3bet_4bet', tier: 'fish', name: 'プリフロップ 初級 vs3ベット/4ベット 90%', desc: '90% (18/20)', trainingType: 'preflop_beginner_vs_3bet_4bet', maxBest: 20 },
+  { id: 'fish_flop_beginner',  tier: 'fish', name: 'ポストフロップ 初級 90%',               desc: '90% (18/20)', trainingType: 'flop_beginner', maxBest: 20 },
+  { id: 'fish_pf_intermediate', tier: 'fish', name: 'プリフロップ 中級 総合 80%',           desc: '80% (32/40)', trainingType: 'preflop_intermediate', maxBest: 40 },
+  { id: 'fish_pf_ep',          tier: 'fish', name: 'プリフロップ 中級 EP 80%',              desc: '80% (16/20)', trainingType: 'preflop_intermediate_ep', maxBest: 20 },
+  { id: 'fish_pf_lp',          tier: 'fish', name: 'プリフロップ 中級 LP 80%',              desc: '80% (16/20)', trainingType: 'preflop_intermediate_lp', maxBest: 20 },
+  { id: 'fish_pf_blind',       tier: 'fish', name: 'プリフロップ 中級 Blind 80%',           desc: '80% (24/30)', trainingType: 'preflop_intermediate_blind', maxBest: 30 },
+  { id: 'fish_flop_cb_srp',    tier: 'fish', name: 'ポストフロップ 中級 レンジCB SRP 80%',  desc: '80% (48/60)', trainingType: 'flop_cb_srp', maxBest: 60 },
+  { id: 'fish_flop_cb_3bp',    tier: 'fish', name: 'ポストフロップ 中級 レンジCB 3BP 80%',  desc: '80% (48/60)', trainingType: 'flop_cb_3bp', maxBest: 60 },
+  { id: 'fish_flop_donk',      tier: 'fish', name: 'ポストフロップ 中級 レンジドンク 80%',  desc: '80% (48/60)', trainingType: 'flop_donk_bmcb', maxBest: 60 },
 
   // プロフェッショナル (shark): 中級各モードを 100%。計 7 個 (判定・記録のみ。ランクUI未実装)。
-  { id: 'shark_pf_intermediate', tier: 'shark', name: '中級 総合 完全制覇', desc: 'プリフロップ中級 総合で 100% (40/40)' },
-  { id: 'shark_pf_ep',          tier: 'shark', name: '中級 EP 完全制覇',   desc: 'プリフロップ中級 EP で 100% (20/20)' },
-  { id: 'shark_pf_lp',          tier: 'shark', name: '中級 LP 完全制覇',   desc: 'プリフロップ中級 LP で 100% (20/20)' },
-  { id: 'shark_pf_blind',       tier: 'shark', name: '中級 Blind 完全制覇', desc: 'プリフロップ中級 Blind で 100% (30/30)' },
-  { id: 'shark_flop_cb_srp',    tier: 'shark', name: 'レンジCB SRP 完全制覇', desc: 'フロップ レンジCB SRP で 100% (60/60)' },
-  { id: 'shark_flop_cb_3bp',    tier: 'shark', name: 'レンジCB 3BP 完全制覇', desc: 'フロップ レンジCB 3BP/4BP/5BP で 100% (60/60)' },
-  { id: 'shark_flop_donk',      tier: 'shark', name: 'レンジドンク 完全制覇', desc: 'フロップ レンジドンク/BMCB で 100% (60/60)' },
+  { id: 'shark_pf_intermediate', tier: 'shark', name: 'プリフロップ 中級 総合 100%',          desc: '100% (40/40)', trainingType: 'preflop_intermediate', maxBest: 40 },
+  { id: 'shark_pf_ep',          tier: 'shark', name: 'プリフロップ 中級 EP 100%',             desc: '100% (20/20)', trainingType: 'preflop_intermediate_ep', maxBest: 20 },
+  { id: 'shark_pf_lp',          tier: 'shark', name: 'プリフロップ 中級 LP 100%',             desc: '100% (20/20)', trainingType: 'preflop_intermediate_lp', maxBest: 20 },
+  { id: 'shark_pf_blind',       tier: 'shark', name: 'プリフロップ 中級 Blind 100%',          desc: '100% (30/30)', trainingType: 'preflop_intermediate_blind', maxBest: 30 },
+  { id: 'shark_flop_cb_srp',    tier: 'shark', name: 'ポストフロップ 中級 レンジCB SRP 100%', desc: '100% (60/60)', trainingType: 'flop_cb_srp', maxBest: 60 },
+  { id: 'shark_flop_cb_3bp',    tier: 'shark', name: 'ポストフロップ 中級 レンジCB 3BP 100%', desc: '100% (60/60)', trainingType: 'flop_cb_3bp', maxBest: 60 },
+  { id: 'shark_flop_donk',      tier: 'shark', name: 'ポストフロップ 中級 レンジドンク 100%', desc: '100% (60/60)', trainingType: 'flop_donk_bmcb', maxBest: 60 },
 ];
 
 export function tierById(id: string): Tier | undefined {

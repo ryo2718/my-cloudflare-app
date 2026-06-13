@@ -37,4 +37,22 @@ describe('ACHIEVEMENTS マスタ (再設計後)', () => {
     const tierIds = new Set(TIERS.map((t) => t.id));
     for (const a of ACHIEVEMENTS) expect(tierIds.has(a.tier)).toBe(true);
   });
+
+  it('fish / shark は全て trainingType と maxBest を持つ (進捗% 表示用)', () => {
+    for (const a of ACHIEVEMENTS.filter((x) => x.tier === 'fish' || x.tier === 'shark')) {
+      expect(a.trainingType, a.id).toBeTruthy();
+      expect((a.maxBest ?? 0) > 0, a.id).toBe(true);
+    }
+  });
+
+  it('⚠️ オープンの maxBest は 20 (pt 表示の 10 ではない)', () => {
+    const open = ACHIEVEMENTS.find((a) => a.id === 'fish_pf_open');
+    expect(open?.trainingType).toBe('preflop_beginner_open');
+    expect(open?.maxBest).toBe(20);
+  });
+
+  it('名前は「カテゴリ 階級 …」形式 (どのトレーニングか明示)', () => {
+    expect(ACHIEVEMENTS.find((a) => a.id === 'fish_flop_cb_srp')?.name).toBe('ポストフロップ 中級 レンジCB SRP 80%');
+    expect(ACHIEVEMENTS.find((a) => a.id === 'shark_pf_intermediate')?.name).toBe('プリフロップ 中級 総合 100%');
+  });
 });
