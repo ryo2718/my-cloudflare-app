@@ -32,14 +32,39 @@ describe('computeUnlockStatus (アンロック判定)', () => {
     expect(s.superAdvancedUnlocked).toBe(false);
   });
 
-  it('初級 19/20 (未満) → 中級ロック', () => {
-    const s = computeUnlockStatus([rec('preflop_beginner', 19)]);
+  it('初級基礎のみ 20/20 (拡張モード未クリア) → 中級ロック', () => {
+    const s = computeUnlockStatus([rec('preflop_beginner', 20)]);
     expect(s.intermediateUnlocked).toBe(false);
   });
 
-  it('初級 20/20 (達成) → 中級アンロック', () => {
-    const s = computeUnlockStatus([rec('preflop_beginner', 20)]);
+  it('プリフロップ初級 4 モード全部クリア → 中級アンロック', () => {
+    const s = computeUnlockStatus([
+      rec('preflop_beginner', 20),
+      rec('preflop_beginner_open', 18),
+      rec('preflop_beginner_vs_open', 18),
+      rec('preflop_beginner_vs_3bet_4bet', 18),
+    ]);
     expect(s.intermediateUnlocked).toBe(true);
+  });
+
+  it('拡張1モードが 17/20 (90%未満) → 中級ロック (境界値)', () => {
+    const s = computeUnlockStatus([
+      rec('preflop_beginner', 20),
+      rec('preflop_beginner_open', 17),
+      rec('preflop_beginner_vs_open', 18),
+      rec('preflop_beginner_vs_3bet_4bet', 18),
+    ]);
+    expect(s.intermediateUnlocked).toBe(false);
+  });
+
+  it('基礎が 19/20 (100%未満) → 中級ロック (基礎は満点必須)', () => {
+    const s = computeUnlockStatus([
+      rec('preflop_beginner', 19),
+      rec('preflop_beginner_open', 18),
+      rec('preflop_beginner_vs_open', 18),
+      rec('preflop_beginner_vs_3bet_4bet', 18),
+    ]);
+    expect(s.intermediateUnlocked).toBe(false);
   });
 
   it('初級オープン: 初級基礎 20/20 で解放 / 19 では不可', () => {
@@ -183,24 +208,30 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
 });
 
 describe('lockHintFor (ロック中ヒント文)', () => {
-  it('中級: "初級で 20/20 取るとアンロック"', () => {
-    expect(lockHintFor('preflop_intermediate')).toBe('初級で 20/20 取るとアンロック');
+  it('中級: "プリフロップ初級を全部クリアするとアンロック"', () => {
+    expect(lockHintFor('preflop_intermediate')).toBe('プリフロップ初級を全部クリアするとアンロック');
+    expect(lockHintFor('preflop_intermediate_ep')).toBe('プリフロップ初級を全部クリアするとアンロック');
   });
-  it('上級: "中級で 20pt 取るとアンロック"', () => {
-    expect(lockHintFor('preflop_advanced')).toBe('中級で 20pt 取るとアンロック');
+  it('上級: "プリフロップ中級で 20pt 取るとアンロック"', () => {
+    expect(lockHintFor('preflop_advanced')).toBe('プリフロップ中級で 20pt 取るとアンロック');
   });
   it('超上級: "未実装"', () => {
     expect(lockHintFor('preflop_expert')).toBe('未実装');
   });
-  it('初級オープン: "初級 基礎で 20/20 取るとアンロック"', () => {
-    expect(lockHintFor('preflop_beginner_open')).toBe('初級 基礎で 20/20 取るとアンロック');
+  it('初級拡張: "プリフロップ初級 基礎をクリアするとアンロック"', () => {
+    expect(lockHintFor('preflop_beginner_open')).toBe('プリフロップ初級 基礎をクリアするとアンロック');
+    expect(lockHintFor('preflop_beginner_vs_open')).toBe('プリフロップ初級 基礎をクリアするとアンロック');
+    expect(lockHintFor('preflop_beginner_vs_3bet_4bet')).toBe('プリフロップ初級 基礎をクリアするとアンロック');
+  });
+  it('フロップ初級: "プリフロップ初級 基礎をクリアするとアンロック"', () => {
+    expect(lockHintFor('flop_beginner')).toBe('プリフロップ初級 基礎をクリアするとアンロック');
   });
   it('初級: null', () => {
     expect(lockHintFor('preflop_beginner')).toBeNull();
   });
-  it('フロップ中級: "フロップ初級で 18/20 取るとアンロック"', () => {
-    expect(lockHintFor('flop_cb_srp')).toBe('フロップ初級で 18/20 取るとアンロック');
-    expect(lockHintFor('flop_cb_3bp')).toBe('フロップ初級で 18/20 取るとアンロック');
-    expect(lockHintFor('flop_donk_bmcb')).toBe('フロップ初級で 18/20 取るとアンロック');
+  it('ポストフロップ中級: "ポストフロップ初級をクリアするとアンロック"', () => {
+    expect(lockHintFor('flop_cb_srp')).toBe('ポストフロップ初級をクリアするとアンロック');
+    expect(lockHintFor('flop_cb_3bp')).toBe('ポストフロップ初級をクリアするとアンロック');
+    expect(lockHintFor('flop_donk_bmcb')).toBe('ポストフロップ初級をクリアするとアンロック');
   });
 });

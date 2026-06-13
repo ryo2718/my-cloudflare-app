@@ -17,6 +17,10 @@ export interface ClearThreshold {
 
 export const CLEAR_THRESHOLDS: Record<string, ClearThreshold> = {
   preflop_beginner:           { maxScore: 20, clearPercent: 100, clearScore: 20, implemented: true },
+  // 初級拡張 (オープン/vsオープン/vs3bet4bet): クリア基準 90% (18/20)。best_score は正解数 (0-20)。
+  preflop_beginner_open:         { maxScore: 20, clearPercent: 90, clearScore: 18, implemented: true },
+  preflop_beginner_vs_open:      { maxScore: 20, clearPercent: 90, clearScore: 18, implemented: true },
+  preflop_beginner_vs_3bet_4bet: { maxScore: 20, clearPercent: 90, clearScore: 18, implemented: true },
   preflop_intermediate:       { maxScore: 40, clearPercent:  80, clearScore: 32, implemented: true },
   // 中級ポジション別 (EP/LP/Blind): クリア基準 80%。
   preflop_intermediate_ep:    { maxScore: 20, clearPercent:  80, clearScore: 16, implemented: true },

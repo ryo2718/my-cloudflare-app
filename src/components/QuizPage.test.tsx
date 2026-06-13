@@ -140,6 +140,6 @@ describe('<QuizPage /> アコーディオン開閉', () => {
     await user.click(beginnerHeaders[0]); // preflop 初級
     expect(screen.getAllByText(/🔒/).length).toBeGreaterThanOrEqual(1);
     // オープン / vs オープン の 2 モードがロック → 同じヒントが複数。
-    expect(screen.getAllByText('初級 基礎で 20/20 取るとアンロック').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('プリフロップ初級 基礎をクリアするとアンロック').length).toBeGreaterThanOrEqual(1);
   });
 });
