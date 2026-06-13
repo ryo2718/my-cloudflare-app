@@ -14,6 +14,10 @@ export interface AccountAdmin {
   last_login_at: number | null;
   /** training_results.best_score の合計 (Phase 9 で追加)。 */
   total_points: number;
+  /** group_key 無期限免除 (migration 0013)。 */
+  tester: boolean;
+  /** VIP 免除の期限 (ms)。 null = なし (migration 0013)。 */
+  vip_until: number | null;
 }
 
 export interface GroupKey {
@@ -93,6 +97,24 @@ export async function apiAdminUsersStatistics(sessionId: string): Promise<UserSt
     sessionId,
   );
   return res.users;
+}
+
+/** テスター登録の on/off、 または VIP 付与/解除 (admin 専用)。 */
+export async function apiAdminAccountGrant(
+  sessionId: string,
+  payload:
+    | { id: number; type: 'tester'; value: boolean }
+    | { id: number; type: 'vip'; days: number | null },
+): Promise<{ account: { id: number; poker_name: string; tester: boolean; vip_until: number | null } }> {
+  return await fetchJsonAuthed(
+    '/api/admin/account-grant',
+    sessionId,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export async function apiAdminRotateGroupKey(

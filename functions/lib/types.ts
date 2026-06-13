@@ -14,6 +14,10 @@ export interface AccountRow {
   points: number;
   /** migration 0008 で追加。 ranking から除外 (参考枠表示) + 成績リセット権限。 */
   is_ranking_excluded: number; // 0 or 1
+  /** migration 0013 で追加。 1 なら group_key 不要 (無期限免除)。 */
+  tester: number; // 0 or 1
+  /** migration 0013 で追加。 この時刻 (ms) まで group_key 免除。 null = VIP なし。 */
+  vip_until: number | null;
 }
 
 export interface TrainingResultRow {
@@ -99,6 +103,10 @@ export interface AccountAdmin {
   last_login_at: number | null;
   /** training_results.best_score の合計 (LEFT JOIN + SUM)。未挑戦は 0。 */
   total_points: number;
+  /** migration 0013: group_key 無期限免除。 */
+  tester: boolean;
+  /** migration 0013: VIP 免除の期限 (ms)。 null = なし。 */
+  vip_until: number | null;
 }
 
 export interface AuthSuccess {

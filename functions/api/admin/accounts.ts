@@ -16,6 +16,8 @@ interface AccountWithTotal {
   created_at: number;
   last_login_at: number | null;
   total_points: number;
+  tester: number;
+  vip_until: number | null;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -28,7 +30,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     .prepare(
       `SELECT
          a.id, a.poker_name, a.private_pass, a.is_admin,
-         a.created_at, a.last_login_at,
+         a.created_at, a.last_login_at, a.tester, a.vip_until,
          COALESCE(SUM(t.best_score), 0) AS total_points
        FROM accounts a
        LEFT JOIN training_results t ON t.account_id = a.id
@@ -46,6 +48,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     created_at: r.created_at,
     last_login_at: r.last_login_at,
     total_points: r.total_points,
+    tester: r.tester === 1,
+    vip_until: r.vip_until,
   }));
   return jsonResponse(200, { accounts });
 };

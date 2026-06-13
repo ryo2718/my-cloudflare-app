@@ -10,6 +10,7 @@ import {
   deleteSession,
   findAccountById,
   findActiveSession,
+  findSessionIgnoringIdle,
   touchSessionAccess,
 } from './db';
 import { SESSION_IDLE_TIMEOUT_MS, type AccountPublic, type AccountRow } from './types';
@@ -33,6 +34,15 @@ export async function resolveAccountFromSession(
 ): Promise<AccountRow | null> {
   const session = await findActiveSession(db, sessionId);
   if (!session) {
+    // admin はアイドル失効を免除: expires_at だけで再判定し、 admin なら有効とする。
+    const live = await findSessionIgnoringIdle(db, sessionId);
+    if (live) {
+      const acc = await findAccountById(db, live.account_id);
+      if (acc && acc.is_admin === 1) {
+        await touchSessionAccess(db, sessionId).catch(() => {});
+        return acc;
+      }
+    }
     // 失効分の物理削除 (id 一致行のみ、 他端末セッションには影響しない)
     await deleteSession(db, sessionId).catch(() => {});
     return null;

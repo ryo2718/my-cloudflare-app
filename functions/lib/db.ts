@@ -96,6 +96,20 @@ export async function findActiveSession(
     .first<SessionRow>();
 }
 
+/**
+ * expires_at だけで有効判定するセッション取得 (アイドル失効を無視)。
+ * admin のアイドル失効免除 (resolveAccountFromSession) で使う。
+ */
+export async function findSessionIgnoringIdle(
+  db: D1Database,
+  sessionId: string,
+): Promise<SessionRow | null> {
+  return await db
+    .prepare('SELECT * FROM sessions WHERE id = ? AND expires_at > ?')
+    .bind(sessionId, Date.now())
+    .first<SessionRow>();
+}
+
 /** 認証成功時に last_accessed_at を現在時刻に更新する (アイドルタイマーのリセット)。 */
 export async function touchSessionAccess(
   db: D1Database,
