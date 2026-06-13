@@ -5,7 +5,15 @@
 import { jsonResponse, resolveAccountFromRequest } from '../../lib/auth';
 import type { Env } from '../../lib/types';
 
-const ALLOWED_TRAINING_TYPES = new Set(['preflop_beginner', 'preflop_intermediate']);
+const ALLOWED_TRAINING_TYPES = new Set([
+  'preflop_beginner',
+  'preflop_intermediate',
+  // ポストフロップ (正答率集計対象)。
+  'flop_beginner',
+  'flop_cb_srp',
+  'flop_cb_3bp',
+  'flop_donk_bmcb',
+]);
 const ALLOWED_SCENARIOS = new Set([
   'bb_response',
   'vs_3bet',
@@ -14,6 +22,11 @@ const ALLOWED_SCENARIOS = new Set([
   'risky_open',
   'beginner_open',
   'beginner_vs_open',
+  // フロップ scenario タグ。
+  'flop_beginner',
+  'flop_cb',
+  'flop_donk',
+  'flop_bmcb',
 ]);
 const ALLOWED_POSITIONS = new Set(['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']);
 

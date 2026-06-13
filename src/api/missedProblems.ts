@@ -20,17 +20,42 @@ export interface MissedProblemRow {
   is_timeout: number;
   is_removed_from_review: number;
   created_at: number;
+  /** フロップ用 JSON (board / pot / variant / kind / hand)。プリフロップは null/undefined。 */
+  metadata?: string | null;
 }
 
-export type MissedTrainingType =
+/** プリフロップの training_type。 */
+export type PreflopTrainingType =
   | 'preflop_beginner'
+  | 'preflop_beginner_open'
+  | 'preflop_beginner_vs_open'
+  | 'preflop_beginner_vs_3bet_4bet'
   | 'preflop_intermediate'
   | 'preflop_intermediate_ep'
   | 'preflop_intermediate_lp'
   | 'preflop_intermediate_blind';
 
-/** 取得用 level クエリ。 */
+/** ポストフロップ (フロップ) の training_type。 */
+export type FlopTrainingType =
+  | 'flop_beginner'
+  | 'flop_cb_srp'
+  | 'flop_cb_3bp'
+  | 'flop_donk_bmcb';
+
+export type MissedTrainingType = PreflopTrainingType | FlopTrainingType;
+
+/** 取得用 level クエリ (プリフロップ)。 */
 export type MissedLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+
+/** 階級プール取得用の tier クエリ (複数 training_type を一括取得)。 */
+export type MissedTierKey =
+  | 'tier_pf_beginner'
+  | 'tier_pf_intermediate'
+  | 'tier_flop_beginner'
+  | 'tier_flop_intermediate';
+
+/** 取得用 level クエリ。フロップは training_type をそのまま level に使う。tier は階級プール。 */
+export type MissedLevelQuery = MissedLevel | FlopTrainingType | MissedTierKey;
 
 export interface MissedProblemInput {
   training_type: MissedTrainingType;
@@ -45,6 +70,8 @@ export interface MissedProblemInput {
   gto_strategy: { allin: number; raise: number; call: number; fold: number; check?: number };
   score_obtained: number;
   is_timeout?: boolean;
+  /** フロップ固有情報 (board / pot / variant / kind / hand) を JSON 文字列で持つ。 */
+  metadata?: string | null;
 }
 
 interface ErrorBody { error?: string }
@@ -79,7 +106,7 @@ export async function apiPostMissedProblems(
 
 export async function apiGetMissedProblems(
   sessionId: string,
-  params: { level?: MissedLevel; limit?: number; includeRemoved?: boolean } = {},
+  params: { level?: MissedLevelQuery; limit?: number; includeRemoved?: boolean } = {},
 ): Promise<MissedProblemRow[]> {
   const qs = new URLSearchParams();
   if (params.level) qs.set('level', params.level);

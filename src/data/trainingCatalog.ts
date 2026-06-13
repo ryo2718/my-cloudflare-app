@@ -33,7 +33,7 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
     key: 'preflop',
     label: 'プリフロップトレーニング',
     levels: [
-      { key: 'preflop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
+      { key: 'preflop_beginner',     label: '初級 基礎', points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
       // 中級総合は best_score が finalSum (0-40) を直接表す pt 値。 points=1 で累計と整合。
       { key: 'preflop_intermediate',       label: '中級 総合',  points: 1, questionCount: 20, timeLimitSec: 20, implemented: true },
       // 中級ポジション別 (EP/LP/Blind)。 best_score = 全問素点÷2 (満点 = questionCount)。
@@ -42,14 +42,32 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       { key: 'preflop_intermediate_blind', label: '中級 Blind', points: 1, questionCount: 30, timeLimitSec: 20, implemented: true },
       { key: 'preflop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null,   implemented: false },
       { key: 'preflop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null,   implemented: false },
+      // 初級のシナリオ別モード (タブのみ追加・中身は後で実装)。tierOf で「初級」枠に入り、
+      // UI では「初級 基礎」の直後に未実装カードとして並ぶ。training_type は新規キー
+      // (サーバ whitelist 未追加・記録経路に到達しない想定)。配列末尾に置くのは index 依存の
+      // 既存テストを保つため (tier グルーピングで表示順は「初級 基礎」の後になる)。
+      // 初級オープン: 各ポジションのオープン頻度をスライダーで回答。1問0.5pt × 20問 = 10pt。
+      //   best_score は正解数 (0-20) で保存し、pt は points=0.5 で換算 (best_score INTEGER のため)。
+      { key: 'preflop_beginner_open',         label: '初級 オープン',          points: 0.5, questionCount: 20, timeLimitSec: 50, implemented: true },
+      // 初級 vs オープン: 相手のオープンへの応答を複数選択 (allin/raise/call/fold)。1問1pt × 20問 = 20pt。
+      { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
+      // 初級 vs 3bet/4bet: 相手の 3bet/4bet への応答を複数選択。1問1pt × 20問 = 20pt。
+      { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
     ],
   },
   {
     key: 'flop',
-    label: 'フロップトレーニング',
+    label: 'ポストフロップトレーニング',
     levels: [
-      { key: 'flop_beginner',     label: '初級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
-      { key: 'flop_intermediate', label: '中級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      { key: 'flop_beginner',     label: '初級',   points: 1,    questionCount: 20,   timeLimitSec: 'none', implemented: true  },
+      // CB (レンジベット): 全30問 CB(サイズ複数選択)。best_score が finalSum (0-60,
+      // 1問 -1〜+2pt × 30問) を直接表す。 points=1 で累計と整合。
+      //   CB SRP        : SRP 30 (ランダム)。
+      //   CB 3BP/4BP/5BP: 3bet21 / 4bet6 / 5bet3 (= 7:2:1)。
+      { key: 'flop_cb_srp', label: 'レンジCB SRP',          points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      { key: 'flop_cb_3bp', label: 'レンジCB 3BP/4BP/5BP',  points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
+      // ドンク/BMCB: ドンク15 (OOPリード) + BMCB15 (相手チェック後IPスタブ)。SRP+3bet。
+      { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',   points: 1, questionCount: 30, timeLimitSec: 'none', implemented: true },
       { key: 'flop_advanced',     label: '上級',   points: null, questionCount: null, timeLimitSec: null, implemented: false },
       { key: 'flop_expert',       label: '超上級', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
@@ -73,6 +91,11 @@ export function formatLevelInfo(level: TrainingLevel): string {
     const max = (level.questionCount ?? 20) * 2;
     return `20問・最大 ${max}pt・制限時間 20s`;
   }
+  // フロップ CB/ドンクBMCB は満点 60pt 表記 (1問 -1〜+2pt × 30問・制限時間なし)。
+  if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
+    const qc = level.questionCount ?? 30;
+    return `${qc}問・最大 ${qc * 2}pt・制限時間なし`;
+  }
   // 中級ポジション別 (EP/LP/Blind) は満点 = questionCount (素点÷2)。
   if (
     level.key === 'preflop_intermediate_ep' ||
@@ -81,6 +104,11 @@ export function formatLevelInfo(level: TrainingLevel): string {
   ) {
     const qc = level.questionCount ?? 0;
     return `${qc}問・最大 ${qc}pt・制限時間 20s`;
+  }
+  // 初級オープン: 1問0.5pt × 20問 = 10pt・制限時間 50s。
+  if (level.key === 'preflop_beginner_open') {
+    const qc = level.questionCount ?? 20;
+    return `${qc}問・最大 ${qc * 0.5}pt・制限時間 50s`;
   }
   const parts: string[] = [];
   if (level.points !== null) parts.push(`${level.points}pt`);
@@ -103,8 +131,45 @@ export function formatLevelInfo(level: TrainingLevel): string {
  */
 export function maxScoreFor(level: TrainingLevel): number {
   if (level.questionCount === null) return 0;
-  if (level.key === 'preflop_intermediate') return level.questionCount * 2;
+  if (
+    level.key === 'preflop_intermediate' ||
+    level.key === 'flop_cb_srp' ||
+    level.key === 'flop_cb_3bp' ||
+    level.key === 'flop_donk_bmcb'
+  )
+    return level.questionCount * 2;
+  // 初級オープン: 満点 pt = questionCount * 0.5 (= 10)。best_score は正解数 (0-20)。
+  if (level.key === 'preflop_beginner_open') return level.questionCount * 0.5;
   return level.questionCount;
+}
+
+/** 階級グループ (初級/中級/上級/超上級) の合計スコア。 */
+export interface LevelGroupScore {
+  /** 実装済みモードの現在獲得 pt 合計 (best_score × points)。 */
+  current: number;
+  /** 実装済みモードの満点 pt 合計 (未実装モードは含めない)。 */
+  max: number;
+}
+
+/**
+ * 階級グループの合計スコアを算出。
+ *  - 実装済み (isPlayable) モードのみを分母・分子に含める
+ *  - current = Σ best_score × points、max = Σ maxScoreFor
+ *  - max が 0 = 実装済みモードなし (= 全モード未実装の階級)
+ */
+export function computeLevelGroupScore(
+  levels: ReadonlyArray<TrainingLevel>,
+  records: ReadonlyArray<{ training_type: string; best_score: number }>,
+): LevelGroupScore {
+  let current = 0;
+  let max = 0;
+  for (const lv of levels) {
+    if (!isPlayable(lv)) continue;
+    max += maxScoreFor(lv);
+    const rec = records.find((r) => r.training_type === lv.key);
+    if (rec) current += rec.best_score * (lv.points ?? 0);
+  }
+  return { current, max };
 }
 
 /** N/MAX 点 → "75%" / "67.5%" 形式の達成率表記 (整数のとき小数なし)。 */

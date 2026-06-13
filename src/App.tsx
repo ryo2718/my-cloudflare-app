@@ -5,7 +5,7 @@ import { useAuth } from './hooks/useAuth';
 import { useIdleLogout } from './hooks/useIdleLogout';
 import { usePendingResultsFlush } from './hooks/usePendingResultsFlush';
 import { navigate, useRoute } from './router/router-core';
-import { TRAINING_CATALOG, isPlayable, type TrainingLevel } from './data/trainingCatalog';
+import { isPlayable } from './data/trainingCatalog';
 import { AccountPage } from './components/AccountPage';
 import { AchievementTierPage } from './components/AchievementTierPage';
 import type { TierId } from './data/achievements';
@@ -22,45 +22,28 @@ import { MissedProblemsListPage } from './components/training/MissedProblemsList
 import { MissedProblemAnswerPage } from './components/training/MissedProblemAnswerPage';
 import { MissedChallengePlayPage } from './components/training/MissedChallengePlayPage';
 import { MissedChallengeResultPage } from './components/training/MissedChallengeResultPage';
+import { FlopMissedListPage, FlopMissedPlayPage, type FlopMissedKey } from './components/training/FlopMissedPage';
 import { parseMissedFilter } from './components/training/missedChallengeStore';
-import type { MissedLevel } from './api/missedProblems';
+import type { MissedLevelQuery } from './api/missedProblems';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
+import { TrainingPlayFlop } from './components/training/TrainingPlayFlop';
+import { TrainingPlayFlopIntermediate } from './components/training/TrainingPlayFlopIntermediate';
+import { TrainingPlayFlopPerHandCb } from './components/training/TrainingPlayFlopPerHandCb';
+import { TrainingPlayBeginnerOpen } from './components/training/TrainingPlayBeginnerOpen';
+import { TrainingPlayBeginnerVsOpen } from './components/training/TrainingPlayBeginnerVsOpen';
+import { TrainingPlayBeginnerVs3Bet4Bet } from './components/training/TrainingPlayBeginnerVs3Bet4Bet';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResultPositional } from './components/training/TrainingResultPositional';
+import { TrainingResultFlop } from './components/training/TrainingResultFlop';
+import { TrainingResultFlopIntermediate } from './components/training/TrainingResultFlopIntermediate';
+import { TrainingResultFlopPerHandCb } from './components/training/TrainingResultFlopPerHandCb';
 import { TrainingResult } from './components/training/TrainingResult';
 import { TrainingReview } from './components/training/TrainingReview';
 import { TrainingRules } from './components/training/TrainingRules';
 
-const TRAINING_LEVELS_FLAT: TrainingLevel[] = TRAINING_CATALOG.flatMap((c) => c.levels);
-
-type TrainingMatch =
-  | { level: TrainingLevel; screen: 'confirm' | 'play' | 'result' | 'rules' }
-  | { level: TrainingLevel; screen: 'review'; index: number };
-
-function matchTrainingRoute(path: string): TrainingMatch | null {
-  // /training/<slug>/review/<n>
-  const review = path.match(/^\/training\/([a-z_-]+)\/review\/(\d+)\/?$/);
-  if (review) {
-    const slug = review[1];
-    const index = Number(review[2]);
-    if (!Number.isFinite(index) || index < 1) return null;
-    const key = slug.replace(/-/g, '_');
-    const level = TRAINING_LEVELS_FLAT.find((lv) => lv.key === key);
-    if (!level) return null;
-    return { level, screen: 'review', index };
-  }
-  // /training/<slug>/<screen>
-  const m = path.match(/^\/training\/([a-z_-]+)\/(confirm|play|result|rules)\/?$/);
-  if (!m) return null;
-  const slug = m[1];
-  const screen = m[2] as 'confirm' | 'play' | 'result' | 'rules';
-  const key = slug.replace(/-/g, '_');
-  const level = TRAINING_LEVELS_FLAT.find((lv) => lv.key === key);
-  if (!level) return null;
-  return { level, screen };
-}
+import { matchTrainingRoute } from './router/trainingRoute';
 
 export default function App() {
   const path = useRoute();
@@ -75,21 +58,23 @@ export default function App() {
     }
   }, [path, account]);
 
+  // 復習 level スラグ (per-level 互換 + 階級 tier)。
+  const PF_REVIEW_SLUG = '(beginner|intermediate|ep|lp|blind|tier_pf_beginner|tier_pf_intermediate)';
   // /quiz/review/preflop/{level}/answer/{id}: 答え合わせ画面 (復習)
   const answerMatch = path.match(
-    /^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/answer\/(\d+)\/?$/,
+    new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/answer/(\\d+)/?$`),
   );
   if (answerMatch) {
-    const lv = answerMatch[1] as MissedLevel;
+    const lv = answerMatch[1] as MissedLevelQuery;
     const id = Number(answerMatch[2]);
     if (Number.isFinite(id) && id > 0) {
       return <MissedProblemAnswerPage level={lv} id={id} />;
     }
   }
   // /quiz/review/preflop/{level}/play?count=N&filter=F: 挑戦モード
-  const playMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/play\/?$/);
+  const playMatch = path.match(new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/play/?$`));
   if (playMatch) {
-    const lv = playMatch[1] as MissedLevel;
+    const lv = playMatch[1] as MissedLevelQuery;
     const params =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search)
@@ -100,16 +85,27 @@ export default function App() {
     return <MissedChallengePlayPage level={lv} count={count} filter={filter} />;
   }
   // /quiz/review/preflop/{level}/result: 挑戦モード完了画面
-  const resultMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/result\/?$/);
+  const resultMatch = path.match(new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/result/?$`));
   if (resultMatch) {
-    const lv = resultMatch[1] as MissedLevel;
+    const lv = resultMatch[1] as MissedLevelQuery;
     return <MissedChallengeResultPage level={lv} />;
   }
   // /quiz/review/preflop/{level}: 復習リスト画面
-  const listMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/?$/);
+  const listMatch = path.match(new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/?$`));
   if (listMatch) {
-    const lv = listMatch[1] as MissedLevel;
+    const lv = listMatch[1] as MissedLevelQuery;
     return <MissedProblemsListPage level={lv} />;
+  }
+
+  // /quiz/review/flop/{training_type|tier}(/play): ポストフロップの間違えた問題 一覧 / 再出題
+  const flopReviewMatch = path.match(
+    /^\/quiz\/review\/flop\/(flop_beginner|flop_cb_srp|flop_cb_3bp|flop_donk_bmcb|tier_flop_beginner|tier_flop_intermediate)(\/play)?\/?$/,
+  );
+  if (flopReviewMatch) {
+    const tt = flopReviewMatch[1] as FlopMissedKey;
+    return flopReviewMatch[2]
+      ? <FlopMissedPlayPage trainingType={tt} />
+      : <FlopMissedListPage trainingType={tt} />;
   }
 
   // 互換: 旧 URL /quiz/review/{level}(/answer/{id}) を新形式にリダイレクト
@@ -139,6 +135,18 @@ export default function App() {
     if (screen === 'confirm') return <TrainingConfirm level={level} />;
     if (screen === 'rules') return <TrainingRules level={level} />;
     if (screen === 'play') {
+      // 初級オープン: 各ポジションの open 頻度をスライダーで回答 (優しい採点・50s)。
+      if (level.key === 'preflop_beginner_open') {
+        return <TrainingPlayBeginnerOpen level={level} />;
+      }
+      // 初級 vs オープン: 相手のオープンへの応答を複数選択 (優しい採点・50s)。
+      if (level.key === 'preflop_beginner_vs_open') {
+        return <TrainingPlayBeginnerVsOpen level={level} />;
+      }
+      // 初級 vs 3bet/4bet: 相手の 3bet/4bet への応答を複数選択 (優しい採点・50s)。
+      if (level.key === 'preflop_beginner_vs_3bet_4bet') {
+        return <TrainingPlayBeginnerVs3Bet4Bet level={level} />;
+      }
       // 中級ポジション別 (EP/LP/Blind): スライダー / ノード別複数選択 / limp 緩和
       if (
         level.key === 'preflop_intermediate_ep' ||
@@ -146,6 +154,18 @@ export default function App() {
         level.key === 'preflop_intermediate_blind'
       ) {
         return <TrainingPlayPositional level={level} />;
+      }
+      // フロップ初級 (ボード2択: CB/ドンク)
+      if (level.key === 'flop_beginner') {
+        return <TrainingPlayFlop level={level} />;
+      }
+      // フロップ CB / ドンクBMCB (CB SRP / CB 3BP4BP5BP / ドンク/BMCB, ともにサイズ複数選択)
+      if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
+        return <TrainingPlayFlopIntermediate level={level} />;
+      }
+      // フロップ中級CB (個別ハンド: ボード×ハンドで c-bet サイズを複数選択)
+      if (level.key === 'flop_intermediate_cb') {
+        return <TrainingPlayFlopPerHandCb level={level} />;
       }
       // 中級総合は別コンポーネント (BB 応答・複数選択・タイマー・頻度採点)
       return level.key === 'preflop_intermediate'
@@ -159,6 +179,15 @@ export default function App() {
         level.key === 'preflop_intermediate_blind'
       ) {
         return <TrainingResultPositional level={level} />;
+      }
+      if (level.key === 'flop_beginner') {
+        return <TrainingResultFlop level={level} />;
+      }
+      if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
+        return <TrainingResultFlopIntermediate level={level} />;
+      }
+      if (level.key === 'flop_intermediate_cb') {
+        return <TrainingResultFlopPerHandCb level={level} />;
       }
       return <TrainingResult level={level} />;
     }

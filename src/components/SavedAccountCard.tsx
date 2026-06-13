@@ -26,6 +26,17 @@ function formatLastUsed(ms: number): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** 肩書きラベル (優先 admin > tester > VIP、1 つだけ)。該当なしは null。 */
+function roleLabel(account: SavedAccount): string | null {
+  if (account.is_admin) return 'admin';
+  if (account.tester) return 'tester';
+  if (account.vip_until != null && account.vip_until > Date.now()) {
+    const days = Math.ceil((account.vip_until - Date.now()) / (24 * 60 * 60 * 1000));
+    return `VIP・あと${days}日`;
+  }
+  return null;
+}
+
 export function SavedAccountCard({
   account,
   onLogin,
@@ -39,7 +50,10 @@ export function SavedAccountCard({
           👤
         </span>
         <div style={nameColStyle}>
-          <span style={nameStyle}>{account.poker_name}</span>
+          <span style={nameRowStyle}>
+            <span style={nameStyle}>{account.poker_name}</span>
+            {roleLabel(account) && <span style={roleStyle}>({roleLabel(account)})</span>}
+          </span>
           <span style={lastUsedStyle}>前回: {formatLastUsed(account.last_used_at)}</span>
         </div>
       </div>
@@ -95,6 +109,13 @@ const nameColStyle: CSSProperties = {
   flex: 1,
 };
 
+const nameRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: '0.35rem',
+  minWidth: 0,
+};
+
 const nameStyle: CSSProperties = {
   fontSize: '0.98rem',
   fontWeight: 700,
@@ -102,6 +123,13 @@ const nameStyle: CSSProperties = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+};
+
+const roleStyle: CSSProperties = {
+  fontSize: '0.72rem',
+  fontWeight: 600,
+  color: THEME.accent,
+  whiteSpace: 'nowrap',
 };
 
 const lastUsedStyle: CSSProperties = {

@@ -16,6 +16,17 @@ export interface SavedAccount {
   private_pass: string;
   /** 最終使用日時 unix ms。 */
   last_used_at: number;
+  /** 肩書きラベル用 (ログイン成功時にサーバ値で更新)。旧保存分は未設定。 */
+  is_admin?: boolean;
+  tester?: boolean;
+  vip_until?: number | null;
+}
+
+/** saveAccount で保存する肩書き情報 (ログインレスポンス由来)。 */
+export interface SavedAccountMeta {
+  is_admin?: boolean;
+  tester?: boolean;
+  vip_until?: number | null;
 }
 
 export type SavedAccountsMap = Record<string, SavedAccount>;
@@ -59,13 +70,20 @@ export function getSavedAccounts(): SavedAccount[] {
  *
  * 入力が空文字なら no-op。
  */
-export function saveAccount(pokerName: string, privatePass: string): void {
+export function saveAccount(
+  pokerName: string,
+  privatePass: string,
+  meta?: SavedAccountMeta,
+): void {
   if (!pokerName || !privatePass) return;
   const entries = readStorage();
   entries[pokerName] = {
     poker_name: pokerName,
     private_pass: privatePass,
     last_used_at: Date.now(),
+    is_admin: meta?.is_admin,
+    tester: meta?.tester,
+    vip_until: meta?.vip_until ?? null,
   };
   writeStorage(entries);
 }

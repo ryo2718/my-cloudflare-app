@@ -184,13 +184,12 @@ function LoginPane() {
         />
       </label>
       <label style={labelStyle}>
-        <span style={labelTextStyle}>グループキー (月次更新)</span>
+        <span style={labelTextStyle}>グループキー (月次更新・テスター/VIP は不要)</span>
         <input
           type="text"
           value={groupKey}
           onChange={(e) => setGroupKey(e.target.value)}
-          required
-          placeholder="Group Key を入力"
+          placeholder="Group Key (任意)"
           style={inputStyle}
         />
       </label>

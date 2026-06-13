@@ -26,6 +26,12 @@ interface Body {
 
 const TRAINING_TYPES = new Set<string>([
   'preflop_beginner',
+  // 初級オープン (open 頻度スライダー・優しい採点)。best_score は正解数 (0-20)。
+  'preflop_beginner_open',
+  // 初級 vs オープン (複数選択・優しい採点)。best_score は正解数 (0-20)。
+  'preflop_beginner_vs_open',
+  // 初級 vs 3bet/4bet (複数選択・優しい採点)。best_score は正解数 (0-20)。
+  'preflop_beginner_vs_3bet_4bet',
   'preflop_intermediate',
   // 中級ポジション別 (EP/LP/Blind)
   'preflop_intermediate_ep',
@@ -35,6 +41,11 @@ const TRAINING_TYPES = new Set<string>([
   'preflop_expert',
   'flop_beginner',
   'flop_intermediate',
+  'flop_intermediate_cb',
+  // CB レンジベット (SRP / 3BP4BP5BP) / ドンク・BMCB
+  'flop_cb_srp',
+  'flop_cb_3bp',
+  'flop_donk_bmcb',
   'flop_advanced',
   'flop_expert',
 ]);

@@ -20,6 +20,11 @@ import {
   type ProblemRecord,
 } from '../../data/training/recordsStore';
 import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
+import {
+  loadAnswerReview,
+  type AnswerReviewRecord,
+} from '../../data/training/answerReviewStore';
+import { AnswerReviewSection } from './AnswerReviewSection';
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
@@ -91,6 +96,11 @@ export function TrainingResult({ level }: TrainingResultProps) {
   // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
   const mode = scoreInfo?.mode ?? 'beginner';
   const isIntermediate = mode === 'intermediate';
+  // 汎用「答え一覧」: AnswerReviewRecord を保存したモード (初級オープン / vs オープン / 今後の新モード)。
+  // level.key に記録があれば自動表示する (新モードは finish() で保存するだけでよい)。
+  const [reviewRecords, setReviewRecords] = useState<AnswerReviewRecord[]>(
+    () => loadAnswerReview(level.key) ?? [],
+  );
   const [missed, setMissed] = useState<ProblemRecord[]>(() => {
     if (isIntermediate) return [];
     const records = loadRecords(level.key);
@@ -102,10 +112,12 @@ export function TrainingResult({ level }: TrainingResultProps) {
     return records ?? [];
   });
   useEffect(() => {
+    const review = loadAnswerReview(level.key);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (review) setReviewRecords(review);
     if (isIntermediate) {
       const records = loadIntermediateRecords(level.key);
       if (records) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIntermediateAll(records);
       }
     } else {
@@ -211,6 +223,13 @@ export function TrainingResult({ level }: TrainingResultProps) {
 
         {isIntermediate && intermediateAll.length > 0 && (
           <ScoreBreakdownSection records={intermediateAll} />
+        )}
+
+        {reviewRecords.length > 0 && (
+          <AnswerReviewSection
+            records={reviewRecords}
+            onReview={(id) => navigate(trainingReviewPath(level.key, id))}
+          />
         )}
 
         {!isIntermediate && missed.length > 0 && (
@@ -514,7 +533,6 @@ export function ResultPtCard({
       <div style={ptCardStyle}>
         <span style={celebrateStyle}>🎉 初挑戦お疲れさま!</span>
         <span style={ptBigStyle}>+{earnedPt}pt 獲得!</span>
-        <span style={subInfoStyle}>過去の最高スコア: {sub.current_best}点</span>
       </div>
     );
   }

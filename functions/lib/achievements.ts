@@ -1,15 +1,17 @@
 // 実績解除判定 (サーバー側)。
 //
-// 実装している実績は 5 件 (ビギナー 3 + スタンダード 2)。
-// プロフェッショナル / マスター (shark_*, whale_*) は未実装、 ロジックを置かない。
+// 実装している実績は 21 件 (ビギナー 3 + スタンダード 11 + プロフェッショナル 7)。
+// マスター (whale_*) は未定義、 ロジックを置かない。
+// すべて training_results.best_score の比較のみで判定 (追加クエリ不要)。
 //
 // achievement_id はクライアント側 master (src/data/achievements.ts) と一致させる。
 //
-//   shrimp_1: トレーニングモードを初めてプレイ        — training_results 1 行以上
-//   shrimp_2: プリフロップ初級クリア (20/20)          — preflop_beginner best_score >= 20
-//   shrimp_3: トレーニング 10 回以上プレイ            — SUM(total_attempts) >= 10
-//   fish_1:   プリフロップ中級で正答率 50% 以上       — preflop_intermediate best_score >= 20
-//   fish_2:   プリフロップ中級クリア (32pt, 80%)      — preflop_intermediate best_score >= 32
+// ビギナー (shrimp、 変更なし):
+//   shrimp_1: training_results 1 行以上 / shrimp_2: preflop_beginner >= 20 / shrimp_3: SUM(total_attempts) >= 10
+// スタンダード (fish): 初級90%(>=18) / 中級80%。
+// プロフェッショナル (shark): 中級100%。 判定・記録のみ (ランクUI非表示)。
+//
+// ※ピン: preflop_beginner_open の best_score は 0-20 (正解数)。 90% = 18。
 
 interface UnlockedRow {
   achievement_id: string;
@@ -50,16 +52,34 @@ export async function evaluateAchievements(
     if (cond && !unlocked.has(id)) newUnlocks.push(id);
   };
 
+  const best = (t: string) => findRow(t)?.best_score ?? 0;
+
+  // ビギナー (変更なし)。
   tryUnlock('shrimp_1', trainings.length > 0);
-
-  const beginner = findRow('preflop_beginner');
-  tryUnlock('shrimp_2', !!beginner && beginner.best_score >= 20);
-
+  tryUnlock('shrimp_2', best('preflop_beginner') >= 20);
   tryUnlock('shrimp_3', totalAttempts >= 10);
 
-  const intermediate = findRow('preflop_intermediate');
-  tryUnlock('fish_1', !!intermediate && intermediate.best_score >= 20);
-  tryUnlock('fish_2', !!intermediate && intermediate.best_score >= 32);
+  // スタンダード (fish): 初級 90% (>=18) / 中級 80%。
+  tryUnlock('fish_pf_open', best('preflop_beginner_open') >= 18);
+  tryUnlock('fish_pf_vs_open', best('preflop_beginner_vs_open') >= 18);
+  tryUnlock('fish_pf_vs_3bet_4bet', best('preflop_beginner_vs_3bet_4bet') >= 18);
+  tryUnlock('fish_flop_beginner', best('flop_beginner') >= 18);
+  tryUnlock('fish_pf_intermediate', best('preflop_intermediate') >= 32);
+  tryUnlock('fish_pf_ep', best('preflop_intermediate_ep') >= 16);
+  tryUnlock('fish_pf_lp', best('preflop_intermediate_lp') >= 16);
+  tryUnlock('fish_pf_blind', best('preflop_intermediate_blind') >= 24);
+  tryUnlock('fish_flop_cb_srp', best('flop_cb_srp') >= 48);
+  tryUnlock('fish_flop_cb_3bp', best('flop_cb_3bp') >= 48);
+  tryUnlock('fish_flop_donk', best('flop_donk_bmcb') >= 48);
+
+  // プロフェッショナル (shark): 中級 100% (判定・記録のみ)。
+  tryUnlock('shark_pf_intermediate', best('preflop_intermediate') >= 40);
+  tryUnlock('shark_pf_ep', best('preflop_intermediate_ep') >= 20);
+  tryUnlock('shark_pf_lp', best('preflop_intermediate_lp') >= 20);
+  tryUnlock('shark_pf_blind', best('preflop_intermediate_blind') >= 30);
+  tryUnlock('shark_flop_cb_srp', best('flop_cb_srp') >= 60);
+  tryUnlock('shark_flop_cb_3bp', best('flop_cb_3bp') >= 60);
+  tryUnlock('shark_flop_donk', best('flop_donk_bmcb') >= 60);
 
   if (newUnlocks.length === 0) return [];
 

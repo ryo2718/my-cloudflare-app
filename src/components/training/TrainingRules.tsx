@@ -29,6 +29,8 @@ export function TrainingRules({ level }: TrainingRulesProps) {
       : typeof level.timeLimitSec === 'number'
         ? `${level.timeLimitSec}秒`
         : '—';
+  // カテゴリ名 (プリフロップ / ポストフロップ) を level.key から判定。
+  const categoryTitle = level.key.startsWith('flop') ? 'ポストフロップトレーニング' : 'プリフロップトレーニング';
 
   return (
     <div style={pageStyle}>
@@ -36,7 +38,7 @@ export function TrainingRules({ level }: TrainingRulesProps) {
       <main style={mainStyle}>
         <Link to="/quiz" style={crumbStyle}>← トレーニングに戻る</Link>
 
-        <h1 style={titleStyle}>プリフロップトレーニング</h1>
+        <h1 style={titleStyle}>{categoryTitle}</h1>
 
         <div style={metaRowStyle}>
           <span style={metaLabelStyle}>レベル</span>

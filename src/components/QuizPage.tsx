@@ -14,6 +14,7 @@ import {
   TRAINING_CATALOG,
   isPlayable,
   maxScoreFor,
+  computeLevelGroupScore,
   trainingPath,
   type TrainingLevel,
 } from '../data/trainingCatalog';
@@ -46,9 +47,15 @@ function displayLabelFor(level: TrainingLevel): string {
 type TierId = '初級' | '中級' | '上級' | '超上級';
 const TIER_ORDER: ReadonlyArray<TierId> = ['初級', '中級', '上級', '超上級'];
 
+/** pt 表示 (整数は小数なし、0.5 刻みは 1 桁)。例: 30 → "30"、29.5 → "29.5"。 */
+function formatPt(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 /** level.key → 難易度 tier。 */
 function tierOf(key: string): TierId {
-  if (key.includes('intermediate')) return '中級';
+  // フロップ CB / ドンクBMCB (flop_cb_* / flop_donk_bmcb) は中級枠。
+  if (key.includes('intermediate') || key.startsWith('flop_cb') || key === 'flop_donk_bmcb') return '中級';
   if (key.includes('advanced')) return '上級';
   if (key.includes('expert')) return '超上級';
   return '初級';
@@ -58,8 +65,8 @@ export function QuizPage() {
   const auth = useAuth();
   const [instant, setInstant] = useInstantFeedback();
   const [records, setRecords] = useState<TrainingResult[]>([]);
-  // 既定で「プリフロップ 中級」を開いておく。
-  const [openTiers, setOpenTiers] = useState<Set<string>>(() => new Set(['preflop:中級']));
+  // 全階級を既定で閉じた状態にする (タップで展開。リロードで閉じる)。
+  const [openTiers, setOpenTiers] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!auth.sessionId) return;
@@ -128,13 +135,10 @@ export function QuizPage() {
                 {TIER_ORDER.map((tier) => {
                   const levels = groups.get(tier);
                   if (!levels || levels.length === 0) return null;
-                  // 初級: アコーディオンにせずそのまま表示。
-                  if (tier === '初級') {
-                    return <div key={tier} style={tierFlatStyle}>{levels.map(renderRow)}</div>;
-                  }
                   const tierKey = `${cat.key}:${tier}`;
                   const open = openTiers.has(tierKey);
                   const anyPlayable = levels.some((lv) => isPlayable(lv));
+                  const score = computeLevelGroupScore(levels, records);
                   return (
                     <div key={tierKey} style={accordionStyle}>
                       <button
@@ -144,7 +148,17 @@ export function QuizPage() {
                         aria-expanded={open}
                       >
                         <span style={accordionTitleStyle}>{tier}</span>
-                        <span style={accordionChevronStyle} aria-hidden>{open ? '▼' : '▶'}</span>
+                        <span style={accordionRightStyle}>
+                          {score.max > 0 ? (
+                            <span style={tierScoreStyle}>
+                              <span style={tierCurrentStyle}>{formatPt(score.current)}pt</span>
+                              {' / '}{score.max}pt
+                            </span>
+                          ) : (
+                            <span style={tierUnimplementedStyle}>未実装</span>
+                          )}
+                          <span style={accordionChevronStyle} aria-hidden>{open ? '▼' : '▶'}</span>
+                        </span>
                       </button>
                       {open && (
                         <div style={accordionBodyStyle}>
@@ -280,7 +294,6 @@ const categoryHeaderStyle: CSSProperties = {
   letterSpacing: '0.04em',
 };
 const levelListStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.55rem' };
-const tierFlatStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.55rem' };
 
 // アコーディオン
 const accordionStyle: CSSProperties = {
@@ -302,6 +315,15 @@ const accordionHeaderStyle: CSSProperties = {
   textAlign: 'left',
 };
 const accordionTitleStyle: CSSProperties = { fontSize: '1rem', fontWeight: 700, color: THEME.textPrimary };
+const accordionRightStyle: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: '0.6rem' };
+const tierScoreStyle: CSSProperties = {
+  fontSize: '0.82rem',
+  color: THEME.textMuted,
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+  fontVariantNumeric: 'tabular-nums',
+};
+const tierCurrentStyle: CSSProperties = { color: '#639922', fontWeight: 700, fontSize: '0.95rem' };
+const tierUnimplementedStyle: CSSProperties = { fontSize: '0.82rem', color: THEME.textMuted };
 const accordionChevronStyle: CSSProperties = { fontSize: '0.8rem', color: THEME.textMuted };
 const accordionBodyStyle: CSSProperties = {
   display: 'flex',

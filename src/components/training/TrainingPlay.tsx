@@ -36,6 +36,7 @@ import { InstantFeedback } from './InstantFeedback';
 import { NodeRangeSection } from './NodeRangeSection';
 import { Countdown } from './Countdown';
 import { useTrainingHarness } from './useTrainingHarness';
+import { DebugAnswerBar } from './DebugAnswerBar';
 import { beginnerViewInfo } from './trainingViewInfo';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import type { Suit, Rank } from '../../types/card';
@@ -108,7 +109,7 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
     navigate(`${trainingPath(level.key, 'result')}?${params.toString()}`);
   };
 
-  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed } = useTrainingHarness<
+  const { state, animReady, setAnimReady, feedback, onAnswer, onProceed, debugComplete } = useTrainingHarness<
     PreflopQuestion,
     CorrectAnswer,
     ProblemRecord
@@ -148,6 +149,11 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
   const view = beginnerViewInfo(q);
   const progress = ((state.current + 1) / state.questions.length) * 100;
 
+  // デバッグ (admin 専用) picker (response = 'participate' | 'fold')。
+  const dbgCorrect = (qq: typeof q): CorrectAnswer => qq.correct;
+  const dbgWrong = (qq: typeof q): CorrectAnswer => (qq.correct === 'participate' ? 'fold' : 'participate');
+  const dbgRandom = (): CorrectAnswer => (Math.random() < 0.5 ? 'participate' : 'fold');
+
   return (
     <div style={pageStyle}>
       <header style={headerBarStyle}>
@@ -161,6 +167,11 @@ export function TrainingPlay({ level }: TrainingPlayProps) {
         <div style={progressBarOuterStyle} aria-hidden>
           <div style={{ ...progressBarInnerStyle, width: `${progress}%` }} />
         </div>
+        <DebugAnswerBar
+          onCorrect={() => debugComplete(dbgCorrect)}
+          onWrong={() => debugComplete(dbgWrong)}
+          onRandom={() => debugComplete(dbgRandom)}
+        />
       </header>
 
       {animReady && !feedback && typeof level.timeLimitSec === 'number' && (

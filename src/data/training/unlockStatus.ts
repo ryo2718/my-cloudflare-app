@@ -15,12 +15,21 @@ import type { TrainingResult } from '../../api/account';
 export const INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 /** 上級アンロックに必要な中級ベストスコア (40 点満点の 50%)。 */
 export const ADVANCED_UNLOCK_THRESHOLD = 20;
+/** フロップ初級アンロックに必要なプリフロップ初級ベストスコア (= 20/20 クリア)。 */
+export const FLOP_BEGINNER_UNLOCK_THRESHOLD = 20;
+/** フロップ中級アンロックに必要なフロップ初級ベストスコア (= 20/20 クリア)。 */
+export const FLOP_INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 
 export interface UnlockStatus {
   beginnerUnlocked: boolean;        // 常に true
+  beginnerOpenUnlocked: boolean;    // 初級基礎クリア(満点)で解放
+  beginnerVsOpenUnlocked: boolean;  // 初級基礎クリア(満点)で解放
+  beginnerVs3Bet4BetUnlocked: boolean; // 初級基礎クリア(満点)で解放
   intermediateUnlocked: boolean;
   advancedUnlocked: boolean;
   superAdvancedUnlocked: boolean;   // 常に false (未実装)
+  flopBeginnerUnlocked: boolean;    // プリフロップ初級クリアで解放
+  flopIntermediateUnlocked: boolean; // フロップ初級クリアで解放 (CB/Donk/BMCB 枠)
 }
 
 /** training_results 配列からアンロック状態を計算 (純粋関数)。 */
@@ -31,9 +40,14 @@ export function computeUnlockStatus(records: ReadonlyArray<TrainingResult>): Unl
   };
   return {
     beginnerUnlocked: true,
+    beginnerOpenUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
+    beginnerVsOpenUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
+    beginnerVs3Bet4BetUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
     intermediateUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
     advancedUnlocked: bestOf('preflop_intermediate') >= ADVANCED_UNLOCK_THRESHOLD,
     superAdvancedUnlocked: false,
+    flopBeginnerUnlocked: bestOf('preflop_beginner') >= FLOP_BEGINNER_UNLOCK_THRESHOLD,
+    flopIntermediateUnlocked: bestOf('flop_beginner') >= FLOP_INTERMEDIATE_UNLOCK_THRESHOLD,
   };
 }
 
@@ -42,6 +56,12 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
   switch (levelKey) {
     case 'preflop_beginner':
       return status.beginnerUnlocked;
+    case 'preflop_beginner_open':
+      return status.beginnerOpenUnlocked;
+    case 'preflop_beginner_vs_open':
+      return status.beginnerVsOpenUnlocked;
+    case 'preflop_beginner_vs_3bet_4bet':
+      return status.beginnerVs3Bet4BetUnlocked;
     // 中級ポジション別 (EP/LP/Blind) は中級総合と同じタイミングで解放 (初級 100%)。
     case 'preflop_intermediate':
     case 'preflop_intermediate_ep':
@@ -52,7 +72,17 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
       return status.advancedUnlocked;
     case 'preflop_expert':
       return status.superAdvancedUnlocked;
-    // flop はすべて未実装 / ロック扱い
+    // フロップ初級: プリフロップ初級クリアで解放。
+    case 'flop_beginner':
+      return status.flopBeginnerUnlocked;
+    // フロップ中級 (CB SRP/3BP4BP5BP / ドンクBMCB / 旧個別ハンドCB): フロップ初級クリアで解放。
+    case 'flop_intermediate':
+    case 'flop_intermediate_cb':
+    case 'flop_cb_srp':
+    case 'flop_cb_3bp':
+    case 'flop_donk_bmcb':
+      return status.flopIntermediateUnlocked;
+    // 他の flop (上級〜超上級) は未実装 / ロック扱い
     default:
       return false;
   }
@@ -61,6 +91,10 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
 /** ロック中のレベルにユーザーへ表示するヒント文。 */
 export function lockHintFor(levelKey: string): string | null {
   switch (levelKey) {
+    case 'preflop_beginner_open':
+    case 'preflop_beginner_vs_open':
+    case 'preflop_beginner_vs_3bet_4bet':
+      return `初級 基礎で ${INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     case 'preflop_intermediate':
     case 'preflop_intermediate_ep':
     case 'preflop_intermediate_lp':
@@ -70,6 +104,14 @@ export function lockHintFor(levelKey: string): string | null {
       return `中級で ${ADVANCED_UNLOCK_THRESHOLD}pt 取るとアンロック`;
     case 'preflop_expert':
       return '未実装';
+    case 'flop_beginner':
+      return `プリフロップ初級で ${FLOP_BEGINNER_UNLOCK_THRESHOLD}/20 取るとアンロック`;
+    case 'flop_intermediate':
+    case 'flop_intermediate_cb':
+    case 'flop_cb_srp':
+    case 'flop_cb_3bp':
+    case 'flop_donk_bmcb':
+      return `フロップ初級で ${FLOP_INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     default:
       return null;
   }

@@ -17,8 +17,10 @@ vi.mock('../../api/account', async (orig) => ({
 
 import { apiSubmitTrainingResult } from '../../api/account';
 import { TrainingResult } from './TrainingResult';
+import { TrainingResultFlop } from './TrainingResultFlop';
 
 const BEGINNER = TRAINING_CATALOG[0].levels[0];
+const FLOP_BEGINNER = TRAINING_CATALOG[1].levels[0];
 
 function fakeAuth(): AuthState {
   return {
@@ -90,6 +92,47 @@ describe('TrainingResult 保存失敗時の退避・再送', () => {
     });
     renderResult();
     await waitFor(() => expect(vi.mocked(apiSubmitTrainingResult)).toHaveBeenCalled());
+    await waitFor(() => expect(loadPendingResults()).toHaveLength(0));
+  });
+});
+
+// フロップ初級は TrainingResultFlop で、同じ apiSubmitTrainingResult 経路 (プリフロップ方式) で保存される。
+describe('TrainingResultFlop フロップ初級 (プリフロップ方式に統一)', () => {
+  function renderFlop() {
+    return render(
+      <AuthContext.Provider value={fakeAuth()}>
+        <TrainingResultFlop level={FLOP_BEGINNER} />
+      </AuthContext.Provider>,
+    );
+  }
+
+  beforeEach(() => {
+    window.history.replaceState({}, '', `/quiz/${FLOP_BEGINNER.key}/result?score=15&total=20`);
+  });
+
+  it('flop_beginner で apiSubmitTrainingResult に保存される', async () => {
+    vi.mocked(apiSubmitTrainingResult).mockResolvedValue({
+      is_best: true, previous_best: 0, current_best: 15, total_attempts: 1,
+    });
+    renderFlop();
+    await waitFor(() => expect(vi.mocked(apiSubmitTrainingResult)).toHaveBeenCalled());
+    const call = vi.mocked(apiSubmitTrainingResult).mock.calls[0];
+    expect(call[1]).toEqual({ training_type: 'flop_beginner', score: 15 });
+    await waitFor(() => expect(loadPendingResults()).toHaveLength(0));
+  });
+
+  it('保存失敗 (Load failed 等) → 退避 + 再保存、再送成功で破棄 (プリフロップと同じ安全網)', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiSubmitTrainingResult).mockRejectedValueOnce(new Error('Load failed'));
+    renderFlop();
+    expect(await screen.findByText(/結果の保存に失敗しました/)).toBeTruthy();
+    await waitFor(() => expect(loadPendingResults()).toHaveLength(1));
+    expect(loadPendingResults()[0]).toMatchObject({ training_type: 'flop_beginner', score: 15 });
+
+    vi.mocked(apiSubmitTrainingResult).mockResolvedValueOnce({
+      is_best: true, previous_best: 0, current_best: 15, total_attempts: 1,
+    });
+    await user.click(screen.getByRole('button', { name: '再保存する' }));
     await waitFor(() => expect(loadPendingResults()).toHaveLength(0));
   });
 });

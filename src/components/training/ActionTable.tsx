@@ -5,7 +5,7 @@
 //   - animate=false: 全アクションを即時表示 (振り返り / 答え合わせ画面)
 //   - resetKey を変えると (問題切替) アニメを最初から再生
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Position } from '../../types/strategy';
 import {
   loadActionHistory,
@@ -18,9 +18,12 @@ import {
 } from '../../data/training/actionHistory';
 import { PokerTable } from './PokerTable';
 
+// 最後のアクションを見せてから onAnimationDone する保持時間 (closing call が一瞬で消えるのを防ぐ)。
+const LAST_ACTION_HOLD_MS = 450;
+
 export interface ActionTableProps {
-  /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null なら空テーブル。 */
-  file: string | null;
+  /** 対象ノードのファイル名 (例: 'utgr_hjr_utg.json')。null/未指定なら空テーブル (items 指定時は不要)。 */
+  file?: string | null;
   mePosition: Position;
   /** true: 0.2 秒間隔アニメ。false: 即時全表示。 */
   animate?: boolean;
@@ -28,6 +31,22 @@ export interface ActionTableProps {
   onAnimationDone?: () => void;
   /** 問題切替でアニメを再生し直すためのキー。 */
   resetKey?: string | number;
+  /**
+   * 直接アクション列を渡す (フロップ等、preflop ノード由来でない局面用)。
+   * 指定時は file からの読み込み・actionsBeforeHero を行わず、この列をそのまま再生する。
+   */
+  items?: ReadonlyArray<ActionItem>;
+  /** テーブル中央に置く要素 (フロップ3枚等)。PokerTable へ素通し。 */
+  centerSlot?: ReactNode;
+  /** centerSlot 用に最初から楕円を広げておく。PokerTable へ素通し。 */
+  wide?: boolean;
+  /** 局面に関与する席 (それ以外を半透明に)。PokerTable へ素通し。 */
+  involvedPositions?: ReadonlyArray<Position>;
+  /**
+   * 先頭の fold (= オープン前に降りた席) を待たずに即表示し、最初の非 fold (オープン) から
+   * アニメ開始する。待ち時間短縮用。preflop トレーニング等では未指定 (従来どおり先頭から)。
+   */
+  instantLeadingFolds?: boolean;
 }
 
 export function ActionTable({
@@ -36,10 +55,28 @@ export function ActionTable({
   animate = false,
   onAnimationDone,
   resetKey,
+  items: providedItems,
+  centerSlot,
+  wide = false,
+  involvedPositions,
+  instantLeadingFolds = false,
 }: ActionTableProps) {
   // items===null は「未ロード」(アニメ判定を保留)。配列はロード完了 (空も含む)。
   const [items, setItems] = useState<ActionItem[] | null>(null);
   const [revealed, setRevealed] = useState(0);
+  // 問題切替 (file / mePosition / providedItems の変化) でレンダー中に items/revealed をリセットする。
+  // ロード effect はペイント後に走るため、これが無いと新問の最初の1フレームに前問の
+  // ポップアップ (items/revealed) が残留する。fetch・タイマー再生は従来どおり effect 内で行う。
+  const [src, setSrc] = useState<{
+    file?: string | null;
+    mePosition: Position;
+    providedItems?: ReadonlyArray<ActionItem>;
+  }>({ file, mePosition, providedItems });
+  if (src.file !== file || src.mePosition !== mePosition || src.providedItems !== providedItems) {
+    setSrc({ file, mePosition, providedItems });
+    setItems(null);
+    setRevealed(0);
+  }
   const doneRef = useRef(onAnimationDone);
   useEffect(() => {
     doneRef.current = onAnimationDone;
@@ -49,6 +86,11 @@ export function ActionTable({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let cancelled = false;
+    // items 直接指定時は読み込み不要 (フロップ等)。そのまま再生する。
+    if (providedItems) {
+      setItems([...providedItems]);
+      return;
+    }
     setItems(null); // 新しい file をロード中は未ロード扱いにする
     if (!file) {
       setItems([]);
@@ -61,7 +103,7 @@ export function ActionTable({
     return () => {
       cancelled = true;
     };
-  }, [file, mePosition]);
+  }, [file, mePosition, providedItems]);
 
   // アニメーション (items ロード後、items / animate / resetKey が変わるたび再生)。
   useEffect(() => {
@@ -71,19 +113,27 @@ export function ActionTable({
       doneRef.current?.();
       return;
     }
-    setRevealed(0);
     if (items.length === 0) {
+      setRevealed(0);
       doneRef.current?.();
       return;
     }
+    // instantLeadingFolds: 先頭の fold (オープン前に降りた席) は待たずに即表示し、
+    // 最初の非 fold (オープン) からアニメ開始する。
+    const startAt = instantLeadingFolds ? Math.max(0, items.findIndex((it) => it.kind !== 'fold')) : 0;
+    setRevealed(startAt);
     // 各アクションを表示する前に、そのアクション種別に応じた待ち時間を入れる
     // (fold=0.4秒 / それ以外=0.6秒)。setTimeout を連鎖させる。
-    let i = 0;
+    let i = startAt;
     let cancelled = false;
     let timer = 0;
     const scheduleNext = () => {
       if (i >= items.length) {
-        doneRef.current?.();
+        // 最後のアクション (クロージングの call 等) を一拍見せてから完了通知する
+        // (即 done だと flop へ切り替わり call が描画されない)。
+        timer = window.setTimeout(() => {
+          if (!cancelled) doneRef.current?.();
+        }, LAST_ACTION_HOLD_MS);
         return;
       }
       const delay = getActionDelay(items[i].kind);
@@ -99,10 +149,18 @@ export function ActionTable({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [items, animate, resetKey]);
+  }, [items, animate, resetKey, instantLeadingFolds]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ブラインド (SB 0.5bb / BB 1bb) は最初から表示。アクションした SB/BB はそのラベルに差し替え。
   const popups = withBlinds(items ? toSeatPopups(items.slice(0, revealed)) : []);
-  return <PokerTable mePosition={mePosition} popups={popups} />;
+  return (
+    <PokerTable
+      mePosition={mePosition}
+      popups={popups}
+      centerSlot={centerSlot}
+      wide={wide}
+      involvedPositions={involvedPositions}
+    />
+  );
 }

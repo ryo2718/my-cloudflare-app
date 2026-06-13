@@ -1,7 +1,26 @@
 // 挑戦モードの結果を Play → Result 画面に渡すための sessionStorage 経由ストア。
 // DB には書き込まない (training_results / problem_attempts / missed_problems 更新なし)。
 
-export type MissedReviewLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+import type { MissedLevelQuery } from '../../api/missedProblems';
+import { missedTierByKey } from '../../data/training/missedTiers';
+
+/** 挑戦モードの level (per-level 互換 + 階級 tier)。 */
+export type MissedReviewLevel = MissedLevelQuery;
+
+const PER_LEVEL_LABEL: Record<string, string> = {
+  beginner: '初級',
+  intermediate: '中級 総合',
+  ep: '中級 EP',
+  lp: '中級 LP',
+  blind: '中級 Blind',
+};
+
+/** level/tier → 表示ラベル (例: "初級" / "中級 総合")。未知は空文字。 */
+export function missedReviewLabel(level: string): string {
+  const tier = missedTierByKey(level);
+  if (tier) return tier.label;
+  return PER_LEVEL_LABEL[level] ?? '';
+}
 
 /** 間違えた問題の判定フィルター。 */
 export type MissedFilter = 'all' | 'partial' | 'zero' | 'miss';

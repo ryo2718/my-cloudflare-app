@@ -54,8 +54,10 @@ export function calculateRank(unlockedIds: ReadonlyArray<string>): Rank {
     if (!tier.implemented) break;
     const required = ACHIEVEMENTS.filter((a) => a.tier === tier.id).map((a) => a.id);
     if (required.length === 0) break;
-    const ok = required.every((id) => unlocked.has(id));
-    if (!ok) break;
+    // rankThreshold 指定時はその個数以上で到達 (部分達成許容)。未指定は全達成必須。
+    const need = tier.rankThreshold ?? required.length;
+    const got = required.filter((id) => unlocked.has(id)).length;
+    if (got < need) break;
     highest = tier;
   }
   return highest ? rankOfTier(highest) : RANK_NONE;

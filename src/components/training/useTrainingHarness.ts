@@ -48,6 +48,8 @@ export interface TrainingHarness<Q, R, Rec> {
   onAnswer: (res: R) => void;
   /** 「次のハンドへ」: 保留回答を確定して次へ。 */
   onProceed: () => void;
+  /** デバッグ (admin): 全問を picker の回答で一括確定し finish へ。 */
+  debugComplete: (pick: (q: Q) => R) => void;
 }
 
 export function useTrainingHarness<Q, R, Rec>(
@@ -62,10 +64,16 @@ export function useTrainingHarness<Q, R, Rec>(
   const advancingRef = useRef(false);
 
   const currentIdx = state.kind === 'ready' ? state.current : -1;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // 問題切替で animReady をレンダー中にリセットする。
+  // 親の useEffect でリセットすると、子 ActionTable の同期 onAnimationDone()
+  // (空アクション履歴のとき effect 内で同期に走る) による setAnimReady(true) を
+  // 子→親の effect 実行順で上書きしてしまい、以後カウントダウンが出なくなる。
+  // フロップ系の phase レンダー中リセットと同じパターンで派生 state を補正する。
+  const [animIdx, setAnimIdx] = useState(currentIdx);
+  if (animIdx !== currentIdx) {
+    setAnimIdx(currentIdx);
     setAnimReady(false);
-  }, [currentIdx]);
+  }
 
   // 途中離脱警告 (回答途中のみ)。
   useEffect(() => {
@@ -138,6 +146,13 @@ export function useTrainingHarness<Q, R, Rec>(
     commit(res);
   };
 
+  // デバッグ (admin 専用): 全問を picker の回答で一括確定して finish。
+  const debugComplete = (pick: (q: Q) => R) => {
+    if (state.kind !== 'ready') return;
+    const records = state.questions.map((q, i) => buildRecord(q, pick(q), i));
+    finish(records);
+  };
+
   return {
     state,
     current: currentIdx,
@@ -147,5 +162,6 @@ export function useTrainingHarness<Q, R, Rec>(
     feedback,
     onAnswer,
     onProceed,
+    debugComplete,
   };
 }

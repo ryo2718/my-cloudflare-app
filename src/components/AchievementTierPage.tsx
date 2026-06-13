@@ -4,7 +4,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Link } from '../router/router';
 import { useAuth } from '../hooks/useAuth';
-import { apiAccountAchievements } from '../api/account';
+import { apiAccountAchievements, apiAccountTrainingResults } from '../api/account';
 import {
   ACHIEVEMENTS,
   TIERS,
@@ -22,7 +22,7 @@ interface Props {
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ok'; unlocked: Set<string> };
+  | { kind: 'ok'; unlocked: Set<string>; bestScores: Record<string, number> };
 
 export function AchievementTierPage({ tier }: Props) {
   const auth = useAuth();
@@ -33,9 +33,12 @@ export function AchievementTierPage({ tier }: Props) {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    apiAccountAchievements(sid)
-      .then((res) => {
-        if (!cancelled) setState({ kind: 'ok', unlocked: new Set(res.unlocked) });
+    Promise.all([apiAccountAchievements(sid), apiAccountTrainingResults(sid).catch(() => [])])
+      .then(([res, rows]) => {
+        if (cancelled) return;
+        const bestScores: Record<string, number> = {};
+        for (const r of rows) bestScores[r.training_type] = r.best_score;
+        setState({ kind: 'ok', unlocked: new Set(res.unlocked), bestScores });
       })
       .catch((err: unknown) => {
         if (!cancelled)
@@ -95,6 +98,7 @@ export function AchievementTierPage({ tier }: Props) {
   const tierAch = ACHIEVEMENTS.filter((a) => a.tier === tier);
   const unlockedSet =
     state.kind === 'ok' ? state.unlocked : new Set<string>();
+  const bestScores = state.kind === 'ok' ? state.bestScores : {};
   const got = tierAch.filter((a) => unlockedSet.has(a.id)).length;
 
   return (
@@ -121,6 +125,16 @@ export function AchievementTierPage({ tier }: Props) {
           <span style={{ ...heroCountStyle, color: tierData.textColor }}>
             {got} / {tierAch.length} 達成
           </span>
+          {(() => {
+            // ランク到達条件 (rankThreshold 指定時はその個数、 未指定は全達成)。
+            const need = tierData.rankThreshold ?? tierAch.length;
+            const reached = got >= need;
+            return (
+              <span style={{ ...rankBadgeStyle, color: tierData.textColor, borderColor: tierData.textColor }}>
+                {reached ? `${tierData.label}ランク到達済み` : `あと ${need - got} 個で${tierData.label}ランク到達`}
+              </span>
+            );
+          })()}
         </div>
 
         {state.kind === 'loading' && <div style={infoStyle}>読み込み中…</div>}
@@ -131,6 +145,11 @@ export function AchievementTierPage({ tier }: Props) {
         <ul style={listStyle}>
           {tierAch.map((a) => {
             const ok = unlockedSet.has(a.id);
+            // モード対応の実績は「現在の最高点数 X%」を表示 (どのトレーニングか + 進捗が分かる)。
+            const hasProgress = a.trainingType !== undefined && a.maxBest !== undefined && a.maxBest > 0;
+            const pct = hasProgress
+              ? Math.round(((bestScores[a.trainingType!] ?? 0) / a.maxBest!) * 100)
+              : null;
             return (
               <li key={a.id} style={itemStyle}>
                 <span
@@ -141,7 +160,11 @@ export function AchievementTierPage({ tier }: Props) {
                 </span>
                 <div style={itemTextStyle}>
                   <span style={ok ? nameStyleOk : nameStyleNo}>{a.name}</span>
-                  <span style={descStyle}>{a.desc}</span>
+                  {pct !== null ? (
+                    <span style={descStyle}>現在の最高点数 {pct}%</span>
+                  ) : (
+                    <span style={descStyle}>{a.desc}</span>
+                  )}
                 </div>
               </li>
             );
@@ -243,6 +266,14 @@ const heroCountStyle: CSSProperties = {
   fontSize: '0.85rem',
   fontWeight: 700,
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+};
+const rankBadgeStyle: CSSProperties = {
+  marginTop: '0.15rem',
+  fontSize: '0.82rem',
+  fontWeight: 700,
+  border: '1.5px solid',
+  borderRadius: '999px',
+  padding: '0.15rem 0.7rem',
 };
 const starStyle: CSSProperties = {
   position: 'absolute',

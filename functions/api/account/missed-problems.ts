@@ -8,11 +8,20 @@ import type { Env, MissedProblemRow } from '../../lib/types';
 
 const ALLOWED_TRAINING_TYPES = new Set([
   'preflop_beginner',
+  // 初級シナリオ別 (オープン / vs オープン / vs 3bet・4bet)
+  'preflop_beginner_open',
+  'preflop_beginner_vs_open',
+  'preflop_beginner_vs_3bet_4bet',
   'preflop_intermediate',
   // 中級ポジション別 (EP/LP/Blind)
   'preflop_intermediate_ep',
   'preflop_intermediate_lp',
   'preflop_intermediate_blind',
+  // ポストフロップ (フロップ)。フロップ固有情報は metadata(JSON)に持つ。
+  'flop_beginner',
+  'flop_cb_srp',
+  'flop_cb_3bp',
+  'flop_donk_bmcb',
 ]);
 const ALLOWED_SCENARIOS = new Set([
   'bb_response',
@@ -22,22 +31,67 @@ const ALLOWED_SCENARIOS = new Set([
   'risky_open',
   'beginner_open',
   'beginner_vs_open',
+  // 初級 vs 3bet/4bet シナリオ
+  'beginner_vs_3bet',
+  'beginner_vs_4bet',
   // 中級ポジション別シナリオ
   'ep_open', 'ep_vs_3bet', 'ep_vs_4bet',
   'lp_open', 'lp_vs_open_btn', 'lp_vs_open_co', 'lp_vs_3bet', 'lp_vs_4bet',
   'sb_open', 'sb_limp_vs_raise', 'sb_vs_3bet', 'sb_vs_4bet', 'sb_vs_open',
   'bb_vs_open_other', 'bb_vs_open_sb', 'bb_vs_limp', 'bb_vs_limp_raise', 'bb_vs_4bet',
+  // フロップ scenario_type (種別タグ)。詳細は metadata に持つ。
+  'flop_cb', 'flop_donk', 'flop_bmcb', 'flop_beginner',
 ]);
 const ALLOWED_POSITIONS = new Set(['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']);
 
-/** level クエリ → training_type。 */
+/** フロップ training_type か。 */
+function isFlopType(t: string): boolean {
+  return t.startsWith('flop_');
+}
+
+/** level クエリ → training_type。フロップは level=training_type をそのまま使う。 */
 const LEVEL_TO_TRAINING_TYPE: Record<string, string> = {
   beginner: 'preflop_beginner',
+  beginner_open: 'preflop_beginner_open',
+  beginner_vs_open: 'preflop_beginner_vs_open',
+  beginner_vs_3bet_4bet: 'preflop_beginner_vs_3bet_4bet',
   intermediate: 'preflop_intermediate',
   ep: 'preflop_intermediate_ep',
   lp: 'preflop_intermediate_lp',
   blind: 'preflop_intermediate_blind',
 };
+
+/**
+ * 階級 (tier) クエリ → 複数 training_type。「間違えた問題」を階級単位でプール取得する。
+ *   tier_pf_beginner   = 初級基礎 + オープン + vsオープン + vs3bet4bet
+ *   tier_pf_intermediate = 中級総合 + EP + LP + Blind
+ *   tier_flop_beginner = フロップ初級
+ *   tier_flop_intermediate = レンジCB SRP + CB 3BP + ドンクBMCB
+ */
+const TIER_TO_TRAINING_TYPES: Record<string, string[]> = {
+  tier_pf_beginner: [
+    'preflop_beginner',
+    'preflop_beginner_open',
+    'preflop_beginner_vs_open',
+    'preflop_beginner_vs_3bet_4bet',
+  ],
+  tier_pf_intermediate: [
+    'preflop_intermediate',
+    'preflop_intermediate_ep',
+    'preflop_intermediate_lp',
+    'preflop_intermediate_blind',
+  ],
+  tier_flop_beginner: ['flop_beginner'],
+  tier_flop_intermediate: ['flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb'],
+};
+
+/** level クエリを training_type 群へ解決 (tier は複数、それ以外は単一)。 */
+function resolveTrainingTypes(level: string): string[] {
+  if (TIER_TO_TRAINING_TYPES[level]) return TIER_TO_TRAINING_TYPES[level];
+  if (LEVEL_TO_TRAINING_TYPE[level]) return [LEVEL_TO_TRAINING_TYPE[level]];
+  if (isFlopType(level) && ALLOWED_TRAINING_TYPES.has(level)) return [level];
+  return ['preflop_intermediate'];
+}
 
 /** 取得 limit の上限。 */
 const MAX_LIMIT = 1000;
@@ -52,26 +106,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const url = new URL(request.url);
   const level = url.searchParams.get('level') ?? 'intermediate';
-  const trainingType = LEVEL_TO_TRAINING_TYPE[level] ?? 'preflop_intermediate';
+  const trainingTypes = resolveTrainingTypes(level);
   const limitRaw = parseInt(url.searchParams.get('limit') ?? '10', 10);
   const limit = Number.isFinite(limitRaw)
     ? Math.min(MAX_LIMIT, Math.max(1, limitRaw))
     : 10;
   const includeRemoved = url.searchParams.get('include_removed') === 'true';
 
+  const placeholders = trainingTypes.map(() => '?').join(', ');
   const sql = includeRemoved
     ? `SELECT * FROM missed_problems
-       WHERE account_id = ? AND training_type = ?
+       WHERE account_id = ? AND training_type IN (${placeholders})
        ORDER BY RANDOM()
        LIMIT ?`
     : `SELECT * FROM missed_problems
-       WHERE account_id = ? AND training_type = ? AND is_removed_from_review = 0
+       WHERE account_id = ? AND training_type IN (${placeholders}) AND is_removed_from_review = 0
        ORDER BY RANDOM()
        LIMIT ?`;
 
   const res = await env.DB
     .prepare(sql)
-    .bind(account.id, trainingType, limit)
+    .bind(account.id, ...trainingTypes, limit)
     .all<MissedProblemRow>();
 
   return jsonResponse(200, { problems: res.results ?? [] });
@@ -93,6 +148,8 @@ interface MissedProblemInput {
   gto_strategy: { allin: number; raise: number; call: number; fold: number };
   score_obtained: number;
   is_timeout?: boolean;
+  /** フロップ固有情報 (board / pot / variant / kind / hand) を JSON 文字列で持つ。 */
+  metadata?: string | null;
 }
 
 function isValidRecord(r: unknown): r is MissedProblemInput {
@@ -116,6 +173,18 @@ function isValidRecord(r: unknown): r is MissedProblemInput {
   if (!x.gto_strategy || typeof x.gto_strategy !== 'object') return false;
   if (typeof x.score_obtained !== 'number' || !Number.isFinite(x.score_obtained)) return false;
   if (x.score_obtained < -1 || x.score_obtained > 2) return false;
+  // フロップは再出題に必要な metadata (board/variant を含む JSON) を必須にする。
+  if (isFlopType(x.training_type)) {
+    if (typeof x.metadata !== 'string' || x.metadata.length === 0 || x.metadata.length > 500) return false;
+    try {
+      const m = JSON.parse(x.metadata) as Record<string, unknown>;
+      if (typeof m.board !== 'string' || typeof m.variant !== 'string') return false;
+    } catch {
+      return false;
+    }
+  } else if (x.metadata !== null && x.metadata !== undefined && typeof x.metadata !== 'string') {
+    return false;
+  }
   return true;
 }
 
@@ -154,8 +223,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
          (account_id, training_type, scenario_type, hero_position,
           opener_position, three_bettor_position, hand,
           user_selections, gto_strategy, score_obtained,
-          is_timeout, is_removed_from_review, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+          is_timeout, is_removed_from_review, created_at, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       )
       .bind(
         account.id,
@@ -170,6 +239,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         r.score_obtained,
         r.is_timeout ? 1 : 0,
         now,
+        r.metadata ?? null,
       ),
   );
   await env.DB.batch(stmts);

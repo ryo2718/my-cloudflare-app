@@ -1,48 +1,57 @@
 // QuizPage 下部の「間違えた問題」セクション。
-// 「プリフロップトレーニング」配下に初級 / 中級 / 上級 (未実装) をネスト。
-// 将来「単語トレーニング」等のカテゴリを並列で追加できる構造。
-// タップで /quiz/review/preflop/{level} へ遷移。
+// 「プリフロップトレーニング」「ポストフロップトレーニング」をカテゴリ別に折りたたみ表示。
+// 各カテゴリ配下にモード一覧をネスト。タップで /quiz/review/preflop/{level} へ遷移。
+// ※ ポストフロップは現状「間違えた問題」の収集が無いため件数は 0 固定 (集計は後続対応)。
 
-import { useEffect, useState, type CSSProperties } from 'react';
-import { apiGetMissedProblems } from '../../api/missedProblems';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { apiGetMissedProblems, type MissedLevelQuery } from '../../api/missedProblems';
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from '../../router/router';
 import { THEME } from '../../styles/theme';
 
-type CountKey = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
-type Counts = Partial<Record<CountKey, number | null>>;
+type Counts = Record<string, number | null>;
 
 interface LevelEntry {
-  key: CountKey | 'advanced';
+  key: string;
   label: string;
   href: string | null;
   implemented: boolean;
+  /** 件数取得用の level クエリ。未指定なら集計対象外 (件数 0 固定)。 */
+  level?: MissedLevelQuery;
 }
 
+// 階級 (tier) で統合。各エントリは配下の全モードをプールして件数表示・再出題する。
 const PREFLOP_LEVELS: LevelEntry[] = [
-  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true },
-  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true },
-  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true },
-  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true },
-  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true },
-  { key: 'advanced',     label: '上級',      href: null,                                implemented: false },
+  { key: 'tier_pf_beginner',     label: '初級', href: '/quiz/review/preflop/tier_pf_beginner',     implemented: true, level: 'tier_pf_beginner' },
+  { key: 'tier_pf_intermediate', label: '中級', href: '/quiz/review/preflop/tier_pf_intermediate', implemented: true, level: 'tier_pf_intermediate' },
 ];
 
-const COUNT_KEYS: ReadonlyArray<CountKey> = ['beginner', 'intermediate', 'ep', 'lp', 'blind'];
+const POSTFLOP_LEVELS: LevelEntry[] = [
+  { key: 'tier_flop_beginner',     label: '初級', href: '/quiz/review/flop/tier_flop_beginner',     implemented: true, level: 'tier_flop_beginner' },
+  { key: 'tier_flop_intermediate', label: '中級', href: '/quiz/review/flop/tier_flop_intermediate', implemented: true, level: 'tier_flop_intermediate' },
+];
+
+// 件数取得対象 (level を持つ全モード)。
+const FETCH_LEVELS: ReadonlyArray<MissedLevelQuery> = [
+  ...PREFLOP_LEVELS.map((l) => l.level).filter((l): l is MissedLevelQuery => !!l),
+  ...POSTFLOP_LEVELS.map((l) => l.level).filter((l): l is MissedLevelQuery => !!l),
+];
 
 export function MissedProblemsSection() {
   const auth = useAuth();
   const [counts, setCounts] = useState<Counts>({});
+  const [openPreflop, setOpenPreflop] = useState(true);
+  const [openPostflop, setOpenPostflop] = useState(true);
 
   useEffect(() => {
     if (!auth.sessionId) return;
     const sid = auth.sessionId;
     let cancelled = false;
-    Promise.all(COUNT_KEYS.map((k) => apiGetMissedProblems(sid, { level: k, limit: 1000 })))
+    Promise.all(FETCH_LEVELS.map((k) => apiGetMissedProblems(sid, { level: k, limit: 1000 })))
       .then((results) => {
         if (cancelled) return;
         const next: Counts = {};
-        COUNT_KEYS.forEach((k, i) => {
+        FETCH_LEVELS.forEach((k, i) => {
           next[k] = results[i].length;
         });
         setCounts(next);
@@ -55,23 +64,58 @@ export function MissedProblemsSection() {
     };
   }, [auth.sessionId]);
 
+  const countFor = (entry: LevelEntry): number | null => {
+    if (!entry.implemented) return null;
+    if (!entry.level) return 0;
+    return counts[entry.level] ?? null;
+  };
+
   return (
     <section style={sectionStyle} aria-label="間違えた問題">
       <header style={headerStyle}>間違えた問題</header>
 
-      <div style={categoryStyle} aria-label="プリフロップトレーニング">
-        <header style={categoryHeaderStyle}>プリフロップトレーニング</header>
-        <div style={cardsStyle}>
-          {PREFLOP_LEVELS.map((lv) => (
-            <LevelCard
-              key={lv.key}
-              entry={lv}
-              count={lv.key === 'advanced' ? null : counts[lv.key] ?? null}
-            />
-          ))}
-        </div>
-      </div>
+      <CategoryBlock
+        title="プリフロップトレーニング"
+        open={openPreflop}
+        onToggle={() => setOpenPreflop((v) => !v)}
+      >
+        {PREFLOP_LEVELS.map((lv) => (
+          <LevelCard key={lv.key} entry={lv} count={countFor(lv)} />
+        ))}
+      </CategoryBlock>
+
+      <CategoryBlock
+        title="ポストフロップトレーニング"
+        open={openPostflop}
+        onToggle={() => setOpenPostflop((v) => !v)}
+      >
+        {POSTFLOP_LEVELS.map((lv) => (
+          <LevelCard key={lv.key} entry={lv} count={countFor(lv)} />
+        ))}
+      </CategoryBlock>
     </section>
+  );
+}
+
+function CategoryBlock({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div style={categoryStyle} aria-label={title}>
+      <button type="button" style={categoryToggleStyle} onClick={onToggle} aria-expanded={open}>
+        <span style={categoryHeaderStyle}>{title}</span>
+        <span style={categoryChevronStyle} aria-hidden>{open ? '▼' : '▶'}</span>
+      </button>
+      {open && <div style={cardsStyle}>{children}</div>}
+    </div>
   );
 }
 
@@ -123,12 +167,28 @@ const categoryStyle: CSSProperties = {
   flexDirection: 'column',
   gap: '0.45rem',
 };
+const categoryToggleStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%',
+  padding: 0,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  textAlign: 'left',
+};
 const categoryHeaderStyle: CSSProperties = {
   fontSize: '13px',
   fontWeight: 500,
   color: '#993C1D',
   padding: '0 0 0 8px',
   borderLeft: '3px solid #993C1D',
+};
+const categoryChevronStyle: CSSProperties = {
+  fontSize: '0.72rem',
+  color: THEME.textMuted,
 };
 const cardsStyle: CSSProperties = {
   display: 'flex',

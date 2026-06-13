@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   apiAdminListAccounts,
+  apiAdminAccountGrant,
   type AccountAdmin,
 } from '../../api/admin';
 import { useAuth } from '../../hooks/useAuth';
@@ -61,6 +62,49 @@ export function AccountsList() {
     });
   };
 
+  const [busy, setBusy] = useState<Set<number>>(new Set());
+  const setBusyId = (id: number, on: boolean) =>
+    setBusy((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  // grant 後にローカル state の該当行を更新 (再 fetch せず即反映)。
+  const patchAccount = (id: number, partial: Partial<AccountAdmin>) =>
+    setState((prev) =>
+      prev.kind === 'ok'
+        ? { kind: 'ok', accounts: prev.accounts.map((a) => (a.id === id ? { ...a, ...partial } : a)) }
+        : prev,
+    );
+
+  const toggleTester = async (a: AccountAdmin) => {
+    if (!auth.sessionId || busy.has(a.id)) return;
+    setBusyId(a.id, true);
+    try {
+      const res = await apiAdminAccountGrant(auth.sessionId, { id: a.id, type: 'tester', value: !a.tester });
+      patchAccount(a.id, { tester: res.account.tester });
+    } catch {
+      /* silent (画面はそのまま) */
+    } finally {
+      setBusyId(a.id, false);
+    }
+  };
+
+  const applyVip = async (id: number, days: number | null) => {
+    if (!auth.sessionId || busy.has(id)) return;
+    setBusyId(id, true);
+    try {
+      const res = await apiAdminAccountGrant(auth.sessionId, { id, type: 'vip', days });
+      patchAccount(id, { vip_until: res.account.vip_until });
+    } catch {
+      /* silent */
+    } finally {
+      setBusyId(id, false);
+    }
+  };
+
   return (
     <div style={pageStyle}>
       <AppHeader showBack adminMode />
@@ -91,6 +135,8 @@ export function AccountsList() {
                   <th style={thStyle}>ポーカーネーム</th>
                   <th style={thStyle}>パスワード</th>
                   <th style={thStyle}>Admin</th>
+                  <th style={thStyle}>テスター</th>
+                  <th style={thStyle}>VIP</th>
                   <th style={thStyle}>合計pt</th>
                   <th style={thStyle}>作成</th>
                   <th style={thStyle}>最終ログイン</th>
@@ -116,6 +162,23 @@ export function AccountsList() {
                       </button>
                     </td>
                     <td style={tdStyle}>{a.is_admin ? '✓' : ''}</td>
+                    <td style={tdStyle}>
+                      <button
+                        type="button"
+                        onClick={() => toggleTester(a)}
+                        disabled={busy.has(a.id)}
+                        style={a.tester ? testerOnBtnStyle : testerOffBtnStyle}
+                      >
+                        {a.tester ? 'ON' : 'OFF'}
+                      </button>
+                    </td>
+                    <td style={tdStyle}>
+                      <VipControl
+                        vipUntil={a.vip_until}
+                        busy={busy.has(a.id)}
+                        onApply={(days) => applyVip(a.id, days)}
+                      />
+                    </td>
                     <td style={{ ...tdStyle, fontFamily: 'ui-monospace, SFMono-Regular, monospace', textAlign: 'right' }}>
                       {a.total_points}
                     </td>
@@ -125,7 +188,7 @@ export function AccountsList() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={emptyRowStyle}>該当アカウントなし</td>
+                    <td colSpan={9} style={emptyRowStyle}>該当アカウントなし</td>
                   </tr>
                 )}
               </tbody>
@@ -135,6 +198,75 @@ export function AccountsList() {
       </main>
     </div>
   );
+}
+
+/** VIP 状態 + 付与/解除コントロール (30/60/90/カスタム/解除)。 */
+function VipControl({
+  vipUntil,
+  busy,
+  onApply,
+}: {
+  vipUntil: number | null;
+  busy: boolean;
+  onApply: (days: number | null) => void;
+}) {
+  const [choice, setChoice] = useState<string>('30');
+  const [custom, setCustom] = useState<string>('');
+
+  const apply = () => {
+    if (choice === 'off') {
+      onApply(null);
+      return;
+    }
+    if (choice === 'custom') {
+      const n = Number(custom);
+      if (!Number.isInteger(n) || n < 1 || n > 365) return; // 不正値は無視
+      onApply(n);
+      return;
+    }
+    onApply(Number(choice));
+  };
+
+  return (
+    <div style={vipWrapStyle}>
+      <span style={vipStatusStyle}>{vipStatusLabel(vipUntil)}</span>
+      <div style={vipControlRowStyle}>
+        <select value={choice} onChange={(e) => setChoice(e.target.value)} style={vipSelectStyle} disabled={busy}>
+          <option value="30">30日</option>
+          <option value="60">60日</option>
+          <option value="90">90日</option>
+          <option value="custom">カスタム</option>
+          <option value="off">解除</option>
+        </select>
+        {choice === 'custom' && (
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            placeholder="日数"
+            style={vipCustomStyle}
+            disabled={busy}
+          />
+        )}
+        <button type="button" onClick={apply} disabled={busy} style={vipApplyBtnStyle}>
+          適用
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** vip_until → 表示ラベル ("—" / "残りN日 (yyyy-MM-dd)" / "期限切れ")。 */
+function vipStatusLabel(vipUntil: number | null): string {
+  if (vipUntil === null || vipUntil === undefined) return '—';
+  const now = Date.now();
+  if (vipUntil <= now) return '期限切れ';
+  const days = Math.ceil((vipUntil - now) / (24 * 60 * 60 * 1000));
+  const d = new Date(vipUntil);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `残り${days}日 (${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())})`;
 }
 
 function formatTime(ms: number | null): string {
@@ -251,4 +383,50 @@ const emptyRowStyle: CSSProperties = {
   textAlign: 'center',
   color: THEME.textMuted,
   fontSize: '0.85rem',
+};
+const testerOnBtnStyle: CSSProperties = {
+  background: '#3B6D11',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.25rem',
+  padding: '2px 10px',
+  fontSize: '0.72rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+const testerOffBtnStyle: CSSProperties = {
+  ...testerOnBtnStyle,
+  background: '#fff',
+  color: THEME.textSecondary,
+  border: `1px solid ${THEME.border}`,
+};
+const vipWrapStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.25rem' };
+const vipStatusStyle: CSSProperties = { fontSize: '0.72rem', color: THEME.textSecondary, whiteSpace: 'nowrap' };
+const vipControlRowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '0.25rem' };
+const vipSelectStyle: CSSProperties = {
+  fontSize: '0.72rem',
+  padding: '1px 2px',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.25rem',
+  fontFamily: 'inherit',
+};
+const vipCustomStyle: CSSProperties = {
+  width: '3.2rem',
+  fontSize: '0.72rem',
+  padding: '1px 4px',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: '0.25rem',
+  fontFamily: 'inherit',
+};
+const vipApplyBtnStyle: CSSProperties = {
+  background: THEME.accent,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '0.25rem',
+  padding: '2px 8px',
+  fontSize: '0.72rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
 };

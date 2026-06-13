@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   apiGetMissedProblems,
   apiRemoveMissedProblem,
-  type MissedLevel,
+  type MissedLevelQuery,
   type MissedProblemRow,
 } from '../../api/missedProblems';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,15 +18,7 @@ import { THEME } from '../../styles/theme';
 import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import { positionalPillStyle } from './positionalPill';
 import { isPositionalRow, positionalRowLabel } from '../../data/training/positionalReview';
-import { scoreMatchesFilter, type MissedFilter } from './missedChallengeStore';
-
-const LEVEL_LABEL: Record<MissedLevel, string> = {
-  beginner: '初級',
-  intermediate: '中級 総合',
-  ep: '中級 EP',
-  lp: '中級 LP',
-  blind: '中級 Blind',
-};
+import { scoreMatchesFilter, missedReviewLabel, type MissedFilter } from './missedChallengeStore';
 
 const COUNT_OPTIONS = [10, 20, 30, 50] as const;
 type CountOption = (typeof COUNT_OPTIONS)[number];
@@ -40,7 +32,7 @@ const FILTER_TABS: Array<{ key: MissedFilter; label: string; score: number | nul
 ];
 
 interface Props {
-  level: MissedLevel;
+  level: MissedLevelQuery;
 }
 
 export function MissedProblemsListPage({ level }: Props) {
@@ -98,7 +90,7 @@ export function MissedProblemsListPage({ level }: Props) {
       <AppHeader showBack />
       <main style={mainStyle}>
         <Link to="/quiz" style={crumbStyle}>← トレーニングに戻る</Link>
-        <h1 style={titleStyle}>間違えた問題 - プリフロップ{LEVEL_LABEL[level]}</h1>
+        <h1 style={titleStyle}>間違えた問題 - プリフロップ{missedReviewLabel(level)}</h1>
 
         <div style={filterRowStyle} role="radiogroup" aria-label="判定フィルター">
           {FILTER_TABS.map((t) => {
@@ -202,6 +194,10 @@ function labelFor(row: MissedProblemRow): string {
       return `${row.hero_position} open`;
     case 'beginner_vs_open':
       return `vs ${row.opener_position ?? '?'} open`;
+    case 'beginner_vs_3bet':
+      return `${row.hero_position} vs ${row.three_bettor_position ?? '?'} 3bet`;
+    case 'beginner_vs_4bet':
+      return `${row.hero_position} vs ${row.opener_position ?? '?'} 4bet`;
     default:
       return row.scenario_type;
   }

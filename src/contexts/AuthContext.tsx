@@ -100,8 +100,12 @@ export function AuthProvider({ children }: ProviderProps) {
       const result = await apiLogin(args);
       writeStoredSessionId(result.session_id);
       // 成功時に SavedAccount にも登録 (last_used_at 更新 or 新規追加)。
-      // group_key は意図的に保存しない (毎回入力させる)。
-      saveAccount(args.pokerName, args.privatePass);
+      // group_key は意図的に保存しない (毎回入力させる)。肩書きはサーバ値で更新。
+      saveAccount(args.pokerName, args.privatePass, {
+        is_admin: result.account.is_admin,
+        tester: result.account.tester,
+        vip_until: result.account.vip_until,
+      });
       setSessionId(result.session_id);
       setAccount(result.account);
       setStatus('authenticated');
@@ -115,7 +119,11 @@ export function AuthProvider({ children }: ProviderProps) {
       const result = await apiSignup(args);
       writeStoredSessionId(result.session_id);
       // signup 直後にもログインと同様 SavedAccount に追加。
-      saveAccount(args.pokerName, args.privatePass);
+      saveAccount(args.pokerName, args.privatePass, {
+        is_admin: result.account.is_admin,
+        tester: result.account.tester,
+        vip_until: result.account.vip_until,
+      });
       setSessionId(result.session_id);
       setAccount(result.account);
       setStatus('authenticated');

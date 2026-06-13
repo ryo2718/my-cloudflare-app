@@ -51,4 +51,20 @@ describe('PokerTable アクションポップアップ', () => {
     expect(html).toContain('CO');
     expect(html).toContain('UTG');
   });
+
+  it('involvedPositions: 関与外の席を fold ポップアップ無しでも半透明にする', () => {
+    // srp CO(自分) vs SB。関与席 = CO,SB。BB/UTG/BTN/HJ は降りた席 → 半透明 (folded 扱い)。
+    const html = renderToStaticMarkup(
+      <PokerTable
+        mePosition="CO"
+        involvedPositions={['CO', 'SB']}
+        popups={[{ position: 'SB', kind: 'call', label: 'check' }]}
+      />,
+    );
+    expect(html).toContain('opacity:0.35'); // 降りた席が半透明
+    expect(html).toContain('BB folded'); // 関与外 → 半透明 (aria-label folded)
+    expect(html).toContain('UTG folded');
+    expect(html).not.toContain('SB folded'); // 相手 (関与) → はっきり
+    expect(html).not.toContain('CO (自分) folded'); // ヒーロー (関与) → はっきり
+  });
 });

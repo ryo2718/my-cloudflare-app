@@ -12,8 +12,11 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { HandRangeMatrix } from './HandRangeMatrix';
 import { ActionTable } from './ActionTable';
+import { FlopCbReviewDetail } from './FlopCbReviewDetail';
+import type { FlopCbStrat } from '../../data/training/flopIntermediateCb';
 import type { HandStrategy } from '../../data/training/preflopBeginner';
 import { CardSet } from '../CardSet';
+import { ACTION_COLOR } from '../../styles/actionColors';
 import type { Rank, Suit } from '../../types/card';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
@@ -50,11 +53,244 @@ function useHands(file: string): Record<string, HandStrategy> | null {
 
 export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_beginner') return <BeginnerRule />;
+  if (levelKey === 'preflop_beginner_open') return <BeginnerOpenRule />;
+  if (levelKey === 'preflop_beginner_vs_open') return <BeginnerVsOpenRule />;
+  if (levelKey === 'preflop_beginner_vs_3bet_4bet') return <BeginnerVs3Bet4BetRule />;
   if (levelKey === 'preflop_intermediate') return <IntermediateRule />;
   if (levelKey === 'preflop_intermediate_ep') return <PositionalRule mode="ep" />;
   if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
   if (levelKey === 'preflop_intermediate_blind') return <PositionalRule mode="blind" />;
+  if (levelKey === 'flop_beginner') return <FlopBeginnerRule />;
+  if (levelKey === 'flop_cb_srp' || levelKey === 'flop_cb_3bp' || levelKey === 'flop_donk_bmcb')
+    return <PostflopRule />;
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// ポストフロップ (レンジCB / レンジドンク・BMCB)
+//
+// ポストフロップの本質「ボード依存性」(同じ BTN・同じレンジでも、ボードが違うだけで
+// レンジ全体の戦略が全く変わる) を、2つのボード (AK3 / AA3) の BTN CB 戦略を
+// 並べて比較して伝える。3モード共通でこの比較ビューを表示する。
+// ※ 表示する頻度はすべて「ルール説明用の固定例」であり、実データ取得ではない。
+// ---------------------------------------------------------------------------
+
+// ルール説明で表示するアクション行 (0% も行を残すため固定リスト)。
+const POSTFLOP_RULE_CHOICES: ReadonlyArray<string> = ['check', '33', '50', '75', '125'];
+// ボードA: AK3 = 分極 (打たない or 大きく打つ)。固定例 (頻度 0-1)。
+const BOARD_A_STRAT: FlopCbStrat = { check: 0.61, '33': 0.03, '50': 0.01, '75': 0.01, '125': 0.33 };
+// ボードB: AA3 = レンジ全体で安く連打。固定例 (頻度 0-1)。
+const BOARD_B_STRAT: FlopCbStrat = { check: 0.14, '33': 0.82, '50': 0.03, '75': 0.01, '125': 0 };
+
+function PostflopRule() {
+  return (
+    <div>
+      <SectionTitle>ボードによって戦略はガラッと変わる</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          同じ BTN、同じレンジ。ボードが違うだけで「打つかどうか」も「どのサイズで打つか」も
+          全然違います。だからポストフロップは自分のハンドではなく、
+          <strong>ボードに対して、レンジ全体としてどう打つか</strong>を答えます。
+        </p>
+      </Card>
+
+      <PostflopBoardExample
+        title="ボードA(AK3)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'K' as Rank, suit: 'h' as Suit },
+          { rank: '3' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="分極(打たない or 大きく打つ)"
+        strat={BOARD_A_STRAT}
+        note="ナッツ級(2ペア以上のセット系)はオーバーベットで価値最大化。エースなしのミドルはほぼチェック。「中ぐらいのベット」は使わない。"
+      />
+
+      <PostflopBoardExample
+        title="ボードB(AA3)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'A' as Rank, suit: 'd' as Suit },
+          { rank: '3' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="レンジ全体で安く連打"
+        strat={BOARD_B_STRAT}
+        note="A がボードに2枚=相手の AX が激減してこちらのレンジが圧倒的に強い。安く広く打って降ろすか薄い価値を取る。"
+      />
+    </div>
+  );
+}
+
+function PostflopBoardExample({
+  title,
+  cards,
+  tagline,
+  strat,
+  note,
+}: {
+  title: string;
+  cards: ReadonlyArray<{ rank: Rank; suit: Suit }>;
+  tagline: string;
+  strat: FlopCbStrat;
+  note: string;
+}) {
+  return (
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      <Card>
+        <div style={boardRowStyle}>
+          <CardSet cards={cards} size="md" gap={4} />
+          <span style={taglineStyle}>{tagline}</span>
+        </div>
+        {/* 既存のフィードバック頻度バー (FlopCbReviewDetail) を流用。選択マークは出さない。 */}
+        <FlopCbReviewDetail choices={POSTFLOP_RULE_CHOICES} strat={strat} selections={[]} />
+        <p style={bodyTextStyle}>{note}</p>
+      </Card>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ポストフロップ初級 (flop_beginner)
+//
+// 中級 PostflopRule の「ボード比較」思想を二値版に転用。
+//   - 「自分の手」ではなく「ボード × レンジ」で打つか決める、を伝える。
+//   - CB / ドンクそれぞれ「打つボード」と「打たないボード」を対で見せる。
+//   - 頻度は 2 値 (打つ / 打たない) のみ。中級のサイズ別バー (FlopCbReviewDetail) は使わない。
+// ※ 全頻度はルール説明用の固定例 (実データ取得ではない手置き値。ryoji が後で調整しうる)。
+// ---------------------------------------------------------------------------
+
+// 固定例の頻度 (打つ%)。打たない% = 100 - 打つ%。
+const FLOP_RULE_CB_EASY_BET = 90; // AK3: ほぼ全部 CB
+const FLOP_RULE_CB_HARD_BET = 25; // 765: チェック中心
+const FLOP_RULE_DONK_YES_BET = 90; // 876: よくドンク (実データ ~95%)
+const FLOP_RULE_DONK_NO_BET = 0; // AJT: 完全チェック
+
+function FlopBeginnerRule() {
+  return (
+    <div>
+      <SectionTitle>フロップは“自分の手”でなく“ボード × レンジ”で打つか決める</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          自分の 2 枚のハンドではなく、ボードに対して
+          <strong>レンジ全体として「打つか・打たないか」</strong>を考えます。
+          ボードによって打つ頻度は大きく変わります。
+        </p>
+      </Card>
+
+      <FlopBeginnerBoardExample
+        title="打ちやすいボード(例:A K 3)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'K' as Rank, suit: 'h' as Suit },
+          { rank: '3' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="ほぼ全部CB"
+        verb="CB"
+        betPct={FLOP_RULE_CB_EASY_BET}
+        note="強いボードはレンジ全体でほとんどCB。"
+      />
+
+      <FlopBeginnerBoardExample
+        title="打ちにくいボード(例:7 6 5)"
+        cards={[
+          { rank: '7' as Rank, suit: 's' as Suit },
+          { rank: '6' as Rank, suit: 'h' as Suit },
+          { rank: '5' as Rank, suit: 'd' as Suit },
+        ]}
+        tagline="ほとんど打たない"
+        verb="CB"
+        betPct={FLOP_RULE_CB_HARD_BET}
+        note="BBに有利な低くつながったボードはチェック中心。"
+      />
+
+      <FlopBeginnerBoardExample
+        title="ドンクするボード(例:8 7 6)"
+        cards={[
+          { rank: '8' as Rank, suit: 'h' as Suit },
+          { rank: '7' as Rank, suit: 'd' as Suit },
+          { rank: '6' as Rank, suit: 'c' as Suit },
+        ]}
+        tagline="よくドンク"
+        verb="ドンク"
+        betPct={FLOP_RULE_DONK_YES_BET}
+        note="BBに有利な低くつながったボードでは、BBが高頻度でリード(ドンク)する。"
+      />
+
+      <FlopBeginnerBoardExample
+        title="ドンクしないボード(例:A J T)"
+        cards={[
+          { rank: 'A' as Rank, suit: 's' as Suit },
+          { rank: 'J' as Rank, suit: 'd' as Suit },
+          { rank: 'T' as Rank, suit: 'c' as Suit },
+        ]}
+        tagline="絶対チェック"
+        verb="ドンク"
+        betPct={FLOP_RULE_DONK_NO_BET}
+        note="BTNに圧倒的に有利なボードはBBが完全にチェック。"
+      />
+
+      <SectionTitle>採点ルール</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>レンジのCB頻度が70%以上なら「打つ」が正解(ドンクは60%)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>正解 <span style={ptGreenStyle}>+1pt</span> / 不正解 ±0(減点なし)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>20問・満点 20pt・90%(18pt)でクリア</p>
+      </div>
+
+      <SectionTitle>用語</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}><strong>CB(コンティニュエーションベット)</strong>:プリフロップでレイズした側がフロップでベットすること。</p>
+        <p style={bodyTextStyle}><strong>ドンク</strong>:プリフロップでコールした側がフロップで先にベット(リード)すること。</p>
+      </Card>
+    </div>
+  );
+}
+
+function FlopBeginnerBoardExample({
+  title,
+  cards,
+  tagline,
+  verb,
+  betPct,
+  note,
+}: {
+  title: string;
+  cards: ReadonlyArray<{ rank: Rank; suit: Suit }>;
+  tagline: string;
+  verb: string;
+  betPct: number;
+  note: string;
+}) {
+  return (
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      <Card>
+        <div style={boardRowStyle}>
+          <CardSet cards={cards} size="md" gap={4} />
+          <span style={taglineStyle}>{tagline}</span>
+        </div>
+        <TwoValueBar verb={verb} betPct={betPct} />
+        <p style={bodyTextStyle}>{note}</p>
+      </Card>
+    </>
+  );
+}
+
+/** 初級ルール説明用の二値バー (左=打つ 赤 / 右=打たない 緑)。中級のサイズ別バーとは別の軽量部品。 */
+function TwoValueBar({ verb, betPct }: { verb: string; betPct: number }) {
+  const checkPct = 100 - betPct;
+  return (
+    <div style={twoBarWrapStyle}>
+      <div style={twoBarTrackStyle} aria-hidden>
+        {betPct > 0 && <div style={{ ...twoBarSegStyle, width: `${betPct}%`, background: ACTION_COLOR.raise }} />}
+        {checkPct > 0 && <div style={{ ...twoBarSegStyle, width: `${checkPct}%`, background: ACTION_COLOR.check }} />}
+      </div>
+      <div style={twoBarLegendStyle}>
+        <span style={{ color: ACTION_COLOR.raise, fontWeight: 700 }}>{verb}打つ {betPct}%</span>
+        <span style={{ color: ACTION_COLOR.check, fontWeight: 700 }}>打たない {checkPct}%</span>
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +440,194 @@ function BeginnerRule() {
       <Card>
         {hands ? (
           <HandRangeMatrix hands={hands} highlightHand="QJs" />
+        ) : (
+          <div style={mutedStyle}>レンジ読み込み中…</div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 初級 オープン (スライダーで open 頻度を回答・優しい採点)
+// ---------------------------------------------------------------------------
+
+function BeginnerOpenRule() {
+  const hands = useHands('co.json');
+  return (
+    <div>
+      <SolutionConditions />
+      <SectionTitle>このモードについて</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          各ポジション(UTG / HJ / CO / BTN / SB)で、配られたハンドを
+          <strong>何%でレイズ(オープン)するか</strong>をスライダーで答えます。
+          初級基礎の「参加する / しない」をもう一歩進めて、頻度の感覚を身につけるモードです。
+        </p>
+      </Card>
+
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="ポジション" value="CO" />
+        <LabelValue label="シナリオ" value="オープン(レイズ頻度をスライダーで回答)" />
+        <Divider />
+        <div style={handBoxStyle}>
+          <CardSet
+            cards={[
+              { rank: 'A' as Rank, suit: 's' as Suit },
+              { rank: 'T' as Rank, suit: 'h' as Suit },
+            ]}
+            size="md"
+            gap={4}
+          />
+        </div>
+      </Card>
+
+      <SectionTitle>回答とスライダー</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>レイズ頻度を 0〜100%・10% 刻みで回答(「飛ばす」可)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>「100%レイズ」「100%フォールド」のショートカットあり</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>制限時間 50 秒</p>
+      </div>
+
+      <SectionTitle>採点ルール(優しい採点)</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>正解の±20%以内なら <span style={ptGreenStyle}>正解(0.5pt)</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>外しても <span style={ptGreenStyle}>減点なし</span>(0pt)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>全20問・満点 10pt(1問 0.5pt)</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>90%(=9pt)以上でクリア</p>
+      </div>
+
+      <SectionTitle>レンジ表(CO オープン)</SectionTitle>
+      <Card>
+        {hands ? (
+          <HandRangeMatrix hands={hands} highlightHand="ATo" />
+        ) : (
+          <div style={mutedStyle}>レンジ読み込み中…</div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 初級 vs オープン (相手のオープンへの応答を複数選択・優しい採点)
+// ---------------------------------------------------------------------------
+
+function BeginnerVsOpenRule() {
+  const hands = useHands('cor_bb.json');
+  return (
+    <div>
+      <SolutionConditions />
+      <SectionTitle>このモードについて</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          相手のオープン(レイズ)に対して、自分のハンドで
+          <strong>オールイン / レイズ / コール / フォールド</strong>のどれを取るかを答えます。
+          複数選択できます。
+        </p>
+      </Card>
+
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="opener" value="CO raise 2.5BB" />
+        <LabelValue label="自分" value="BB" />
+        <Divider />
+        <div style={handBoxStyle}>
+          <CardSet
+            cards={[
+              { rank: 'A' as Rank, suit: 's' as Suit },
+              { rank: '5' as Rank, suit: 's' as Suit },
+            ]}
+            size="md"
+            gap={4}
+          />
+        </div>
+      </Card>
+
+      <SectionTitle>どう応答する?(複数選択可)</SectionTitle>
+      <Card>
+        <FourChoicesPreview />
+      </Card>
+
+      <SectionTitle>採点ルール(優しい採点)</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>頻度0%のアクションを選ぶ → <span style={ptRedStyle}>0pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>頻度80%以上のアクションを選ばない → <span style={ptRedStyle}>0pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>それ以外 → <span style={ptGreenStyle}>1pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span><strong>マイナスポイントなし(減点なし)</strong></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>全20問・満点 20pt(1問 1pt)・制限時間 50秒/問</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>90%(=18pt)以上でクリア</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>AA・KK は出題されない(簡単すぎるため)</p>
+      </div>
+
+      <SectionTitle>レンジ表(BB vs CO open)</SectionTitle>
+      <Card>
+        {hands ? (
+          <HandRangeMatrix hands={hands} highlightHand="A5s" />
+        ) : (
+          <div style={mutedStyle}>レンジ読み込み中…</div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 初級 vs 3bet/4bet (相手の 3bet/4bet への応答を複数選択・優しい採点)
+// ---------------------------------------------------------------------------
+
+function BeginnerVs3Bet4BetRule() {
+  const hands = useHands('utgr_bbr_utg.json');
+  return (
+    <div>
+      <SolutionConditions />
+      <SectionTitle>このモードについて</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          相手の <strong>3bet</strong> または <strong>4bet</strong> に対して、自分のハンドで
+          <strong>オールイン / レイズ / コール / フォールド</strong>のどれを取るかを答えます。
+          複数選択できます。
+        </p>
+      </Card>
+
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="状況" value="UTG オープン → BB 3bet → UTG" />
+        <LabelValue label="自分" value="UTG" />
+        <Divider />
+        <div style={handBoxStyle}>
+          <CardSet
+            cards={[
+              { rank: 'A' as Rank, suit: 's' as Suit },
+              { rank: '5' as Rank, suit: 's' as Suit },
+            ]}
+            size="md"
+            gap={4}
+          />
+        </div>
+      </Card>
+
+      <SectionTitle>どう応答する?(複数選択可)</SectionTitle>
+      <Card>
+        <FourChoicesPreview />
+      </Card>
+
+      <SectionTitle>採点ルール(優しい採点)</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>頻度0%のアクションを選ぶ → <span style={ptRedStyle}>0pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>頻度80%以上のアクションを選ばない → <span style={ptRedStyle}>0pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>それ以外 → <span style={ptGreenStyle}>1pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span><strong>マイナスポイントなし(減点なし)</strong></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>全20問・満点 20pt(1問 1pt)・制限時間 50秒/問</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>90%(=18pt)以上でクリア</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>vs 3bet では AA・KK は出題されない(4bet ほぼ確定で自明)。vs 4bet では AA・KK も出題される</p>
+      </div>
+
+      <SectionTitle>レンジ表(UTG vs BB 3bet)</SectionTitle>
+      <Card>
+        {hands ? (
+          <HandRangeMatrix hands={hands} highlightHand="A5s" />
         ) : (
           <div style={mutedStyle}>レンジ読み込み中…</div>
         )}
@@ -756,4 +1180,47 @@ const ptGreenStyle: CSSProperties = {
 const ptRedStyle: CSSProperties = {
   color: '#A32D2D',
   fontWeight: 700,
+};
+
+// ポストフロップ ルール説明 (ボード比較ビュー)
+const boardRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  flexWrap: 'wrap',
+  marginBottom: '8px',
+};
+const taglineStyle: CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 700,
+  color: '#993C1D',
+  background: '#FAEEDA',
+  border: '1px solid #E5A551',
+  borderRadius: '999px',
+  padding: '0.15rem 0.6rem',
+};
+
+// ポストフロップ初級 ルール説明 二値バー
+const twoBarWrapStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  marginBottom: '8px',
+};
+const twoBarTrackStyle: CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  height: '18px',
+  borderRadius: '4px',
+  overflow: 'hidden',
+  border: '1px solid #D3D1C7',
+};
+const twoBarSegStyle: CSSProperties = {
+  height: '100%',
+};
+const twoBarLegendStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  fontSize: '12px',
+  fontVariantNumeric: 'tabular-nums',
 };

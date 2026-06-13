@@ -42,10 +42,7 @@ export function SavedAccountsTab({
 
   const handleLogin = async (account: SavedAccount) => {
     setError(null);
-    if (groupKey.trim().length === 0) {
-      setError('Group Key を入力してください');
-      return;
-    }
+    // group_key は任意 (tester / VIP / admin はサーバ側で免除)。空でも送信する。
     setBusyName(account.poker_name);
     try {
       await auth.login({
@@ -100,12 +97,12 @@ export function SavedAccountsTab({
       <div style={dividerStyle} />
 
       <label style={groupKeyLabelStyle}>
-        <span style={groupKeyHintStyle}>Group Key (月次更新)</span>
+        <span style={groupKeyHintStyle}>グループキー (月次更新・テスター/VIP は不要)</span>
         <input
           type="text"
           value={groupKey}
           onChange={(e) => setGroupKey(e.target.value)}
-          placeholder="Group Key を入力"
+          placeholder="Group Key (任意)"
           style={groupKeyInputStyle}
           autoComplete="off"
         />

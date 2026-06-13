@@ -2,20 +2,27 @@
 // 上から: 判定 (◎/○/△/×) + 獲得pt → (任意の追加情報・レンジ) → 「次のハンドへ」ボタン。
 
 import type { CSSProperties, ReactNode } from 'react';
-import { judgmentIcon, judgmentColor } from './judgmentIcon';
+import { judgmentIcon, type StrategySymbol } from './judgmentIcon';
+import { getSymbolStyle } from '../../utils/strategySymbol';
 import { THEME } from '../../styles/theme';
 
 export interface InstantFeedbackProps {
   /** その問題の獲得素点 (-1/0/1/2)。判定アイコンと +Npt 表示に使う。 */
   points: number;
+  /**
+   * 素点 → 判定記号のマッピング (任意)。未指定なら共通の judgmentIcon
+   * (◎○△× の部分点モード)。フロップ初級のような 1pt→○ / 0pt→× の2値モードは
+   * ここで上書きする (他モードは prop 未指定なので従来どおり影響なし)。
+   */
+  judgmentFor?: (points: number) => StrategySymbol;
   /** 判定・pt の下に表示する内容 (レンジ等)。 */
   children?: ReactNode;
   onNext: () => void;
 }
 
-export function InstantFeedback({ points, children, onNext }: InstantFeedbackProps) {
-  const icon = judgmentIcon(points);
-  const color = judgmentColor(points);
+export function InstantFeedback({ points, judgmentFor, children, onNext }: InstantFeedbackProps) {
+  const icon = (judgmentFor ?? judgmentIcon)(points);
+  const color = getSymbolStyle(icon).symbolColor;
   return (
     <div style={wrapStyle}>
       <div style={headerStyle}>

@@ -1,6 +1,6 @@
 // POST /api/auth/login
 //   Body: { poker_name, private_pass, group_key }
-//   Response 200: { session_id, account: { id, poker_name, is_admin } }
+//   Response 200: { session_id, account: { id, poker_name, is_admin, is_ranking_excluded, tester, vip_until } }
 //   Response 400 / 401: { error: '...' }
 //
 // 検証順:
@@ -48,30 +48,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const pokerName = body.poker_name;
   const privatePass = body.private_pass;
-  const groupKey = body.group_key;
+  // group_key は任意 (tester / VIP / admin は免除のため空でも可)。文字列以外は空扱い。
+  const groupKey = typeof body.group_key === 'string' ? body.group_key : '';
   if (
     typeof pokerName !== 'string' ||
     typeof privatePass !== 'string' ||
-    typeof groupKey !== 'string' ||
     pokerName.length === 0 ||
-    privatePass.length === 0 ||
-    groupKey.length === 0
+    privatePass.length === 0
   ) {
     return jsonResponse(400, { error: 'invalid_payload' });
   }
 
-  // group_key 検証
-  const activeKey = await findActiveGroupKey(env.DB);
-  if (!activeKey || !constantTimeEqual(activeKey.key_value, groupKey)) {
-    return jsonResponse(401, { error: 'invalid_group_key' });
-  }
-
-  // account 検索
+  // account 検索 + private_pass 照合 (本人性を先に確定)。
   const account = await findAccountByName(env.DB, pokerName);
   if (!account || !constantTimeEqual(account.private_pass, privatePass)) {
     // 微小遅延 (失敗時の総当たり緩和)
     await new Promise((resolve) => setTimeout(resolve, 150));
     return jsonResponse(401, { error: 'invalid_credentials' });
+  }
+
+  // group_key 免除判定: admin / tester は無期限、VIP は vip_until まで。
+  const exempt =
+    account.is_admin === 1 ||
+    account.tester === 1 ||
+    (account.vip_until !== null && account.vip_until > Date.now());
+
+  // 非免除アカウントのみ group_key を検証 (従来挙動)。
+  if (!exempt) {
+    const activeKey = await findActiveGroupKey(env.DB);
+    if (!activeKey || !constantTimeEqual(activeKey.key_value, groupKey)) {
+      return jsonResponse(401, { error: 'invalid_group_key' });
+    }
   }
 
   // 単一端末ログイン制限 (先着優先):

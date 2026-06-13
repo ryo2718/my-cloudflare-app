@@ -43,6 +43,23 @@ describe('saveAccount / getSavedAccounts — 基本', () => {
   it('履歴 0 件 → 空配列', () => {
     expect(getSavedAccounts()).toEqual([]);
   });
+
+  it('肩書き meta (is_admin / tester / vip_until) を保存する', () => {
+    const until = Date.now() + 30 * 86400000;
+    saveAccount('vip', 'p', { is_admin: false, tester: true, vip_until: until });
+    const a = getSavedAccounts()[0];
+    expect(a.is_admin).toBe(false);
+    expect(a.tester).toBe(true);
+    expect(a.vip_until).toBe(until);
+  });
+
+  it('meta 省略時は vip_until=null、is_admin/tester は undefined', () => {
+    saveAccount('plain', 'p');
+    const a = getSavedAccounts()[0];
+    expect(a.vip_until).toBeNull();
+    expect(a.is_admin).toBeUndefined();
+    expect(a.tester).toBeUndefined();
+  });
 });
 
 describe('saveAccount — 上書き挙動', () => {

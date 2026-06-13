@@ -160,6 +160,8 @@ describe('<ResultPtCard /> is_best / is_first / no-update 表示', () => {
     expect(html).toContain('初挑戦お疲れさま');
     expect(html).toContain('+15pt 獲得');
     expect(html).not.toContain('過去最高は更新できませんでした');
+    // 初回プレイでは「過去の最高スコア」を出さない (今回値を過去最高として誤表示しない)。
+    expect(html).not.toContain('過去の最高スコア');
   });
 
   it('ベスト更新 (is_best=true, previous_best=12 → current=15): "過去最高更新!" + "+3pt 獲得!"', () => {

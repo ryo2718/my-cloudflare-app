@@ -12,6 +12,7 @@ import { judgmentIcon, judgmentColor } from './judgmentIcon';
 import {
   clearChallengeResult,
   loadChallengeResult,
+  missedReviewLabel,
   type MissedChallengeResult,
   type MissedReviewLevel,
 } from './missedChallengeStore';
@@ -20,14 +21,6 @@ import { THEME } from '../../styles/theme';
 interface Props {
   level: MissedReviewLevel;
 }
-
-const MISSED_LEVEL_LABEL: Record<MissedReviewLevel, string> = {
-  beginner: '初級',
-  intermediate: '中級 総合',
-  ep: '中級 EP',
-  lp: '中級 LP',
-  blind: '中級 Blind',
-};
 
 type RemoveState = 'idle' | 'removing' | 'removed';
 
@@ -79,7 +72,7 @@ export function MissedChallengeResultPage({ level }: Props) {
   };
 
   const pct = data.total > 0 ? Math.round((data.perfect_count / data.total) * 100) : 0;
-  const levelLabel = MISSED_LEVEL_LABEL[level];
+  const levelLabel = missedReviewLabel(level);
 
   return (
     <div style={pageStyle}>

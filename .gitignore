@@ -56,3 +56,7 @@ public/data/preflop/*/repaired/
 # 配信する。ローカル作業コピーは git に含めない。R2 アップロード手順は docs/FLOP_STRATEGY_TAB.md §4.1 参照。
 /data/cash_*/
 .env.production
+
+# --- Flop training データ ステージング (webscraping から複製、後で加工して使う) ---
+# public 外・非デプロイ。20MB のため git には含めない (誤コミット防止)。
+/flop_data/
