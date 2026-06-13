@@ -182,6 +182,7 @@ export function TrainingPlayBeginnerOpen({ level }: TrainingPlayBeginnerOpenProp
 
       <main style={mainStyle}>
         <div style={scenarioPillStyle}>{q.position} オープン</div>
+        <div style={noteStyle}>*リンプは考慮しない</div>
         <ActionTable
           file={q.nodeFile}
           mePosition={q.position}
@@ -242,6 +243,7 @@ const scenarioPillStyle: CSSProperties = {
   alignSelf: 'flex-start', fontSize: '0.78rem', fontWeight: 700, color: '#993C1D',
   background: '#FAEEDA', border: '1px solid #E5A551', borderRadius: '999px', padding: '0.2rem 0.7rem',
 };
+const noteStyle: CSSProperties = { alignSelf: 'flex-start', fontSize: '0.72rem', color: THEME.textMuted };
 const handSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' };
 const handLabelStyle: CSSProperties = {
   fontSize: '0.72rem', color: THEME.textSecondary, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
