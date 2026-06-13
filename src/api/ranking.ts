@@ -19,6 +19,8 @@ export interface RankingEntry {
   total_points: number | null;
   /** 各ユーザーの解除済み achievement_id 配列 (ランクアイコン表示用)。 */
   achievement_ids: string[];
+  /** VIP 有効 (vip_until > now) なら true。tester / 残り日数は露出しない。 */
+  is_vip?: boolean;
 }
 
 export interface ReferenceEntry {

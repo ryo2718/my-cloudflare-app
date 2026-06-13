@@ -40,6 +40,24 @@ describe('RankingPage (UI)', () => {
     expect(screen.getAllByText('TestPlayer').length).toBeGreaterThan(0); // ヘッダ名 + 自分の行
   });
 
+  it('VIP ユーザーの行に VIP バッジを表示、非VIP には出さない', async () => {
+    vi.mocked(apiRanking).mockImplementation((async () => ({
+      ranking: [
+        { rank: 1, poker_name: 'VipUser', points_visible: true, total_points: 500, achievement_ids: [], is_vip: true },
+        { rank: 2, poker_name: 'PlainUser', points_visible: true, total_points: 400, achievement_ids: [], is_vip: false },
+      ],
+      reference: [],
+      my_rank: null,
+      hide_points_reason: null,
+      type: 'total',
+      season: { id: '2026-05', number: 5, name: 'シーズン5' },
+    })) as unknown as typeof apiRanking);
+    render(<RankingPage />);
+    await screen.findByText('VipUser');
+    // VIP バッジは VipUser の行に 1 個だけ。
+    expect(screen.getAllByText('VIP').length).toBe(1);
+  });
+
   it('シーズンタブで apiRanking(season) を呼ぶ', async () => {
     const user = userEvent.setup();
     render(<RankingPage />);

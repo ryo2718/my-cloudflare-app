@@ -1,7 +1,7 @@
 // GET /api/ranking[?type=total|season]
 //   Header: Authorization: Bearer <session_id>
 //   Response 200: {
-//     ranking: [{ rank, poker_name, points_visible, total_points }],
+//     ranking: [{ rank, poker_name, points_visible, total_points, is_vip }],
 //     reference: [{ poker_name, total_points }],
 //     my_rank: number | null,
 //     hide_points_reason: 'too_many_top3' | null,
@@ -32,6 +32,8 @@ interface RankingRow {
   total_points: number;
   /** GROUP_CONCAT 結果 (カンマ区切り、 ない場合は null)。 */
   achievement_ids: string | null;
+  /** VIP 免除の期限 (ms)。null = なし。is_vip 算出用 (tester / 残り日数は露出しない)。 */
+  vip_until: number | null;
 }
 
 interface ReferenceRow {
@@ -66,7 +68,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   // user_achievements は相関サブクエリで GROUP_CONCAT し、 メイン JOIN を増やさず
   //   training_results との行数倍化を回避。
   const rankingSql = `
-    SELECT a.id AS account_id, a.poker_name, ${sumExpr} AS total_points,
+    SELECT a.id AS account_id, a.poker_name, a.vip_until, ${sumExpr} AS total_points,
            (SELECT GROUP_CONCAT(achievement_id) FROM user_achievements
             WHERE account_id = a.id) AS achievement_ids
     FROM accounts a
@@ -120,7 +122,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
  *  - 通常は rank <= 3 のみ pt 公開
  *  - top3 該当者数が ranking 全体の半数より多い場合は全員非公開
  */
-function buildRanking(
+export function buildRanking(
   rows: ReadonlyArray<RankingRow>,
   meId: number,
 ): {
@@ -130,6 +132,7 @@ function buildRanking(
     points_visible: boolean;
     total_points: number | null;
     achievement_ids: string[];
+    is_vip: boolean;
   }[];
   myRank: number | null;
   hidePointsReason: 'too_many_top3' | null;
@@ -150,6 +153,7 @@ function buildRanking(
   const hide = top3Count > ranked.length / 2;
 
   let myRank: number | null = null;
+  const now = Date.now();
   const entries = ranked.map((row) => {
     if (row.account_id === meId) myRank = row.rank;
     const visible = !hide && row.rank <= 3;
@@ -159,6 +163,7 @@ function buildRanking(
       points_visible: visible,
       total_points: visible ? row.total_points : null,
       achievement_ids: parseAchievementIds(row.achievement_ids),
+      is_vip: row.vip_until != null && row.vip_until > now,
     };
   });
 
