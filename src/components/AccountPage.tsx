@@ -152,6 +152,10 @@ export function AccountPage() {
           title="正答率(シナリオ別)"
           rows={buildScenarioRows(stats)}
         />
+        <StatsSection
+          title="正答率(モード別)"
+          rows={buildLevelRows(stats)}
+        />
 
         <ResetResultsSection />
       </main>
@@ -196,6 +200,23 @@ function buildPositionRows(stats: StatisticsResponse | null): StatsRow[] {
       correctRate: g?.correct_rate ?? 0,
     };
   });
+}
+
+// モード別 (training_type) 正答率。 by_level (全モード集計) を カタログ順 / カタログラベルで表示。
+// ポストフロップを含む全記録モードがここに出る (ポジ別/シナリオ別はプリフロップ限定のため)。
+function buildLevelRows(stats: StatisticsResponse | null): StatsRow[] {
+  const map = new Map<string, StatGroup>();
+  for (const g of stats?.by_level ?? []) map.set(g.key, g);
+  const rows: StatsRow[] = [];
+  for (const cat of TRAINING_CATALOG) {
+    for (const lv of cat.levels) {
+      const g = map.get(lv.key);
+      if (!g || g.total === 0) continue;
+      const prefix = cat.key === 'flop' ? 'ポスト' : 'プリ';
+      rows.push({ key: lv.key, label: `${prefix} ${lv.label}`, total: g.total, correctRate: g.correct_rate });
+    }
+  }
+  return rows;
 }
 
 function buildScenarioRows(stats: StatisticsResponse | null): StatsRow[] {

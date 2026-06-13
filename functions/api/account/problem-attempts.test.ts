@@ -62,4 +62,15 @@ describe('problem-attempts POST', () => {
     expect(res.status).toBe(401);
     expect(exec.length).toBe(0);
   });
+
+  it('ポストフロップ (flop_beginner / flop_cb_srp / flop_donk_bmcb) は受理される', async () => {
+    const recs = [
+      { training_type: 'flop_beginner', scenario_type: 'flop_beginner', hero_position: 'BTN', hand: '-', score_obtained: 1 },
+      { training_type: 'flop_cb_srp', scenario_type: 'flop_cb', hero_position: 'BTN', hand: '-', score_obtained: 2 },
+      { training_type: 'flop_donk_bmcb', scenario_type: 'flop_donk', hero_position: 'BB', hand: '-', score_obtained: -1 },
+    ];
+    const { db } = makeFakeDb();
+    const res = await onRequestPost(ctx(postRequest({ records: recs }), db));
+    expect(await res.json()).toMatchObject({ inserted: 3 });
+  });
 });

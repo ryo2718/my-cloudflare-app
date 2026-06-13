@@ -31,6 +31,7 @@ import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import { useAuth } from '../../hooks/useAuth';
 import { apiPostMissedProblems } from '../../api/missedProblems';
+import { apiPostProblemAttempts, type ProblemAttemptInput } from '../../api/statistics';
 import { flopBeginnerMissedInput } from '../../data/training/flopMissedMode';
 
 // アニメーションの流れ (修正1):
@@ -77,6 +78,20 @@ export function TrainingPlayFlop({ level, review }: TrainingPlayFlopProps) {
           /* silent fallback */
         });
       }
+      // 正答率集計用に全問を problem_attempts へ記録 (ポストフロップ初級)。
+      const attempts: ProblemAttemptInput[] = records.map((r) => ({
+        training_type: 'flop_beginner' as const,
+        scenario_type: 'flop_beginner',
+        hero_position: r.hero,
+        opener_position: null,
+        three_bettor_position: null,
+        hand: '-',
+        score_obtained: r.isCorrect ? 1 : 0,
+        is_timeout: false,
+      }));
+      void apiPostProblemAttempts(auth.sessionId, attempts).catch(() => {
+        /* silent fallback */
+      });
     }
     const correctCount = records.filter((r) => r.isCorrect).length;
     const params = new URLSearchParams({

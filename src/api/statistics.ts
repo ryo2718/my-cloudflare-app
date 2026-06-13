@@ -3,7 +3,13 @@
 import { AuthApiError } from './auth';
 
 export interface ProblemAttemptInput {
-  training_type: 'preflop_beginner' | 'preflop_intermediate';
+  training_type:
+    | 'preflop_beginner'
+    | 'preflop_intermediate'
+    | 'flop_beginner'
+    | 'flop_cb_srp'
+    | 'flop_cb_3bp'
+    | 'flop_donk_bmcb';
   scenario_type: string;
   hero_position: string;
   opener_position?: string | null;

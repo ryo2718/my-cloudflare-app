@@ -26,19 +26,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       WHEN score_obtained = 1 THEN 1
       ELSE 0
     END)`;
+  // 1 問の理論最大点。 中級総合・フロップ中級 (CB/ドンク) は 2pt、 それ以外は 1pt。
   const MAX_EXPR = `(CASE
-      WHEN training_type = 'preflop_intermediate' THEN 2
+      WHEN training_type IN ('preflop_intermediate', 'flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb') THEN 2
       ELSE 1
     END)`;
 
-  // ポジション別
+  // ポジション別 / シナリオ別はプリフロップのみ集計 (ポストフロップはモード別で表示し、 混在を避ける)。
   const posSql = `
     SELECT hero_position AS key,
            COUNT(*) AS total,
            SUM(${SCORE_EXPR}) AS score_sum,
            SUM(${MAX_EXPR}) AS max_sum
     FROM problem_attempts
-    WHERE account_id = ?
+    WHERE account_id = ? AND training_type LIKE 'preflop_%'
     GROUP BY hero_position
     ORDER BY hero_position
   `;
@@ -48,7 +49,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
            SUM(${SCORE_EXPR}) AS score_sum,
            SUM(${MAX_EXPR}) AS max_sum
     FROM problem_attempts
-    WHERE account_id = ?
+    WHERE account_id = ? AND training_type LIKE 'preflop_%'
     GROUP BY scenario_type
     ORDER BY scenario_type
   `;

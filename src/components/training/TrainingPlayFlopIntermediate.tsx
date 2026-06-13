@@ -35,6 +35,7 @@ import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
 import { useAuth } from '../../hooks/useAuth';
 import { apiPostMissedProblems, type FlopTrainingType } from '../../api/missedProblems';
+import { apiPostProblemAttempts, type ProblemAttemptInput } from '../../api/statistics';
 import { flopRbMissedInput } from '../../data/training/flopMissedMode';
 
 type FlopPhase = 'preflop' | 'flop' | 'check' | 'question';
@@ -76,6 +77,21 @@ export function TrainingPlayFlopIntermediate({ level, review }: TrainingPlayFlop
       const missed = records
         .filter((r) => r.finalScore < FLOP_RB_PERFECT)
         .map((r) => flopRbMissedInput(level.key as FlopTrainingType, r, r.finalScore));
+      // 正答率集計用に全問を problem_attempts へ記録 (ポストフロップ中級)。
+      const scenarioTag = level.key === 'flop_donk_bmcb' ? 'flop_donk' : 'flop_cb';
+      const attempts: ProblemAttemptInput[] = records.map((r) => ({
+        training_type: level.key as 'flop_cb_srp' | 'flop_cb_3bp' | 'flop_donk_bmcb',
+        scenario_type: scenarioTag,
+        hero_position: r.hero,
+        opener_position: null,
+        three_bettor_position: null,
+        hand: '-',
+        score_obtained: r.finalScore,
+        is_timeout: false,
+      }));
+      void apiPostProblemAttempts(auth.sessionId, attempts).catch(() => {
+        /* silent fallback */
+      });
       if (missed.length > 0) {
         void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
           /* silent fallback */
