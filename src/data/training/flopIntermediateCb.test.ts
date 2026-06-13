@@ -149,10 +149,13 @@ describe('共通 出題性質 (全モード)', () => {
       expect(max / total).toBeLessThan(0.6);
     });
 
-    it(`[${mode}] 同一 variant:board は重複しない`, () => {
-      const qs = buildFlopRbQuestions(DATA, mode);
-      const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
-      expect(new Set(keys).size).toBe(qs.length);
+    it(`[${mode}] 同一ボード(カード)は重複しない (マッチアップ違いも含む) / 30問揃う`, () => {
+      for (let s = 0; s < 30; s++) {
+        const qs = buildFlopRbQuestions(DATA, mode);
+        expect(qs.length).toBe(FLOP_RB_COUNT);
+        const boards = qs.map((q) => q.board.map((c) => c.rank + c.suit).join(''));
+        expect(new Set(boards).size).toBe(qs.length);
+      }
     });
 
     it(`[${mode}] ハイカード帯 (A/broadway/mid/low) がロー偏りせず散らばる`, () => {

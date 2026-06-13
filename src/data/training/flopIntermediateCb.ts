@@ -336,14 +336,33 @@ function isNearDup(a: Texture, b: Texture): boolean {
 /**
  * ボードのハイカード帯 (A / broadway / mid / low) でグループ化し、ラウンドロビンで count 件抽選。
  * 出題セットが特定の帯 (特にロー) に偏らないよう散らす。overbet/check 枠もこの抽選を通すので、
- * ハイ系のオーバーベット・ロー系のチェック等を帯バランスよく拾える。variant:board 重複は seen で防ぐ。
+ * ハイ系のオーバーベット・ロー系のチェック等を帯バランスよく拾える。
+ * 重複防止は board (カード) 単位 — 同じボードはマッチアップ違いでも 1 セッション 1 回まで。
+ * seen はボード文字列を保持し、セグメントを跨いで共有される。
  */
+/** strat の支配サイズ (最頻アクション。check 含む)。 */
+function dominantKey(strat: FlopCbStrat): string {
+  let best = '';
+  let bestV = -1;
+  for (const [k, v] of Object.entries(strat)) {
+    if (v > bestV) {
+      bestV = v;
+      best = k;
+    }
+  }
+  return best;
+}
+
 function sampleVaried(pool: ReadonlyArray<CbBoard>, count: number, seen: Set<string>): CbBoard[] {
+  // pool をシャッフルしてから board でユニーク化 (同一ボードの採用マッチアップを毎回ランダムに)。
+  // グループ化は「ハイカード帯 × 支配サイズ」の 2 軸でラウンドロビン抽選し、
+  // ボードの見た目 (帯) も打ち方 (サイズ) も偏らないよう散らす。
   const groups = new Map<string, CbBoard[]>();
-  for (const b of pool) {
-    const key = `${b.variant}:${b.board}`;
-    if (seen.has(key)) continue;
-    const dk = textureOf(b.board).high; // A / broadway / mid / low
+  const usedBoard = new Set<string>();
+  for (const b of shuffle([...pool])) {
+    if (seen.has(b.board) || usedBoard.has(b.board)) continue;
+    usedBoard.add(b.board);
+    const dk = `${textureOf(b.board).high}|${dominantKey(b.strat)}`; // 帯 × 支配サイズ
     const g = groups.get(dk) ?? [];
     g.push(b);
     groups.set(dk, g);
@@ -359,7 +378,7 @@ function sampleVaried(pool: ReadonlyArray<CbBoard>, count: number, seen: Set<str
       const g = groups.get(dk);
       if (!g || g.length === 0) continue;
       const b = g.pop()!;
-      seen.add(`${b.variant}:${b.board}`);
+      seen.add(b.board);
       out.push(b);
       progressed = true;
     }
