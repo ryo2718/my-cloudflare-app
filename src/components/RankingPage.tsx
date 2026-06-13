@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { currentSeason } from '../utils/season';
 import { calculateRank } from '../utils/rank';
+import { RoleBadge } from './RoleBadge';
 import { AppHeader } from './AppHeader';
 import { THEME } from '../styles/theme';
 
@@ -164,6 +165,11 @@ function RankingRow({
       <span style={isMe ? nameMeStyle : nameStyle}>
         {isMe && <span style={starStyle}>★ </span>}
         {row.poker_name}
+        {row.is_vip && (
+          <span style={vipBadgeWrapStyle}>
+            <RoleBadge kind="vip" />
+          </span>
+        )}
       </span>
       {!hideAll && row.points_visible && row.total_points !== null && (
         <span style={ptStyle}>{row.total_points}pt</span>
@@ -318,6 +324,9 @@ const nameMeStyle: CSSProperties = {
 };
 const starStyle: CSSProperties = {
   color: '#E5A551',
+};
+const vipBadgeWrapStyle: CSSProperties = {
+  marginLeft: '0.4rem',
 };
 const ptStyle: CSSProperties = {
   fontFamily: 'ui-monospace, SFMono-Regular, monospace',

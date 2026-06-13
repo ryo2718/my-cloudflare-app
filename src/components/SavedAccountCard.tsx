@@ -11,6 +11,7 @@
 import { type CSSProperties } from 'react';
 import type { SavedAccount } from '../data/savedAccounts';
 import { THEME } from '../styles/theme';
+import { RoleBadge, type RoleBadgeKind } from './RoleBadge';
 
 export interface SavedAccountCardProps {
   account: SavedAccount;
@@ -26,13 +27,13 @@ function formatLastUsed(ms: number): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** 肩書きラベル (優先 admin > tester > VIP、1 つだけ)。該当なしは null。 */
-function roleLabel(account: SavedAccount): string | null {
-  if (account.is_admin) return 'admin';
-  if (account.tester) return 'tester';
+/** 肩書き (優先 admin > tester > VIP、1 つだけ)。該当なしは null。VIP は残り日数付き。 */
+function roleOf(account: SavedAccount): { kind: RoleBadgeKind; days?: number } | null {
+  if (account.is_admin) return { kind: 'admin' };
+  if (account.tester) return { kind: 'tester' };
   if (account.vip_until != null && account.vip_until > Date.now()) {
     const days = Math.ceil((account.vip_until - Date.now()) / (24 * 60 * 60 * 1000));
-    return `VIP・あと${days}日`;
+    return { kind: 'vip', days };
   }
   return null;
 }
@@ -52,7 +53,18 @@ export function SavedAccountCard({
         <div style={nameColStyle}>
           <span style={nameRowStyle}>
             <span style={nameStyle}>{account.poker_name}</span>
-            {roleLabel(account) && <span style={roleStyle}>({roleLabel(account)})</span>}
+            {(() => {
+              const role = roleOf(account);
+              if (!role) return null;
+              return (
+                <>
+                  <RoleBadge kind={role.kind} />
+                  {role.kind === 'vip' && role.days != null && (
+                    <span style={vipDaysStyle}>あと{role.days}日</span>
+                  )}
+                </>
+              );
+            })()}
           </span>
           <span style={lastUsedStyle}>前回: {formatLastUsed(account.last_used_at)}</span>
         </div>
@@ -125,10 +137,9 @@ const nameStyle: CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
-const roleStyle: CSSProperties = {
+const vipDaysStyle: CSSProperties = {
   fontSize: '0.72rem',
-  fontWeight: 600,
-  color: THEME.accent,
+  color: THEME.textMuted,
   whiteSpace: 'nowrap',
 };
 
