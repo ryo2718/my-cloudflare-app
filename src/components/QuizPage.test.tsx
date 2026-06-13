@@ -62,8 +62,8 @@ describe('<QuizPage /> 静的表示', () => {
 
   it('見出しに合計点 (current/max) を表示。実装済み階級の満点のみが分母', () => {
     const html = staticHtml();
-    // 未挑戦なので current=0。preflop 初級 = 基礎20 + オープン10 + vsオープン20 = 50pt。
-    expect(html).toContain('/ 50pt');
+    // 未挑戦なので current=0。preflop 初級 = 基礎20 + オープン10 + vsオープン20 + vs3bet4bet20 = 70pt。
+    expect(html).toContain('/ 70pt');
     // preflop 中級 = 総合40 + EP20 + LP20 + Blind30 = 110pt。
     expect(html).toContain('/ 110pt');
     // flop 初級 = 20pt、flop 中級 = CB60×2 + ドンク60 = 180pt。

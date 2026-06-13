@@ -33,6 +33,7 @@ import { TrainingPlayFlopIntermediate } from './components/training/TrainingPlay
 import { TrainingPlayFlopPerHandCb } from './components/training/TrainingPlayFlopPerHandCb';
 import { TrainingPlayBeginnerOpen } from './components/training/TrainingPlayBeginnerOpen';
 import { TrainingPlayBeginnerVsOpen } from './components/training/TrainingPlayBeginnerVsOpen';
+import { TrainingPlayBeginnerVs3Bet4Bet } from './components/training/TrainingPlayBeginnerVs3Bet4Bet';
 import { TrainingPlayIntermediate } from './components/training/TrainingPlayIntermediate';
 import { TrainingPlayPositional } from './components/training/TrainingPlayPositional';
 import { TrainingResultPositional } from './components/training/TrainingResultPositional';
@@ -140,6 +141,10 @@ export default function App() {
       // 初級 vs オープン: 相手のオープンへの応答を複数選択 (優しい採点・50s)。
       if (level.key === 'preflop_beginner_vs_open') {
         return <TrainingPlayBeginnerVsOpen level={level} />;
+      }
+      // 初級 vs 3bet/4bet: 相手の 3bet/4bet への応答を複数選択 (優しい採点・50s)。
+      if (level.key === 'preflop_beginner_vs_3bet_4bet') {
+        return <TrainingPlayBeginnerVs3Bet4Bet level={level} />;
       }
       // 中級ポジション別 (EP/LP/Blind): スライダー / ノード別複数選択 / limp 緩和
       if (

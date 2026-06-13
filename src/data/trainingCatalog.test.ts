@@ -51,15 +51,23 @@ describe('TRAINING_CATALOG', () => {
     ]);
   });
 
-  it('初級シナリオ別モード: ラベル。open/vs open は実装済、vs 3bet4bet のみ未実装', () => {
+  it('初級シナリオ別モード: 基礎/オープン/vsオープン/vs3bet4bet すべて実装済み', () => {
     const byKey = (k: string) => TRAINING_CATALOG[0].levels.find((l) => l.key === k);
     expect(byKey('preflop_beginner')?.label).toBe('初級 基礎'); // 旧「初級」の改名
     expect(byKey('preflop_beginner_open')?.label).toBe('初級 オープン');
     expect(byKey('preflop_beginner_vs_open')?.label).toBe('初級 vs オープン');
     expect(byKey('preflop_beginner_vs_3bet_4bet')?.label).toBe('初級 vs 3ベット/4ベット');
-    // vs 3ベット4ベット はまだ未実装。
-    expect(byKey('preflop_beginner_vs_3bet_4bet')?.implemented).toBe(false);
-    expect(byKey('preflop_beginner_vs_3bet_4bet')?.questionCount).toBeNull();
+    for (const k of ['preflop_beginner_open', 'preflop_beginner_vs_open', 'preflop_beginner_vs_3bet_4bet']) {
+      expect(byKey(k)?.implemented).toBe(true);
+    }
+  });
+
+  it('初級 vs 3bet/4bet: points=1, questionCount=20, timeLimitSec=50, implemented=true', () => {
+    const vs = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_vs_3bet_4bet');
+    expect(vs?.points).toBe(1);
+    expect(vs?.questionCount).toBe(20);
+    expect(vs?.timeLimitSec).toBe(50);
+    expect(vs?.implemented).toBe(true);
   });
 
   it('初級オープン: points=0.5, questionCount=20, timeLimitSec=50, implemented=true', () => {
@@ -207,9 +215,9 @@ describe('computeLevelGroupScore (階級の合計点)', () => {
   const preflop = TRAINING_CATALOG[0].levels;
   const beginnerGroup = preflop.filter((l) => l.key.startsWith('preflop_beginner'));
 
-  it('プリフロップ初級: 基礎+オープン+vsオープンの満点合計 50pt (vs3bet4betは未実装で分母外)', () => {
+  it('プリフロップ初級: 基礎20+オープン10+vsオープン20+vs3bet4bet20 = 満点 70pt', () => {
     const { current, max } = computeLevelGroupScore(beginnerGroup, []);
-    expect(max).toBe(50); // 基礎20 + オープン10 + vsオープン20
+    expect(max).toBe(70);
     expect(current).toBe(0); // 記録なし
   });
 
@@ -220,7 +228,7 @@ describe('computeLevelGroupScore (階級の合計点)', () => {
     ];
     const { current, max } = computeLevelGroupScore(beginnerGroup, records);
     expect(current).toBe(29.5);
-    expect(max).toBe(50);
+    expect(max).toBe(70);
   });
 
   it('全モード未実装の階級は max=0 (上級)', () => {
@@ -229,10 +237,13 @@ describe('computeLevelGroupScore (階級の合計点)', () => {
   });
 
   it('未実装モードは分子にも含めない (記録があっても無視)', () => {
-    const { current } = computeLevelGroupScore(beginnerGroup, [
-      { training_type: 'preflop_beginner_vs_3bet_4bet', best_score: 99 },
+    // 上級は全モード未実装 (max=0)。記録があっても current は 0。
+    const advanced = preflop.filter((l) => l.key === 'preflop_advanced' || l.key === 'preflop_expert');
+    const { current, max } = computeLevelGroupScore(advanced, [
+      { training_type: 'preflop_advanced', best_score: 99 },
     ]);
     expect(current).toBe(0);
+    expect(max).toBe(0);
   });
 });
 

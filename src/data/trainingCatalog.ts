@@ -51,7 +51,8 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       { key: 'preflop_beginner_open',         label: '初級 オープン',          points: 0.5, questionCount: 20, timeLimitSec: 50, implemented: true },
       // 初級 vs オープン: 相手のオープンへの応答を複数選択 (allin/raise/call/fold)。1問1pt × 20問 = 20pt。
       { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
-      { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      // 初級 vs 3bet/4bet: 相手の 3bet/4bet への応答を複数選択。1問1pt × 20問 = 20pt。
+      { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
     ],
   },
   {

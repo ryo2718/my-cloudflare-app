@@ -23,6 +23,7 @@ import { TrainingReview } from './TrainingReview';
 
 const OPEN = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_open')!;
 const VS_OPEN = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_vs_open')!;
+const VS_3B4B = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_vs_3bet_4bet')!;
 
 function fakeAuth(): AuthState {
   return {
@@ -49,6 +50,7 @@ beforeEach(() => {
   sessionStorage.clear();
   clearAnswerReview(OPEN.key);
   clearAnswerReview(VS_OPEN.key);
+  clearAnswerReview(VS_3B4B.key);
   vi.mocked(apiSubmitTrainingResult).mockReset();
   vi.mocked(apiSubmitTrainingResult).mockResolvedValue({
     is_best: true, previous_best: 0, current_best: 1, total_attempts: 1,
@@ -58,6 +60,7 @@ afterEach(() => {
   sessionStorage.clear();
   clearAnswerReview(OPEN.key);
   clearAnswerReview(VS_OPEN.key);
+  clearAnswerReview(VS_3B4B.key);
   vi.unstubAllGlobals();
 });
 
@@ -90,6 +93,18 @@ describe('結果画面の答え合わせ統一 (TrainingResult)', () => {
     expect(text).toContain('○');
     expect(text).toContain('✕');
     expect(screen.getAllByText('問題へ').length).toBe(2);
+  });
+
+  it('初級 vs 3bet/4bet (フェーズ5新モード): 追加配線なしで答え一覧が自動表示される', async () => {
+    const recs: AnswerReviewRecord[] = [
+      { id: 1, scenario: 'HJ vs CO 3bet', hand: 'A5s', nodeFile: 'hjr_cor_hj.json', mePosition: 'HJ', correct: true, userText: 'コール', correctText: 'コール100' },
+      { id: 2, scenario: 'BB vs UTG 4bet', hand: 'AKs', nodeFile: 'utgr_bbr_utgr_bb.json', mePosition: 'BB', correct: false, userText: 'フォールド', correctText: 'オールイン92・レイズ8' },
+    ];
+    saveAnswerReview(VS_3B4B.key, recs);
+    renderResult(VS_3B4B);
+    expect(await screen.findByText('答え一覧 (2問)')).toBeTruthy();
+    expect(screen.getByText('HJ vs CO 3bet')).toBeTruthy();
+    expect(screen.getByText('BB vs UTG 4bet')).toBeTruthy();
   });
 
   it('記録が無ければ答え一覧は出ない', async () => {
