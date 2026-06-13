@@ -234,7 +234,10 @@ export function TrainingResult({ level }: TrainingResultProps) {
             <ul style={missedListStyle}>
               {openRecords.map((rec) => (
                 <li key={rec.id} style={{ listStyle: 'none' }}>
-                  <OpenAnswerCard record={rec} />
+                  <OpenAnswerCard
+                    record={rec}
+                    onReview={() => navigate(trainingReviewPath(level.key, rec.id))}
+                  />
                 </li>
               ))}
             </ul>
@@ -445,7 +448,7 @@ function MissedCard({
  * 初級オープンの答え一覧 1 行。初級基礎の振り返りカードと同じ作り
  * (○/✕ 判定 + シナリオ + ハンドのカード画像 + あなた/正解)。
  */
-function OpenAnswerCard({ record }: { record: BeginnerOpenRecord }) {
+function OpenAnswerCard({ record, onReview }: { record: BeginnerOpenRecord; onReview: () => void }) {
   const correct = record.points > 0;
   const icon = correct ? '○' : '✕';
   const color = correct ? '#3B6D11' : '#A32D2D';
@@ -469,6 +472,9 @@ function OpenAnswerCard({ record }: { record: BeginnerOpenRecord }) {
           正解: <span style={correctAnswerStyle}>{record.raisePct}%</span>
         </div>
       </div>
+      <button type="button" onClick={onReview} style={reviewBtnStyle}>
+        問題へ
+      </button>
     </div>
   );
 }
