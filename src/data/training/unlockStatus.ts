@@ -23,6 +23,7 @@ export const FLOP_INTERMEDIATE_UNLOCK_THRESHOLD = 20;
 export interface UnlockStatus {
   beginnerUnlocked: boolean;        // 常に true
   beginnerOpenUnlocked: boolean;    // 初級基礎クリア(満点)で解放
+  beginnerVsOpenUnlocked: boolean;  // 初級基礎クリア(満点)で解放
   intermediateUnlocked: boolean;
   advancedUnlocked: boolean;
   superAdvancedUnlocked: boolean;   // 常に false (未実装)
@@ -39,6 +40,7 @@ export function computeUnlockStatus(records: ReadonlyArray<TrainingResult>): Unl
   return {
     beginnerUnlocked: true,
     beginnerOpenUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
+    beginnerVsOpenUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
     intermediateUnlocked: bestOf('preflop_beginner') >= INTERMEDIATE_UNLOCK_THRESHOLD,
     advancedUnlocked: bestOf('preflop_intermediate') >= ADVANCED_UNLOCK_THRESHOLD,
     superAdvancedUnlocked: false,
@@ -54,6 +56,8 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
       return status.beginnerUnlocked;
     case 'preflop_beginner_open':
       return status.beginnerOpenUnlocked;
+    case 'preflop_beginner_vs_open':
+      return status.beginnerVsOpenUnlocked;
     // 中級ポジション別 (EP/LP/Blind) は中級総合と同じタイミングで解放 (初級 100%)。
     case 'preflop_intermediate':
     case 'preflop_intermediate_ep':
@@ -84,6 +88,7 @@ export function isLevelUnlocked(levelKey: string, status: UnlockStatus): boolean
 export function lockHintFor(levelKey: string): string | null {
   switch (levelKey) {
     case 'preflop_beginner_open':
+    case 'preflop_beginner_vs_open':
       return `初級 基礎で ${INTERMEDIATE_UNLOCK_THRESHOLD}/20 取るとアンロック`;
     case 'preflop_intermediate':
     case 'preflop_intermediate_ep':

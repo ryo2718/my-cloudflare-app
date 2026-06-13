@@ -47,6 +47,12 @@ describe('computeUnlockStatus (アンロック判定)', () => {
     expect(computeUnlockStatus([]).beginnerOpenUnlocked).toBe(false);
   });
 
+  it('初級 vs オープン: 初級基礎 20/20 で解放 / 19 では不可', () => {
+    expect(computeUnlockStatus([rec('preflop_beginner', 20)]).beginnerVsOpenUnlocked).toBe(true);
+    expect(computeUnlockStatus([rec('preflop_beginner', 19)]).beginnerVsOpenUnlocked).toBe(false);
+    expect(computeUnlockStatus([]).beginnerVsOpenUnlocked).toBe(false);
+  });
+
   it('初級 20/20 → フロップ初級アンロック / 19 では不可', () => {
     expect(computeUnlockStatus([rec('preflop_beginner', 20)]).flopBeginnerUnlocked).toBe(true);
     expect(computeUnlockStatus([rec('preflop_beginner', 19)]).flopBeginnerUnlocked).toBe(false);
@@ -103,6 +109,7 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
   const allLocked = {
     beginnerUnlocked: true,
     beginnerOpenUnlocked: false,
+    beginnerVsOpenUnlocked: false,
     intermediateUnlocked: false,
     advancedUnlocked: false,
     superAdvancedUnlocked: false,
@@ -112,6 +119,7 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
   const allUnlocked = {
     beginnerUnlocked: true,
     beginnerOpenUnlocked: true,
+    beginnerVsOpenUnlocked: true,
     intermediateUnlocked: true,
     advancedUnlocked: true,
     superAdvancedUnlocked: false, // 超上級は常に false
@@ -125,6 +133,10 @@ describe('isLevelUnlocked (level.key → ロック判定)', () => {
   it('preflop_beginner_open: beginnerOpenUnlocked に従う', () => {
     expect(isLevelUnlocked('preflop_beginner_open', allLocked)).toBe(false);
     expect(isLevelUnlocked('preflop_beginner_open', allUnlocked)).toBe(true);
+  });
+  it('preflop_beginner_vs_open: beginnerVsOpenUnlocked に従う', () => {
+    expect(isLevelUnlocked('preflop_beginner_vs_open', allLocked)).toBe(false);
+    expect(isLevelUnlocked('preflop_beginner_vs_open', allUnlocked)).toBe(true);
   });
   it('preflop_intermediate: status に従う', () => {
     expect(isLevelUnlocked('preflop_intermediate', allLocked)).toBe(false);

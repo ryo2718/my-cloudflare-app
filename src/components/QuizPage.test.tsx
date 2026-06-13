@@ -62,8 +62,8 @@ describe('<QuizPage /> 静的表示', () => {
 
   it('見出しに合計点 (current/max) を表示。実装済み階級の満点のみが分母', () => {
     const html = staticHtml();
-    // 未挑戦なので current=0。preflop 初級 = 基礎20 + オープン10 = 30pt。
-    expect(html).toContain('/ 30pt');
+    // 未挑戦なので current=0。preflop 初級 = 基礎20 + オープン10 + vsオープン20 = 50pt。
+    expect(html).toContain('/ 50pt');
     // preflop 中級 = 総合40 + EP20 + LP20 + Blind30 = 110pt。
     expect(html).toContain('/ 110pt');
     // flop 初級 = 20pt、flop 中級 = CB60×2 + ドンク60 = 180pt。
@@ -139,6 +139,7 @@ describe('<QuizPage /> アコーディオン開閉', () => {
     const beginnerHeaders = screen.getAllByRole('button', { name: /初級/ });
     await user.click(beginnerHeaders[0]); // preflop 初級
     expect(screen.getAllByText(/🔒/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('初級 基礎で 20/20 取るとアンロック')).toBeTruthy();
+    // オープン / vs オープン の 2 モードがロック → 同じヒントが複数。
+    expect(screen.getAllByText('初級 基礎で 20/20 取るとアンロック').length).toBeGreaterThanOrEqual(1);
   });
 });

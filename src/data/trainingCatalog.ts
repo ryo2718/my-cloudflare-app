@@ -49,7 +49,8 @@ export const TRAINING_CATALOG: ReadonlyArray<TrainingCategory> = [
       // 初級オープン: 各ポジションのオープン頻度をスライダーで回答。1問0.5pt × 20問 = 10pt。
       //   best_score は正解数 (0-20) で保存し、pt は points=0.5 で換算 (best_score INTEGER のため)。
       { key: 'preflop_beginner_open',         label: '初級 オープン',          points: 0.5, questionCount: 20, timeLimitSec: 50, implemented: true },
-      { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: null, questionCount: null, timeLimitSec: null, implemented: false },
+      // 初級 vs オープン: 相手のオープンへの応答を複数選択 (allin/raise/call/fold)。1問1pt × 20問 = 20pt。
+      { key: 'preflop_beginner_vs_open',      label: '初級 vs オープン',       points: 1,    questionCount: 20,   timeLimitSec: 50, implemented: true  },
       { key: 'preflop_beginner_vs_3bet_4bet', label: '初級 vs 3ベット/4ベット', points: null, questionCount: null, timeLimitSec: null, implemented: false },
     ],
   },

@@ -53,6 +53,7 @@ function useHands(file: string): Record<string, HandStrategy> | null {
 export function RuleExplanation({ levelKey }: { levelKey: string }) {
   if (levelKey === 'preflop_beginner') return <BeginnerRule />;
   if (levelKey === 'preflop_beginner_open') return <BeginnerOpenRule />;
+  if (levelKey === 'preflop_beginner_vs_open') return <BeginnerVsOpenRule />;
   if (levelKey === 'preflop_intermediate') return <IntermediateRule />;
   if (levelKey === 'preflop_intermediate_ep') return <PositionalRule mode="ep" />;
   if (levelKey === 'preflop_intermediate_lp') return <PositionalRule mode="lp" />;
@@ -355,6 +356,69 @@ function BeginnerOpenRule() {
       <Card>
         {hands ? (
           <HandRangeMatrix hands={hands} highlightHand="ATo" />
+        ) : (
+          <div style={mutedStyle}>レンジ読み込み中…</div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 初級 vs オープン (相手のオープンへの応答を複数選択・優しい採点)
+// ---------------------------------------------------------------------------
+
+function BeginnerVsOpenRule() {
+  const hands = useHands('cor_bb.json');
+  return (
+    <div>
+      <SolutionConditions />
+      <SectionTitle>このモードについて</SectionTitle>
+      <Card>
+        <p style={bodyTextStyle}>
+          相手のオープン(レイズ)に対して、自分のハンドで
+          <strong>オールイン / レイズ / コール / フォールド</strong>のどれを取るかを答えます。
+          複数選択できます。
+        </p>
+      </Card>
+
+      <SectionTitle>問題の例</SectionTitle>
+      <Card>
+        <LabelValue label="opener" value="CO raise 2.5BB" />
+        <LabelValue label="自分" value="BB" />
+        <Divider />
+        <div style={handBoxStyle}>
+          <CardSet
+            cards={[
+              { rank: 'A' as Rank, suit: 's' as Suit },
+              { rank: '5' as Rank, suit: 's' as Suit },
+            ]}
+            size="md"
+            gap={4}
+          />
+        </div>
+      </Card>
+
+      <SectionTitle>どう応答する?(複数選択可)</SectionTitle>
+      <Card>
+        <FourChoicesPreview />
+      </Card>
+
+      <SectionTitle>採点ルール(優しい採点)</SectionTitle>
+      <div style={scoringBoxStyle}>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>頻度0%のアクションを選ぶ → <span style={ptRedStyle}>0pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>頻度80%以上のアクションを選ばない → <span style={ptRedStyle}>0pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>それ以外 → <span style={ptGreenStyle}>1pt</span></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span><strong>マイナスポイントなし(減点なし)</strong></p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>全20問・満点 20pt(1問 1pt)・制限時間 50秒/問</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>90%(=18pt)以上でクリア</p>
+        <p style={scoringRowStyle}><span style={bullet}>●</span>AA・KK は出題されない(簡単すぎるため)</p>
+      </div>
+
+      <SectionTitle>レンジ表(BB vs CO open)</SectionTitle>
+      <Card>
+        {hands ? (
+          <HandRangeMatrix hands={hands} highlightHand="A5s" />
         ) : (
           <div style={mutedStyle}>レンジ読み込み中…</div>
         )}

@@ -28,6 +28,8 @@ const TRAINING_TYPES = new Set<string>([
   'preflop_beginner',
   // 初級オープン (open 頻度スライダー・優しい採点)。best_score は正解数 (0-20)。
   'preflop_beginner_open',
+  // 初級 vs オープン (複数選択・優しい採点)。best_score は正解数 (0-20)。
+  'preflop_beginner_vs_open',
   'preflop_intermediate',
   // 中級ポジション別 (EP/LP/Blind)
   'preflop_intermediate_ep',
