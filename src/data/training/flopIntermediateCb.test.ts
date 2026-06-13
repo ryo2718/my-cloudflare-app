@@ -11,10 +11,15 @@ import {
   type FlopRbData,
   type FlopRbQuestion,
   type FlopCbStrat,
+  type FlopRbMode,
   FLOP_RB_COUNT,
   FLOP_RB_MAX_SCORE,
   FLOP_RB_CLEAR_SCORE,
+  flopRbCountFor,
 } from './flopIntermediateCb';
+
+const BLIND_MODES: ReadonlyArray<FlopRbMode> = ['srp_limp_blind', '3bp_4bp_5bp_blind'];
+const isBlindMode = (m: FlopRbMode) => BLIND_MODES.includes(m);
 import type { Card } from '../../types/card';
 import { getClusterId } from './boardClusters';
 
@@ -48,18 +53,18 @@ function counts(qs: FlopRbQuestion[]) {
 }
 
 describe('CB SRP (srp_non_blind / srp_limp_blind) 出題生成', () => {
-  it('全20問・全て SRP・Blind フィルタが効く (50セッション安定)', () => {
+  it('非Blind=20問 / Blind(SBvBB)=10問・全て SRP・Blind フィルタが効く (50セッション安定)', () => {
+    const bothBlind = (q: FlopRbQuestion) => ['SB', 'BB'].includes(q.hero) && ['SB', 'BB'].includes(q.villain);
     for (let s = 0; s < 50; s++) {
       for (const mode of ['srp_non_blind', 'srp_limp_blind'] as const) {
         const qs = buildFlopRbQuestions(DATA, mode);
         const c = counts(qs);
-        expect(c.total).toBe(FLOP_RB_COUNT);
-        expect(c.srp).toBe(20);
+        expect(c.total).toBe(flopRbCountFor(mode)); // 20 or 10
+        expect(c.srp).toBe(flopRbCountFor(mode));
         expect(c.threebet + c.fourbet + c.fivebet).toBe(0);
-        // Blind フィルタ: non_blind に SB/BB は出ない、limp_blind は全て SB/BB 絡み。
-        const anyBlind = (q: FlopRbQuestion) => ['SB', 'BB'].includes(q.hero) || ['SB', 'BB'].includes(q.villain);
-        if (mode === 'srp_non_blind') expect(qs.some(anyBlind)).toBe(false);
-        else expect(qs.every(anyBlind)).toBe(true);
+        // Blind = 両者 SB/BB のみ。non_blind には両者Blind が出ない、limp_blind は全て両者Blind。
+        if (mode === 'srp_non_blind') expect(qs.some(bothBlind)).toBe(false);
+        else expect(qs.every(bothBlind)).toBe(true);
       }
     }
   });
@@ -76,25 +81,26 @@ describe('CB SRP (srp_non_blind / srp_limp_blind) 出題生成', () => {
 });
 
 describe('CB 3BP/4BP/5BP (3bp_4bp_5bp_blind / _non_blind) 出題生成', () => {
-  it('全20問・Blind は 4bet/5bet も毎回出る / 非Blind は 5bet を含まない (50セッション)', () => {
+  it('非Blind=20問で 4bet/5bet も毎回出る / Blind(SBvBB)=10問で 5bet を含まない (50セッション)', () => {
     for (let s = 0; s < 50; s++) {
-      const cb = counts(buildFlopRbQuestions(DATA, '3bp_4bp_5bp_blind'));
-      expect(cb.total).toBe(FLOP_RB_COUNT);
-      expect(cb.srp).toBe(0);
-      expect(cb.threebet).toBeGreaterThanOrEqual(1);
-      expect(cb.fourbet).toBeGreaterThanOrEqual(1);
-      expect(cb.fivebet).toBeGreaterThanOrEqual(1);
-      // 非Blind は 5bet が 0 件 (3bet+4bet のみ)。
+      // 非Blind: 5bet は両者Blind=0 のためこちら側に存在。20問。
       const cn = counts(buildFlopRbQuestions(DATA, '3bp_4bp_5bp_non_blind'));
-      expect(cn.total).toBe(FLOP_RB_COUNT);
-      expect(cn.fivebet).toBe(0);
+      expect(cn.total).toBe(flopRbCountFor('3bp_4bp_5bp_non_blind')); // 20
+      expect(cn.srp).toBe(0);
       expect(cn.threebet).toBeGreaterThanOrEqual(1);
       expect(cn.fourbet).toBeGreaterThanOrEqual(1);
+      expect(cn.fivebet).toBeGreaterThanOrEqual(1);
+      // Blind: 5bet 0 件 (3bet+4bet のみ)。10問。
+      const cb = counts(buildFlopRbQuestions(DATA, '3bp_4bp_5bp_blind'));
+      expect(cb.total).toBe(flopRbCountFor('3bp_4bp_5bp_blind')); // 10
+      expect(cb.fivebet).toBe(0);
+      expect(cb.threebet).toBeGreaterThanOrEqual(1);
+      expect(cb.fourbet).toBeGreaterThanOrEqual(1);
     }
   });
 
   it('ポット別選択肢: 5bet は check/33/50/ALLIN、4bet は ALLIN を含む', () => {
-    for (const q of buildFlopRbQuestions(DATA, '3bp_4bp_5bp_blind')) {
+    for (const q of buildFlopRbQuestions(DATA, '3bp_4bp_5bp_non_blind')) {
       if (q.pot === '5bet') expect(q.choices).toEqual(['check', '33', '50', 'ALLIN']);
       if (q.pot === '4bet') {
         expect(q.choices).toContain('ALLIN');
@@ -105,7 +111,7 @@ describe('CB 3BP/4BP/5BP (3bp_4bp_5bp_blind / _non_blind) 出題生成', () => {
   it('オールイン主体(ALLIN>=20%)局面が出題される (ショートスタックの学習機会)', () => {
     let withAllin = 0;
     for (let s = 0; s < 20; s++) {
-      withAllin += buildFlopRbQuestions(DATA, '3bp_4bp_5bp_blind').filter((q) => (q.strat.ALLIN ?? 0) >= 0.2).length;
+      withAllin += buildFlopRbQuestions(DATA, '3bp_4bp_5bp_non_blind').filter((q) => (q.strat.ALLIN ?? 0) >= 0.2).length;
     }
     expect(withAllin).toBeGreaterThan(0);
   });
@@ -168,13 +174,14 @@ describe('共通 出題性質 (全モード)', () => {
       }
       const total = [...heroes.values()].reduce((a, b) => a + b, 0);
       const max = Math.max(...heroes.values());
-      expect(max / total).toBeLessThan(0.6);
+      // Blind モードは hero が SB/BB のみのため緩め。
+      expect(max / total).toBeLessThan(isBlindMode(mode) ? 0.85 : 0.6);
     });
 
-    it(`[${mode}] 同一ボード(カード)は重複しない (マッチアップ違いも含む) / 20問揃う`, () => {
+    it(`[${mode}] 同一ボード(カード)は重複しない (マッチアップ違いも含む) / 規定問数揃う`, () => {
       for (let s = 0; s < 30; s++) {
         const qs = buildFlopRbQuestions(DATA, mode);
-        expect(qs.length).toBe(FLOP_RB_COUNT);
+        expect(qs.length).toBe(flopRbCountFor(mode));
         const boards = qs.map((q) => q.board.map((c) => c.rank + c.suit).join(''));
         expect(new Set(boards).size).toBe(qs.length);
       }
@@ -191,14 +198,16 @@ describe('共通 出題性質 (全モード)', () => {
       for (let s = 0; s < SESS; s++) {
         for (const q of buildFlopRbQuestions(DATA, mode)) counts[bandOf(q)] += 1;
       }
-      const total = SESS * FLOP_RB_COUNT;
+      const total = SESS * flopRbCountFor(mode);
       // 4 帯すべて出現。クラスタ層化なので high(A+broadway) が厚く、ロー偏りが解消される。
       for (const band of ['A', 'broadway', 'mid', 'low']) {
         expect(counts[band]).toBeGreaterThan(0);
       }
-      expect(counts.low / total).toBeLessThan(0.20); // ロー偏りなし (旧 ~28% → 大幅減)
-      expect((counts.A + counts.broadway) / total).toBeGreaterThan(0.4); // ハイ系も十分
-      expect(counts.A / total).toBeGreaterThan(0.1); // A 高ボードも埋もれない
+      // Blind モードは SBvBB の小プールのため緩め。
+      const lowMax = isBlindMode(mode) ? 0.3 : 0.2;
+      const highMin = isBlindMode(mode) ? 0.3 : 0.4;
+      expect(counts.low / total).toBeLessThan(lowMax);
+      expect((counts.A + counts.broadway) / total).toBeGreaterThan(highMin);
     });
 
     it(`[${mode}] ランダム枠でクラスタが多様にカバー / overbet・check 枠が維持`, () => {

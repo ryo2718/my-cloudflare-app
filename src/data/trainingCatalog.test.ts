@@ -20,8 +20,8 @@ describe('TRAINING_CATALOG', () => {
     const byKey = (k: string) => TRAINING_CATALOG[1].levels.find((l) => l.key === k);
     expect(byKey('srp_non_blind')?.label).toBe('レンジCB SRP Blind以外');
     expect(byKey('srp_limp_blind')?.label).toBe('レンジCB SRP リンプ&Blind');
-    expect(byKey('3bp_4bp_5bp_non_blind')?.label).toBe('レンジCB 3BP/4BP Blind以外');
-    expect(byKey('3bp_4bp_5bp_blind')?.label).toBe('レンジCB 3BP/4BP/5BP Blind');
+    expect(byKey('3bp_4bp_5bp_non_blind')?.label).toBe('レンジCB 3BP/4BP/5BP Blind以外');
+    expect(byKey('3bp_4bp_5bp_blind')?.label).toBe('レンジCB 3BP/4BP Blind');
     expect(byKey('donk_bmcb')?.label).toBe('レンジドンク/BMCB');
   });
 
@@ -145,9 +145,14 @@ describe('TRAINING_CATALOG', () => {
     expect(TRAINING_CATALOG[1].levels.slice(6).every((l) => l.implemented === false)).toBe(true); // 上級/超上級
   });
 
-  it('flop: 初級20問 / 中級5モードは各20問、上級以降は questionCount=null', () => {
+  it('flop: 初級20問 / 中級は非Blind/donk=20問・Blind=10問、上級以降は null', () => {
+    const byKey = (k: string) => TRAINING_CATALOG[1].levels.find((l) => l.key === k);
     expect(TRAINING_CATALOG[1].levels[0].questionCount).toBe(20); // 初級
-    expect(TRAINING_CATALOG[1].levels.slice(1, 6).every((l) => l.questionCount === 20)).toBe(true); // 中級5モード
+    expect(byKey('srp_non_blind')?.questionCount).toBe(20);
+    expect(byKey('srp_limp_blind')?.questionCount).toBe(10); // Blind は半分
+    expect(byKey('3bp_4bp_5bp_non_blind')?.questionCount).toBe(20);
+    expect(byKey('3bp_4bp_5bp_blind')?.questionCount).toBe(10); // Blind は半分
+    expect(byKey('donk_bmcb')?.questionCount).toBe(20);
     expect(TRAINING_CATALOG[1].levels.slice(6).every((l) => l.questionCount === null)).toBe(true);
   });
 });
@@ -186,9 +191,13 @@ describe('helpers', () => {
     expect(formatLevelInfo(open)).toBe('20問・最大 10pt・制限時間 50s');
   });
 
-  it('formatLevelInfo: フロップ中級5モードは "20問・最大 40pt・制限時間 30s"', () => {
-    for (let i = 1; i <= 5; i++) {
-      expect(formatLevelInfo(TRAINING_CATALOG[1].levels[i])).toBe('20問・最大 40pt・制限時間 30s');
+  it('formatLevelInfo: フロップ中級は非Blind="20問・最大 40pt"・Blind="10問・最大 20pt" (制限時間 30s)', () => {
+    const byKey = (k: string) => TRAINING_CATALOG[1].levels.find((l) => l.key === k)!;
+    for (const k of ['srp_non_blind', '3bp_4bp_5bp_non_blind', 'donk_bmcb']) {
+      expect(formatLevelInfo(byKey(k))).toBe('20問・最大 40pt・制限時間 30s');
+    }
+    for (const k of ['srp_limp_blind', '3bp_4bp_5bp_blind']) {
+      expect(formatLevelInfo(byKey(k))).toBe('10問・最大 20pt・制限時間 30s');
     }
   });
 
@@ -215,8 +224,10 @@ describe('maxScoreFor', () => {
     const open = TRAINING_CATALOG[0].levels.find((l) => l.key === 'preflop_beginner_open')!;
     expect(maxScoreFor(open)).toBe(10);
   });
-  it('フロップ中級5モード: 40 (questionCount * 2)', () => {
-    for (let i = 1; i <= 5; i++) expect(maxScoreFor(TRAINING_CATALOG[1].levels[i])).toBe(40);
+  it('フロップ中級: 非Blind/donk=40・Blind=20 (questionCount * 2)', () => {
+    const byKey = (k: string) => TRAINING_CATALOG[1].levels.find((l) => l.key === k)!;
+    for (const k of ['srp_non_blind', '3bp_4bp_5bp_non_blind', 'donk_bmcb']) expect(maxScoreFor(byKey(k))).toBe(40);
+    for (const k of ['srp_limp_blind', '3bp_4bp_5bp_blind']) expect(maxScoreFor(byKey(k))).toBe(20);
   });
   it('未計画 (questionCount=null) → 0', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[5])).toBe(0); // 上級

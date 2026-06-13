@@ -72,9 +72,11 @@ export function flopRbModeOf(levelKey: string): FlopRbMode {
     : 'srp_non_blind';
 }
 
-/** Blind (SB/BB) が絡む局面か (hero または villain がブラインド)。リンプ sbc_* も SB 絡みで true。 */
+/** Blind 局面か = 両者とも Blind (SB vs BB) のみ。片方だけ Blind (UTG vs SB 等) は通常SRP=非Blind。
+ *  リンプ sbc_* は実データ上ほぼ全て SB vs BB なので Blind 側に入る。 */
 function isBlindMatchup(rec: { hero: string; villain: string }): boolean {
-  return rec.hero === 'SB' || rec.hero === 'BB' || rec.villain === 'SB' || rec.villain === 'BB';
+  const bl = (p: string) => p === 'SB' || p === 'BB';
+  return bl(rec.hero) && bl(rec.villain);
 }
 
 /** 設問種類ごとの出題プロンプト。 */
@@ -140,29 +142,42 @@ interface FlopRbSegment {
   check: number;
 }
 
-/** モード別の出題内訳 (各合計20)。Blind/非Blind は seg.blind でプールを絞る。 */
+/** モード別の出題内訳。非Blind/donk=合計20問、Blind(SB vs BB)=合計10問 (ryoji 確定)。
+ *  Blind/非Blind は seg.blind でプールを絞る (true=両者Blindのみ)。 */
 export const FLOP_RB_MODE_SEGMENTS: Record<FlopRbMode, ReadonlyArray<FlopRbSegment>> = {
-  // SRP (count 30→20 比率維持: overbet 6→4, check 8→5)。
+  // SRP 非Blind (20問, 30→20比率: overbet 6→4, check 8→5)。
   srp_non_blind: [{ source: 'cb', kind: 'cb', cat: 'SRP', blind: false, count: 20, overbet: 4, check: 5 }],
-  srp_limp_blind: [{ source: 'cb', kind: 'cb', cat: 'SRP', blind: true, count: 20, overbet: 4, check: 5 }],
-  // 3bp/4bp/5bp。非Blind は 5bet が 0 件のため 3bet+4bet のみ (21:6 → 16:4)。
+  // SRP Blind=SB vs BB (10問, 30→10比率: overbet 6→2, check 8→3)。
+  srp_limp_blind: [{ source: 'cb', kind: 'cb', cat: 'SRP', blind: true, count: 10, overbet: 2, check: 3 }],
+  // 3bp/4bp/5bp 非Blind (20問)。5bet は両者Blind=0 のため非Blind側に存在 → 3bet:4bet:5bet=14:4:2。
   '3bp_4bp_5bp_non_blind': [
-    { source: 'cb', kind: 'cb', cat: '3bet', blind: false, count: 16, overbet: 2, check: 5 },
+    { source: 'cb', kind: 'cb', cat: '3bet', blind: false, count: 14, overbet: 2, check: 5 },
     { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '4bet', blind: false, count: 4, overbet: 1, check: 1 },
+    { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '5bet', blind: false, count: 2, overbet: 1, check: 0 },
   ],
-  // Blind は 3bet:4bet:5bet = 21:6:3 → 14:4:2。
+  // 3bp 4bp Blind=SB vs BB (10問)。5bet は 0 件のため 3bet+4bet のみ (21:6 → 8:2)。
   '3bp_4bp_5bp_blind': [
-    { source: 'cb', kind: 'cb', cat: '3bet', blind: true, count: 14, overbet: 2, check: 5 },
-    { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '4bet', blind: true, count: 4, overbet: 1, check: 1 },
-    { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '5bet', blind: true, count: 2, overbet: 1, check: 0 },
+    { source: 'cb', kind: 'cb', cat: '3bet', blind: true, count: 8, overbet: 1, check: 3 },
+    { source: 'cb', kind: 'cb', cat: '4bet5bet', pot: '4bet', blind: true, count: 2, overbet: 1, check: 0 },
   ],
-  // ドンク 10 / BMCB 10 (= 5:5、分割なし)。SRP+3bet ポットから出題。
+  // ドンク 10 / BMCB 10 (= 5:5、分割なし、20問)。SRP+3bet ポットから出題。
   donk_bmcb: [
     { source: 'donk', kind: 'donk', pots: ['SRP', '3bet'], count: 10, overbet: 1, check: 4 },
     { source: 'bmcb', kind: 'bmcb', pots: ['SRP', '3bet'], count: 10, overbet: 1, check: 4 },
   ],
 };
 
+/** モードの総出題数 (= セグメント count 合計)。非Blind/donk=20、Blind=10。 */
+export function flopRbCountFor(mode: FlopRbMode): number {
+  return FLOP_RB_MODE_SEGMENTS[mode].reduce((s, seg) => s + seg.count, 0);
+}
+/** モードの満点 (count × 2pt)。 */
+export function flopRbMaxScoreFor(mode: FlopRbMode): number {
+  return flopRbCountFor(mode) * FLOP_RB_POINTS_PER_Q;
+}
+
+// 非Blind/donk モードの標準値 (20問/40pt/クリア32)。Blind モードは半分 (10問/20pt/クリア16)。
+// モード別の値は flopRbCountFor / flopRbMaxScoreFor を使う。
 export const FLOP_RB_COUNT = 20;
 export const FLOP_RB_MAX_SCORE = FLOP_RB_COUNT * FLOP_RB_POINTS_PER_Q; // 40
 /** クリア = 満点の 80% (= 32pt)。 */
@@ -495,11 +510,6 @@ function poolForSegment(data: FlopRbData, seg: FlopRbSegment): CbBoard[] {
   return pool;
 }
 
-/** ロード済みデータから 1 モード分 (30問) を生成 (純粋関数)。 */
-/** 意図的総数の範囲 (中級)。 */
-export const INTERMEDIATE_INTENTIONAL_MIN = 6;
-export const INTERMEDIATE_INTENTIONAL_MAX = 12;
-
 /** 解決済み出題候補 (どのプールの似たボードを使うかも保持)。 */
 interface RbPick {
   rec: CbBoard;
@@ -523,9 +533,13 @@ export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp_n
 
   const segs = FLOP_RB_MODE_SEGMENTS[mode];
   const segPools = segs.map((seg) => ({ seg, pool: poolForSegment(data, seg) }));
+  const total = flopRbCountFor(mode); // 20 (非Blind/donk) or 10 (Blind)
 
   // --- 意図的問題 (N) ---
-  const N = INTERMEDIATE_INTENTIONAL_MIN + Math.floor(Math.random() * (INTERMEDIATE_INTENTIONAL_MAX - INTERMEDIATE_INTENTIONAL_MIN + 1));
+  // 総出題数に比例して意図的枠を決める (total=20→6..12, total=10→3..6)。
+  const nMin = Math.round(total * 0.3);
+  const nMax = Math.round(total * 0.6);
+  const N = nMin + Math.floor(Math.random() * (nMax - nMin + 1));
   const intPer = apportionByRatio(N, segPools.map(({ seg }) => seg.count));
   const intentional: RbPick[] = [];
   segPools.forEach(({ seg, pool }, i) => {
@@ -550,7 +564,7 @@ export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp_n
       byBoard.set(rec.board, g);
     }
   }
-  const need = FLOP_RB_COUNT - intentional.length;
+  const need = total - intentional.length;
   const randBoards = sampleByClusterRoundRobin([...byBoard.keys()], need, { excludeBoards: seen });
   const random: RbPick[] = [];
   for (const b of randBoards) {

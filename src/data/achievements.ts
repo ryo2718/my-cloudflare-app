@@ -111,9 +111,9 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'fish_pf_lp',          tier: 'fish', name: 'プリフロップ 中級 LP 80%',              desc: '80% (16/20)', trainingType: 'preflop_intermediate_lp', maxBest: 20 },
   { id: 'fish_pf_blind',       tier: 'fish', name: 'プリフロップ 中級 Blind 80%',           desc: '80% (24/30)', trainingType: 'preflop_intermediate_blind', maxBest: 30 },
   { id: 'fish_flop_srp_non_blind',         tier: 'fish', name: 'ポストフロップ 中級 SRP Blind以外 80%',     desc: '80% (32/40)', trainingType: 'srp_non_blind', maxBest: 40 },
-  { id: 'fish_flop_srp_limp_blind',        tier: 'fish', name: 'ポストフロップ 中級 SRP リンプ&Blind 80%', desc: '80% (32/40)', trainingType: 'srp_limp_blind', maxBest: 40 },
-  { id: 'fish_flop_3bp_4bp_5bp_non_blind', tier: 'fish', name: 'ポストフロップ 中級 3BP/4BP Blind以外 80%', desc: '80% (32/40)', trainingType: '3bp_4bp_5bp_non_blind', maxBest: 40 },
-  { id: 'fish_flop_3bp_4bp_5bp_blind',     tier: 'fish', name: 'ポストフロップ 中級 3BP/4BP/5BP Blind 80%', desc: '80% (32/40)', trainingType: '3bp_4bp_5bp_blind', maxBest: 40 },
+  { id: 'fish_flop_srp_limp_blind',        tier: 'fish', name: 'ポストフロップ 中級 SRP リンプ&Blind 80%', desc: '80% (16/20)', trainingType: 'srp_limp_blind', maxBest: 20 },
+  { id: 'fish_flop_3bp_4bp_5bp_non_blind', tier: 'fish', name: 'ポストフロップ 中級 3BP/4BP/5BP Blind以外 80%', desc: '80% (32/40)', trainingType: '3bp_4bp_5bp_non_blind', maxBest: 40 },
+  { id: 'fish_flop_3bp_4bp_5bp_blind',     tier: 'fish', name: 'ポストフロップ 中級 3BP/4BP Blind 80%', desc: '80% (16/20)', trainingType: '3bp_4bp_5bp_blind', maxBest: 20 },
   { id: 'fish_flop_donk_bmcb',             tier: 'fish', name: 'ポストフロップ 中級 ドンク/BMCB 80%',       desc: '80% (32/40)', trainingType: 'donk_bmcb', maxBest: 40 },
 
   // プロフェッショナル (shark): 中級各モードを 100%。計 9 個 (判定・記録のみ。ランクUI未実装)。
@@ -122,9 +122,9 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'shark_pf_lp',          tier: 'shark', name: 'プリフロップ 中級 LP 100%',             desc: '100% (20/20)', trainingType: 'preflop_intermediate_lp', maxBest: 20 },
   { id: 'shark_pf_blind',       tier: 'shark', name: 'プリフロップ 中級 Blind 100%',          desc: '100% (30/30)', trainingType: 'preflop_intermediate_blind', maxBest: 30 },
   { id: 'shark_flop_srp_non_blind',         tier: 'shark', name: 'ポストフロップ 中級 SRP Blind以外 100%',     desc: '100% (40/40)', trainingType: 'srp_non_blind', maxBest: 40 },
-  { id: 'shark_flop_srp_limp_blind',        tier: 'shark', name: 'ポストフロップ 中級 SRP リンプ&Blind 100%', desc: '100% (40/40)', trainingType: 'srp_limp_blind', maxBest: 40 },
-  { id: 'shark_flop_3bp_4bp_5bp_non_blind', tier: 'shark', name: 'ポストフロップ 中級 3BP/4BP Blind以外 100%', desc: '100% (40/40)', trainingType: '3bp_4bp_5bp_non_blind', maxBest: 40 },
-  { id: 'shark_flop_3bp_4bp_5bp_blind',     tier: 'shark', name: 'ポストフロップ 中級 3BP/4BP/5BP Blind 100%', desc: '100% (40/40)', trainingType: '3bp_4bp_5bp_blind', maxBest: 40 },
+  { id: 'shark_flop_srp_limp_blind',        tier: 'shark', name: 'ポストフロップ 中級 SRP リンプ&Blind 100%', desc: '100% (20/20)', trainingType: 'srp_limp_blind', maxBest: 20 },
+  { id: 'shark_flop_3bp_4bp_5bp_non_blind', tier: 'shark', name: 'ポストフロップ 中級 3BP/4BP/5BP Blind以外 100%', desc: '100% (40/40)', trainingType: '3bp_4bp_5bp_non_blind', maxBest: 40 },
+  { id: 'shark_flop_3bp_4bp_5bp_blind',     tier: 'shark', name: 'ポストフロップ 中級 3BP/4BP Blind 100%', desc: '100% (20/20)', trainingType: '3bp_4bp_5bp_blind', maxBest: 20 },
   { id: 'shark_flop_donk_bmcb',             tier: 'shark', name: 'ポストフロップ 中級 ドンク/BMCB 100%',       desc: '100% (40/40)', trainingType: 'donk_bmcb', maxBest: 40 },
 ];
 
