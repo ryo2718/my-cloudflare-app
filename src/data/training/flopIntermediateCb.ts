@@ -274,18 +274,6 @@ function shuffle<T>(arr: T[]): T[] {
   return arr;
 }
 
-/** strat の支配バケット (最頻サイズ。check 含む)。 */
-function dominantKey(strat: FlopCbStrat): string {
-  let best = '';
-  let bestV = -1;
-  for (const [k, v] of Object.entries(strat)) {
-    if (v > bestV) {
-      bestV = v;
-      best = k;
-    }
-  }
-  return best;
-}
 
 /** strat 間の L1 距離 (近いほどサイズ構成が似ている)。 */
 function stratDistance(a: FlopCbStrat, b: FlopCbStrat, choices: ReadonlyArray<string>): number {
@@ -346,15 +334,16 @@ function isNearDup(a: Texture, b: Texture): boolean {
 }
 
 /**
- * 支配サイズが偏らないよう、pool を支配バケット別にグループ化してラウンドロビンで count 件抽選。
- * 「毎回33%」のような偏りを避ける。variant:board 重複は seen で防ぐ。
+ * ボードのハイカード帯 (A / broadway / mid / low) でグループ化し、ラウンドロビンで count 件抽選。
+ * 出題セットが特定の帯 (特にロー) に偏らないよう散らす。overbet/check 枠もこの抽選を通すので、
+ * ハイ系のオーバーベット・ロー系のチェック等を帯バランスよく拾える。variant:board 重複は seen で防ぐ。
  */
 function sampleVaried(pool: ReadonlyArray<CbBoard>, count: number, seen: Set<string>): CbBoard[] {
   const groups = new Map<string, CbBoard[]>();
   for (const b of pool) {
     const key = `${b.variant}:${b.board}`;
     if (seen.has(key)) continue;
-    const dk = dominantKey(b.strat);
+    const dk = textureOf(b.board).high; // A / broadway / mid / low
     const g = groups.get(dk) ?? [];
     g.push(b);
     groups.set(dk, g);

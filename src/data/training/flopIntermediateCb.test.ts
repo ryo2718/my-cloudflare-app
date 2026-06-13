@@ -154,6 +154,25 @@ describe('共通 出題性質 (全モード)', () => {
       const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
       expect(new Set(keys).size).toBe(qs.length);
     });
+
+    it(`[${mode}] ハイカード帯 (A/broadway/mid/low) がロー偏りせず散らばる`, () => {
+      const RANKS = '23456789TJQKA';
+      const bandOf = (q: FlopRbQuestion): string => {
+        const top = Math.max(...q.board.map((c) => RANKS.indexOf(c.rank)));
+        return top === 12 ? 'A' : top >= 8 ? 'broadway' : top >= 4 ? 'mid' : 'low';
+      };
+      const counts: Record<string, number> = { A: 0, broadway: 0, mid: 0, low: 0 };
+      const SESS = 40;
+      for (let s = 0; s < SESS; s++) {
+        for (const q of buildFlopRbQuestions(DATA, mode)) counts[bandOf(q)] += 1;
+      }
+      const total = SESS * FLOP_RB_COUNT;
+      // 4 帯すべて出現し、各帯が最低 12% 以上 / ローが 33% を超えない (均等 25% 付近を狙う)。
+      for (const band of ['A', 'broadway', 'mid', 'low']) {
+        expect(counts[band] / total).toBeGreaterThan(0.12);
+      }
+      expect(counts.low / total).toBeLessThan(0.33);
+    });
   }
 
   it('満点/クリア定数 (30問×2pt=60、クリア=54)', () => {
