@@ -207,6 +207,25 @@ describe('共通 出題性質 (全モード)', () => {
       expect(withCheckHeavy).toBeGreaterThan(0); // check 枠が維持される
     });
 
+    it(`[${mode}] run-aware: 支配サイズの連続が短縮される (平均)`, () => {
+      // check主体の srp/donkbmcb は content 由来で 1 セッション全 check もあり得る (max は content 上限)。
+      // よって「平均最長連続」で評価。3bp は実現可能なので厳しめ。
+      const bound = mode === '3bp' ? 4 : mode === 'srp' ? 7 : 9;
+      let sum = 0;
+      const S = 80;
+      for (let s = 0; s < S; s++) {
+        const qs = buildFlopRbQuestions(DATA, mode);
+        let run = 1;
+        let mx = 1;
+        for (let i = 1; i < qs.length; i++) {
+          run = dominant(qs[i].strat) === dominant(qs[i - 1].strat) ? run + 1 : 1;
+          mx = Math.max(mx, run);
+        }
+        sum += mx;
+      }
+      expect(sum / S).toBeLessThanOrEqual(bound);
+    });
+
     it(`[${mode}] 全て母集団内 (収録ボードのみ・母集団外フロップ混入なし)`, () => {
       for (let s = 0; s < 30; s++) {
         for (const q of buildFlopRbQuestions(DATA, mode)) {

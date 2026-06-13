@@ -15,6 +15,7 @@ import type { Position } from '../../types/strategy';
 import type { ActionItem } from './actionHistory';
 import { sampleByClusterRoundRobin } from './boardClusters';
 import { apportionByRatio } from './flopBeginner';
+import { shuffleWithRunLimit } from './runAwareShuffle';
 
 /** ポット種別 (実際のポット)。 */
 export type FlopRbPot = 'SRP' | '3bet' | '4bet' | '5bet';
@@ -549,7 +550,9 @@ export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp')
     };
   });
 
-  return shuffle(out);
+  // 出題順を run-aware シャッフル: 支配ベットサイズが長く連続しないよう散らす。
+  // (check 主体ボードが多いモードでも等間隔配置で単調さを最小化。)
+  return shuffleWithRunLimit(out, (q) => dominantKey(q.strat), 3);
 }
 
 export async function generateFlopRbQuestions(mode: FlopRbMode = 'srp'): Promise<FlopRbQuestion[]> {

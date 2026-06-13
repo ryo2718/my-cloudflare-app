@@ -8,6 +8,7 @@ import type { Rank, Suit, Card } from '../../types/card';
 import type { Position } from '../../types/strategy';
 import type { ActionItem } from './actionHistory';
 import { sampleByClusterRoundRobin } from './boardClusters';
+import { shuffleWithRunLimit } from './runAwareShuffle';
 
 export type FlopQuestionType = 'cb' | 'donk';
 export type FlopPot = 'SRP' | '3bet';
@@ -270,8 +271,9 @@ export function buildFlopQuestions(data: FlopTrainingData): FlopQuestion[] {
     out.push(buildQuestion((id += 1), type, rec, data));
   }
 
-  // 出題順をシャッフル (意図的→ランダム の固まりを崩す)。
-  return shuffle(out);
+  // 出題順を run-aware シャッフル: 正解 (打つ/打たない) が長く連続しないよう散らす
+  // (「次もチェック」という学習バイアス・単調さを防ぐ)。
+  return shuffleWithRunLimit(out, (q) => q.correct, 3);
 }
 
 /** ロード + 生成。 */
