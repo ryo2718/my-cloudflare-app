@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // 間違えた問題セクション: プリフロップ/ポストフロップの2カテゴリを折りたたみ表示。
-// ポストフロップ (レンジCB / レンジドンク・BMCB) を追加しつつ、既存のプリフロップが壊れないこと。
+// 階級 (初級/中級) で統合され、各カテゴリ 2 エントリ (= 計 4) になっていること。
 
 import { describe, it, expect } from 'vitest';
 import { render, screen, userEvent } from '../../test/ui';
@@ -28,32 +28,32 @@ function renderSection() {
   );
 }
 
-describe('MissedProblemsSection', () => {
-  it('プリフロップ/ポストフロップ両カテゴリと各モードを表示する', () => {
+describe('MissedProblemsSection (階級で統合)', () => {
+  it('プリフロップ/ポストフロップ両カテゴリ + 各 初級/中級 の階級エントリを表示する', () => {
     const { container } = renderSection();
-    // 2 カテゴリ見出し。
     expect(screen.getByText('プリフロップトレーニング')).toBeTruthy();
     expect(screen.getByText('ポストフロップトレーニング')).toBeTruthy();
-    // プリフロップの既存モード (壊れていない)。
-    expect(screen.getByText('中級 総合')).toBeTruthy();
-    // ポストフロップ 3 モード。
-    expect(screen.getByText('レンジCB SRP')).toBeTruthy();
-    expect(screen.getByText('レンジCB 3BP/4BP/5BP')).toBeTruthy();
-    expect(screen.getByText('レンジドンク/BMCB')).toBeTruthy();
-    // ポストフロップ各モードは復習一覧へのリンク (/quiz/review/flop/{training_type})。
-    expect(container.querySelector('a[href="/quiz/review/flop/flop_cb_srp"]')).toBeTruthy();
-    expect(container.querySelector('a[href="/quiz/review/flop/flop_donk_bmcb"]')).toBeTruthy();
+    // 各カテゴリ 初級/中級 の 2 エントリ = 計 4 (個別モードタブは廃止)。
+    expect(screen.getAllByText('初級').length).toBe(2);
+    expect(screen.getAllByText('中級').length).toBe(2);
+    // 階級プールの復習一覧へのリンク (tier キー)。
+    expect(container.querySelector('a[href="/quiz/review/preflop/tier_pf_beginner"]')).toBeTruthy();
+    expect(container.querySelector('a[href="/quiz/review/preflop/tier_pf_intermediate"]')).toBeTruthy();
+    expect(container.querySelector('a[href="/quiz/review/flop/tier_flop_beginner"]')).toBeTruthy();
+    expect(container.querySelector('a[href="/quiz/review/flop/tier_flop_intermediate"]')).toBeTruthy();
+    // 個別モードタブは出さない (統合済み)。
+    expect(screen.queryByText('レンジCB SRP')).toBeNull();
+    expect(screen.queryByText('中級 総合')).toBeNull();
   });
 
   it('カテゴリ見出しのタップで折りたたみできる', async () => {
     const user = userEvent.setup();
     renderSection();
-    expect(screen.getByText('レンジCB SRP')).toBeTruthy();
-    // ポストフロップの見出しボタンをタップ → 配下が閉じる。
+    expect(screen.getAllByText('初級').length).toBe(2);
+    // ポストフロップの見出しボタンをタップ → 配下が閉じる (初級/中級が片方ぶん減る)。
     const toggle = screen.getByRole('button', { name: /ポストフロップトレーニング/ });
     await user.click(toggle);
-    expect(screen.queryByText('レンジCB SRP')).toBeNull();
-    // プリフロップ側は開いたまま。
-    expect(screen.getByText('中級 総合')).toBeTruthy();
+    expect(screen.getAllByText('初級').length).toBe(1);
+    expect(screen.getAllByText('中級').length).toBe(1);
   });
 });

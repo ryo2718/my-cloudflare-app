@@ -61,11 +61,36 @@ const LEVEL_TO_TRAINING_TYPE: Record<string, string> = {
   blind: 'preflop_intermediate_blind',
 };
 
-/** level クエリを training_type へ解決 (フロップは flop_* をそのまま許可)。 */
-function resolveTrainingType(level: string): string {
-  if (LEVEL_TO_TRAINING_TYPE[level]) return LEVEL_TO_TRAINING_TYPE[level];
-  if (isFlopType(level) && ALLOWED_TRAINING_TYPES.has(level)) return level;
-  return 'preflop_intermediate';
+/**
+ * 階級 (tier) クエリ → 複数 training_type。「間違えた問題」を階級単位でプール取得する。
+ *   tier_pf_beginner   = 初級基礎 + オープン + vsオープン + vs3bet4bet
+ *   tier_pf_intermediate = 中級総合 + EP + LP + Blind
+ *   tier_flop_beginner = フロップ初級
+ *   tier_flop_intermediate = レンジCB SRP + CB 3BP + ドンクBMCB
+ */
+const TIER_TO_TRAINING_TYPES: Record<string, string[]> = {
+  tier_pf_beginner: [
+    'preflop_beginner',
+    'preflop_beginner_open',
+    'preflop_beginner_vs_open',
+    'preflop_beginner_vs_3bet_4bet',
+  ],
+  tier_pf_intermediate: [
+    'preflop_intermediate',
+    'preflop_intermediate_ep',
+    'preflop_intermediate_lp',
+    'preflop_intermediate_blind',
+  ],
+  tier_flop_beginner: ['flop_beginner'],
+  tier_flop_intermediate: ['flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb'],
+};
+
+/** level クエリを training_type 群へ解決 (tier は複数、それ以外は単一)。 */
+function resolveTrainingTypes(level: string): string[] {
+  if (TIER_TO_TRAINING_TYPES[level]) return TIER_TO_TRAINING_TYPES[level];
+  if (LEVEL_TO_TRAINING_TYPE[level]) return [LEVEL_TO_TRAINING_TYPE[level]];
+  if (isFlopType(level) && ALLOWED_TRAINING_TYPES.has(level)) return [level];
+  return ['preflop_intermediate'];
 }
 
 /** 取得 limit の上限。 */
@@ -81,26 +106,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const url = new URL(request.url);
   const level = url.searchParams.get('level') ?? 'intermediate';
-  const trainingType = resolveTrainingType(level);
+  const trainingTypes = resolveTrainingTypes(level);
   const limitRaw = parseInt(url.searchParams.get('limit') ?? '10', 10);
   const limit = Number.isFinite(limitRaw)
     ? Math.min(MAX_LIMIT, Math.max(1, limitRaw))
     : 10;
   const includeRemoved = url.searchParams.get('include_removed') === 'true';
 
+  const placeholders = trainingTypes.map(() => '?').join(', ');
   const sql = includeRemoved
     ? `SELECT * FROM missed_problems
-       WHERE account_id = ? AND training_type = ?
+       WHERE account_id = ? AND training_type IN (${placeholders})
        ORDER BY RANDOM()
        LIMIT ?`
     : `SELECT * FROM missed_problems
-       WHERE account_id = ? AND training_type = ? AND is_removed_from_review = 0
+       WHERE account_id = ? AND training_type IN (${placeholders}) AND is_removed_from_review = 0
        ORDER BY RANDOM()
        LIMIT ?`;
 
   const res = await env.DB
     .prepare(sql)
-    .bind(account.id, trainingType, limit)
+    .bind(account.id, ...trainingTypes, limit)
     .all<MissedProblemRow>();
 
   return jsonResponse(200, { problems: res.results ?? [] });

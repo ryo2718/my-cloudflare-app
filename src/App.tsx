@@ -22,10 +22,9 @@ import { MissedProblemsListPage } from './components/training/MissedProblemsList
 import { MissedProblemAnswerPage } from './components/training/MissedProblemAnswerPage';
 import { MissedChallengePlayPage } from './components/training/MissedChallengePlayPage';
 import { MissedChallengeResultPage } from './components/training/MissedChallengeResultPage';
-import { FlopMissedListPage, FlopMissedPlayPage } from './components/training/FlopMissedPage';
-import type { FlopTrainingType } from './api/missedProblems';
+import { FlopMissedListPage, FlopMissedPlayPage, type FlopMissedKey } from './components/training/FlopMissedPage';
 import { parseMissedFilter } from './components/training/missedChallengeStore';
-import type { MissedLevel } from './api/missedProblems';
+import type { MissedLevelQuery } from './api/missedProblems';
 import { TrainingConfirm } from './components/training/TrainingConfirm';
 import { TrainingPlay } from './components/training/TrainingPlay';
 import { TrainingPlayFlop } from './components/training/TrainingPlayFlop';
@@ -59,21 +58,23 @@ export default function App() {
     }
   }, [path, account]);
 
+  // 復習 level スラグ (per-level 互換 + 階級 tier)。
+  const PF_REVIEW_SLUG = '(beginner|intermediate|ep|lp|blind|tier_pf_beginner|tier_pf_intermediate)';
   // /quiz/review/preflop/{level}/answer/{id}: 答え合わせ画面 (復習)
   const answerMatch = path.match(
-    /^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/answer\/(\d+)\/?$/,
+    new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/answer/(\\d+)/?$`),
   );
   if (answerMatch) {
-    const lv = answerMatch[1] as MissedLevel;
+    const lv = answerMatch[1] as MissedLevelQuery;
     const id = Number(answerMatch[2]);
     if (Number.isFinite(id) && id > 0) {
       return <MissedProblemAnswerPage level={lv} id={id} />;
     }
   }
   // /quiz/review/preflop/{level}/play?count=N&filter=F: 挑戦モード
-  const playMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/play\/?$/);
+  const playMatch = path.match(new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/play/?$`));
   if (playMatch) {
-    const lv = playMatch[1] as MissedLevel;
+    const lv = playMatch[1] as MissedLevelQuery;
     const params =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search)
@@ -84,24 +85,24 @@ export default function App() {
     return <MissedChallengePlayPage level={lv} count={count} filter={filter} />;
   }
   // /quiz/review/preflop/{level}/result: 挑戦モード完了画面
-  const resultMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/result\/?$/);
+  const resultMatch = path.match(new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/result/?$`));
   if (resultMatch) {
-    const lv = resultMatch[1] as MissedLevel;
+    const lv = resultMatch[1] as MissedLevelQuery;
     return <MissedChallengeResultPage level={lv} />;
   }
   // /quiz/review/preflop/{level}: 復習リスト画面
-  const listMatch = path.match(/^\/quiz\/review\/preflop\/(beginner|intermediate|ep|lp|blind)\/?$/);
+  const listMatch = path.match(new RegExp(`^/quiz/review/preflop/${PF_REVIEW_SLUG}/?$`));
   if (listMatch) {
-    const lv = listMatch[1] as MissedLevel;
+    const lv = listMatch[1] as MissedLevelQuery;
     return <MissedProblemsListPage level={lv} />;
   }
 
-  // /quiz/review/flop/{training_type}(/play): ポストフロップの間違えた問題 一覧 / 再出題
+  // /quiz/review/flop/{training_type|tier}(/play): ポストフロップの間違えた問題 一覧 / 再出題
   const flopReviewMatch = path.match(
-    /^\/quiz\/review\/flop\/(flop_beginner|flop_cb_srp|flop_cb_3bp|flop_donk_bmcb)(\/play)?\/?$/,
+    /^\/quiz\/review\/flop\/(flop_beginner|flop_cb_srp|flop_cb_3bp|flop_donk_bmcb|tier_flop_beginner|tier_flop_intermediate)(\/play)?\/?$/,
   );
   if (flopReviewMatch) {
-    const tt = flopReviewMatch[1] as FlopTrainingType;
+    const tt = flopReviewMatch[1] as FlopMissedKey;
     return flopReviewMatch[2]
       ? <FlopMissedPlayPage trainingType={tt} />
       : <FlopMissedListPage trainingType={tt} />;

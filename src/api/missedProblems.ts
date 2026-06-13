@@ -47,8 +47,15 @@ export type MissedTrainingType = PreflopTrainingType | FlopTrainingType;
 /** 取得用 level クエリ (プリフロップ)。 */
 export type MissedLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
 
-/** 取得用 level クエリ。フロップは training_type をそのまま level に使う。 */
-export type MissedLevelQuery = MissedLevel | FlopTrainingType;
+/** 階級プール取得用の tier クエリ (複数 training_type を一括取得)。 */
+export type MissedTierKey =
+  | 'tier_pf_beginner'
+  | 'tier_pf_intermediate'
+  | 'tier_flop_beginner'
+  | 'tier_flop_intermediate';
+
+/** 取得用 level クエリ。フロップは training_type をそのまま level に使う。tier は階級プール。 */
+export type MissedLevelQuery = MissedLevel | FlopTrainingType | MissedTierKey;
 
 export interface MissedProblemInput {
   training_type: MissedTrainingType;

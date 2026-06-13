@@ -20,21 +20,15 @@ interface LevelEntry {
   level?: MissedLevelQuery;
 }
 
+// 階級 (tier) で統合。各エントリは配下の全モードをプールして件数表示・再出題する。
 const PREFLOP_LEVELS: LevelEntry[] = [
-  { key: 'beginner',     label: '初級',      href: '/quiz/review/preflop/beginner',     implemented: true, level: 'beginner' },
-  { key: 'intermediate', label: '中級 総合', href: '/quiz/review/preflop/intermediate', implemented: true, level: 'intermediate' },
-  { key: 'ep',           label: '中級 EP',   href: '/quiz/review/preflop/ep',           implemented: true, level: 'ep' },
-  { key: 'lp',           label: '中級 LP',   href: '/quiz/review/preflop/lp',           implemented: true, level: 'lp' },
-  { key: 'blind',        label: '中級 Blind', href: '/quiz/review/preflop/blind',       implemented: true, level: 'blind' },
-  { key: 'advanced',     label: '上級',      href: null,                                implemented: false },
+  { key: 'tier_pf_beginner',     label: '初級', href: '/quiz/review/preflop/tier_pf_beginner',     implemented: true, level: 'tier_pf_beginner' },
+  { key: 'tier_pf_intermediate', label: '中級', href: '/quiz/review/preflop/tier_pf_intermediate', implemented: true, level: 'tier_pf_intermediate' },
 ];
 
-// ポストフロップ (初級 + レンジCB / レンジドンク・BMCB)。level=training_type で件数取得。
 const POSTFLOP_LEVELS: LevelEntry[] = [
-  { key: 'flop_beginner',  label: '初級',                 href: '/quiz/review/flop/flop_beginner',  implemented: true, level: 'flop_beginner' },
-  { key: 'flop_cb_srp',    label: 'レンジCB SRP',         href: '/quiz/review/flop/flop_cb_srp',    implemented: true, level: 'flop_cb_srp' },
-  { key: 'flop_cb_3bp',    label: 'レンジCB 3BP/4BP/5BP', href: '/quiz/review/flop/flop_cb_3bp',    implemented: true, level: 'flop_cb_3bp' },
-  { key: 'flop_donk_bmcb', label: 'レンジドンク/BMCB',    href: '/quiz/review/flop/flop_donk_bmcb',  implemented: true, level: 'flop_donk_bmcb' },
+  { key: 'tier_flop_beginner',     label: '初級', href: '/quiz/review/flop/tier_flop_beginner',     implemented: true, level: 'tier_flop_beginner' },
+  { key: 'tier_flop_intermediate', label: '中級', href: '/quiz/review/flop/tier_flop_intermediate', implemented: true, level: 'tier_flop_intermediate' },
 ];
 
 // 件数取得対象 (level を持つ全モード)。

@@ -10,7 +10,7 @@ vi.mock('../../lib/auth', async (orig) => ({
 }));
 
 import { resolveAccountFromRequest } from '../../lib/auth';
-import { onRequestPost } from './missed-problems';
+import { onRequestPost, onRequestGet } from './missed-problems';
 
 const ACCOUNT = { id: 7 } as unknown as AccountRow;
 
@@ -66,6 +66,54 @@ describe('missed-problems POST', () => {
     const res = await onRequestPost(ctx(postRequest({ records: [VALID] }), db));
     expect(res.status).toBe(401);
     expect(exec.length).toBe(0);
+  });
+
+  it('初級拡張モード (open / vs_open / vs_3bet / vs_4bet) は受理される', async () => {
+    const recs = [
+      { training_type: 'preflop_beginner_open', scenario_type: 'beginner_open', hero_position: 'HJ', hand: 'A5s', user_selections: ['__slider__', '50'], gto_strategy: { allin: 0, raise: 50, call: 0, fold: 50 }, score_obtained: -1 },
+      { training_type: 'preflop_beginner_vs_open', scenario_type: 'beginner_vs_open', hero_position: 'BB', opener_position: 'CO', hand: 'K9o', user_selections: ['call'], gto_strategy: { allin: 0, raise: 0, call: 100, fold: 0 }, score_obtained: -1 },
+      { training_type: 'preflop_beginner_vs_3bet_4bet', scenario_type: 'beginner_vs_3bet', hero_position: 'UTG', opener_position: 'UTG', three_bettor_position: 'BB', hand: 'AKs', user_selections: ['raise'], gto_strategy: { allin: 0, raise: 100, call: 0, fold: 0 }, score_obtained: -1 },
+      { training_type: 'preflop_beginner_vs_3bet_4bet', scenario_type: 'beginner_vs_4bet', hero_position: 'BB', opener_position: 'UTG', three_bettor_position: 'BB', hand: 'AA', user_selections: ['allin'], gto_strategy: { allin: 100, raise: 0, call: 0, fold: 0 }, score_obtained: -1 },
+    ];
+    const { db } = makeFakeDb();
+    const res = await onRequestPost(ctx(postRequest({ records: recs }), db));
+    expect(await res.json()).toMatchObject({ inserted: 4 });
+  });
+});
+
+describe('missed-problems GET (階級プール)', () => {
+  function getCtx(level: string, db: D1Database) {
+    const request = new Request(`https://x/api/account/missed-problems?level=${level}&limit=50`);
+    return { request, env: { DB: db } } as unknown as Parameters<typeof onRequestGet>[0];
+  }
+
+  it('tier_pf_beginner は 4 training_type を IN で一括取得', async () => {
+    const { db, exec } = makeFakeDb();
+    await onRequestGet(getCtx('tier_pf_beginner', db));
+    const sel = exec.find((e) => e.sql.includes('SELECT * FROM missed_problems'));
+    expect(sel).toBeDefined();
+    expect(sel!.sql).toContain('IN (?, ?, ?, ?)');
+    expect(sel!.args).toContain('preflop_beginner');
+    expect(sel!.args).toContain('preflop_beginner_open');
+    expect(sel!.args).toContain('preflop_beginner_vs_open');
+    expect(sel!.args).toContain('preflop_beginner_vs_3bet_4bet');
+  });
+
+  it('tier_flop_intermediate は CB系3種を IN で取得', async () => {
+    const { db, exec } = makeFakeDb();
+    await onRequestGet(getCtx('tier_flop_intermediate', db));
+    const sel = exec.find((e) => e.sql.includes('SELECT * FROM missed_problems'));
+    expect(sel!.sql).toContain('IN (?, ?, ?)');
+    expect(sel!.args).toContain('flop_cb_srp');
+    expect(sel!.args).toContain('flop_donk_bmcb');
+  });
+
+  it('従来の単一 level (beginner) は単一 training_type で取得', async () => {
+    const { db, exec } = makeFakeDb();
+    await onRequestGet(getCtx('beginner', db));
+    const sel = exec.find((e) => e.sql.includes('SELECT * FROM missed_problems'));
+    expect(sel!.sql).toContain('IN (?)');
+    expect(sel!.args).toContain('preflop_beginner');
   });
 });
 

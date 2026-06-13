@@ -11,7 +11,7 @@ import { navigate } from '../../router/router-core';
 import { useAuth } from '../../hooks/useAuth';
 import {
   apiGetMissedProblems,
-  type MissedLevel,
+  type MissedLevelQuery,
   type MissedProblemRow,
 } from '../../api/missedProblems';
 import {
@@ -23,6 +23,11 @@ import {
   decodeAnswer,
   isPositionalRow,
 } from '../../data/training/positionalReview';
+import {
+  classifyExtRow,
+  recordToOpenReview,
+  recordToSelectReview,
+} from '../../data/training/beginnerExtReview';
 import { PositionalReviewDetail } from './PositionalReviewDetail';
 import { ACTIONS, type Action } from '../../data/training/preflopIntermediate';
 import { ACTION_LABEL } from './actionButtonStyle';
@@ -41,7 +46,7 @@ import type { Rank, Suit } from '../../types/card';
 import type { PreflopQuestion } from '../../data/training/preflopBeginner';
 import type { IntermediateQuestion } from '../../data/training/preflopIntermediate';
 
-export type MissedAnswerLevel = MissedLevel;
+export type MissedAnswerLevel = MissedLevelQuery;
 
 const STRATEGY_COLORS: Record<Action, { check: string; text: string }> = {
   allin: { check: '#7F77DD', text: '#534AB7' },
@@ -116,9 +121,13 @@ export function MissedProblemAnswerPage({ level, id }: Props) {
           </div>
         )}
         {state.kind === 'ok' &&
-          (isPositionalRow(state.row) ? (
+          (classifyExtRow(state.row) === 'open' ? (
+            <OpenBody row={state.row} />
+          ) : classifyExtRow(state.row) === 'select' ? (
+            <SelectBody row={state.row} />
+          ) : isPositionalRow(state.row) ? (
             <PositionalBody row={state.row} />
-          ) : level === 'intermediate' ? (
+          ) : state.row.training_type === 'preflop_intermediate' ? (
             <IntermediateBody row={state.row} />
           ) : (
             <BeginnerBody row={state.row} />
@@ -348,6 +357,90 @@ function beginnerUserAnswer(row: MissedProblemRow): 'participate' | 'fold' {
 function beginnerScenarioLabel(q: PreflopQuestion): string {
   if (q.scenario === 'open') return `${q.myPosition} オープン判定`;
   return `vs ${q.opener} open`;
+}
+
+// ---------------------------------------------------------------------------
+// 初級オープン body (slider: 正解レイズ% / あなた%)
+// ---------------------------------------------------------------------------
+
+function OpenBody({ row }: { row: MissedProblemRow }) {
+  const q = recordToOpenReview(row);
+  if (!q) return <div style={errorStyle}>データ復元失敗 (id={row.id})</div>;
+  const scoreColor = row.score_obtained > 0 ? '#1F4D11' : '#7A2A26';
+  let userPct: string = '—';
+  try {
+    const parsed = JSON.parse(row.user_selections) as unknown;
+    if (Array.isArray(parsed) && parsed.length >= 2 && parsed[1] !== '') userPct = `${parsed[1]}%`;
+  } catch {
+    /* ignore */
+  }
+  return (
+    <>
+      <div style={scenarioPillStyle}>{q.position} オープン</div>
+      <ActionTable file={q.nodeFile} mePosition={q.position} />
+      <section style={handSectionStyle}>
+        <span style={handLabelStyle}>ハンド</span>
+        <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
+      </section>
+      <div style={scoreSummaryStyle}>
+        <span style={scoreSummaryLabelStyle}>正解レイズ</span>
+        <span style={{ ...scoreSummaryValueStyle, color: '#1F4D11' }}>{q.raisePct}%</span>
+        <span style={scoreSummaryLabelStyle}>あなた</span>
+        <span style={{ ...scoreSummaryValueStyle, color: scoreColor }}>{userPct}</span>
+      </div>
+      <section style={rangeSectionStyle} aria-label="このシナリオのレンジ">
+        <NodeRangeSection file={q.nodeFile} highlightHand={row.hand} />
+      </section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 初級 vs オープン / vs 3bet4bet body (複数選択: あなたの選択 / GTO 戦略)
+// ---------------------------------------------------------------------------
+
+function SelectBody({ row }: { row: MissedProblemRow }) {
+  const q = recordToSelectReview(row);
+  if (!q) return <div style={errorStyle}>データ復元失敗 (id={row.id})</div>;
+  const selections = parseSelections(row.user_selections);
+  const scoreColor = row.score_obtained > 0 ? '#1F4D11' : '#7A2A26';
+  return (
+    <>
+      <div style={scenarioPillStyle}>{q.scenarioLabel}</div>
+      <ActionTable file={q.nodeFile} mePosition={q.hero} />
+      <section style={handSectionStyle}>
+        <span style={handLabelStyle}>ハンド</span>
+        <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
+      </section>
+      <section style={strategyTableStyle} aria-label="GTO 戦略">
+        <header style={strategyHeaderStyle}>あなたの選択 / GTO 戦略</header>
+        <ul style={strategyListStyle}>
+          {ACTIONS.map((a) => {
+            const freq = q.strategy[a] ?? 0;
+            const picked = selections.includes(a);
+            const col = STRATEGY_COLORS[a];
+            return (
+              <li key={a} style={strategyRowStyle}>
+                <span style={{ ...pickBoxStyle, color: col.check }}>{picked ? '☑' : '☐'}</span>
+                <span style={{ ...actionNameStyle, color: col.text }}>{ACTION_LABEL[a]}</span>
+                <span style={{ ...freqStyle, color: col.text }}>{formatFreq(freq)}%</span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      <div style={scoreSummaryStyle}>
+        <span style={scoreSummaryLabelStyle}>判定</span>
+        <span style={{ ...scoreSummaryValueStyle, color: scoreColor }}>
+          {row.score_obtained > 0 ? '○ 正解' : '✕ 不正解'}
+        </span>
+        {row.is_timeout === 1 && <span style={timeoutBadgeStyle}>⏱ 時間切れ</span>}
+      </div>
+      <section style={rangeSectionStyle} aria-label="このシナリオのレンジ">
+        <NodeRangeSection file={q.nodeFile} highlightHand={row.hand} />
+      </section>
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------

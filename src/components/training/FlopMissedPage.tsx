@@ -13,6 +13,7 @@ import {
   apiGetMissedProblems,
   apiRemoveMissedProblem,
   type FlopTrainingType,
+  type MissedTierKey,
   type MissedProblemRow,
 } from '../../api/missedProblems';
 import {
@@ -30,27 +31,33 @@ import { THEME } from '../../styles/theme';
 import { TrainingPlayFlop } from './TrainingPlayFlop';
 import { TrainingPlayFlopIntermediate } from './TrainingPlayFlopIntermediate';
 
-const FLOP_LABEL: Record<FlopTrainingType, string> = {
+/** フロップの間違えた問題 level (per-type 互換 + 階級 tier)。 */
+export type FlopMissedKey = FlopTrainingType | Extract<MissedTierKey, 'tier_flop_beginner' | 'tier_flop_intermediate'>;
+
+const FLOP_LABEL: Record<FlopMissedKey, string> = {
   flop_beginner: '初級',
   flop_cb_srp: 'レンジCB SRP',
   flop_cb_3bp: 'レンジCB 3BP/4BP/5BP',
   flop_donk_bmcb: 'レンジドンク/BMCB',
+  tier_flop_beginner: '初級',
+  tier_flop_intermediate: '中級',
 };
 
-function levelFor(trainingType: FlopTrainingType): TrainingLevel {
+function levelFor(trainingType: FlopMissedKey): TrainingLevel {
   const found = TRAINING_CATALOG.flatMap((c) => c.levels).find((l) => l.key === trainingType);
   return (
     found ?? { key: trainingType, label: FLOP_LABEL[trainingType], points: 1, questionCount: null, timeLimitSec: 'none', implemented: true }
   );
 }
 
-const isBeginner = (t: FlopTrainingType) => t === 'flop_beginner';
+/** 初級扱いか (フロップ初級 single / tier)。それ以外 (CB系/ドンク/中級tier) は rb。 */
+const isBeginner = (t: FlopMissedKey) => t === 'flop_beginner' || t === 'tier_flop_beginner';
 
 // ---------------------------------------------------------------------------
 // 一覧
 // ---------------------------------------------------------------------------
 
-export function FlopMissedListPage({ trainingType }: { trainingType: FlopTrainingType }) {
+export function FlopMissedListPage({ trainingType }: { trainingType: FlopMissedKey }) {
   const auth = useAuth();
   const [rows, setRows] = useState<MissedProblemRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -132,7 +139,7 @@ type PlayState =
   | { kind: 'beginner'; questions: FlopQuestion[] }
   | { kind: 'done'; correct: number; total: number };
 
-export function FlopMissedPlayPage({ trainingType }: { trainingType: FlopTrainingType }) {
+export function FlopMissedPlayPage({ trainingType }: { trainingType: FlopMissedKey }) {
   const auth = useAuth();
   const [state, setState] = useState<PlayState>({ kind: 'loading' });
   const level = levelFor(trainingType);

@@ -6,12 +6,20 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { navigate } from '../../router/router-core';
-import { apiGetMissedProblems, type MissedLevel } from '../../api/missedProblems';
+import { apiGetMissedProblems, type MissedLevelQuery } from '../../api/missedProblems';
 import {
   recordToBeginnerQuestion,
   recordToIntermediateQuestion,
 } from '../../data/training/reviewMode';
-import { recordToPositionalQuestion } from '../../data/training/positionalReview';
+import { recordToPositionalQuestion, isPositionalRow } from '../../data/training/positionalReview';
+import {
+  recordToOpenReview,
+  recordToSelectReview,
+  type OpenReviewQuestion,
+  type SelectReviewQuestion,
+} from '../../data/training/beginnerExtReview';
+import { scoreGentleSlider, scoreGentleSelect } from '../../data/training/preflopBeginnerExt';
+import { missedReviewLabel } from './missedChallengeStore';
 import {
   loadPositionalNode,
   positionalNodeFile,
@@ -53,20 +61,17 @@ import {
 import type { Rank, Suit } from '../../types/card';
 
 interface Props {
-  level: MissedLevel;
+  level: MissedLevelQuery;
   count: number;
   filter: MissedFilter;
-}
-
-const POSITIONAL_LEVELS: ReadonlyArray<MissedLevel> = ['ep', 'lp', 'blind'];
-function isPositionalLevel(l: MissedLevel): boolean {
-  return POSITIONAL_LEVELS.includes(l);
 }
 
 interface PreparedBeginner { kind: 'beginner'; missed_problem_id: number; question: PreflopQuestion }
 interface PreparedIntermediate { kind: 'intermediate'; missed_problem_id: number; question: IntermediateQuestion }
 interface PreparedPositional { kind: 'positional'; missed_problem_id: number; question: PositionalQuestion }
-type Prepared = PreparedBeginner | PreparedIntermediate | PreparedPositional;
+interface PreparedOpen { kind: 'open'; missed_problem_id: number; question: OpenReviewQuestion }
+interface PreparedSelect { kind: 'select'; missed_problem_id: number; question: SelectReviewQuestion }
+type Prepared = PreparedBeginner | PreparedIntermediate | PreparedPositional | PreparedOpen | PreparedSelect;
 
 type LoadState =
   | { kind: 'loading' }
@@ -83,16 +88,13 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-const LEVEL_LABEL: Record<MissedLevel, string> = {
-  beginner: '初級',
-  intermediate: '中級 総合',
-  ep: '中級 EP',
-  lp: '中級 LP',
-  blind: '中級 Blind',
-};
-
 /** 挑戦モードの回答 (種別ごとに型が異なる)。即時フィードバック表示で使う。 */
-type ChallengeResponse = CorrectAnswer | ReadonlyArray<Action> | PositionalResponse;
+type ChallengeResponse =
+  | CorrectAnswer
+  | ReadonlyArray<Action>
+  | PositionalResponse
+  | { kind: 'open'; pct: number }
+  | { kind: 'sel'; actions: ReadonlyArray<string> };
 
 export function MissedChallengePlayPage({ level, count, filter }: Props) {
   const auth = useAuth();
@@ -111,8 +113,19 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
         const filtered = rows.filter((r) => scoreMatchesFilter(r.score_obtained, filter));
         const taken = shuffle(filtered).slice(0, count);
         const prepared: Prepared[] = [];
-        if (isPositionalLevel(level)) {
-          for (const r of taken) {
+        // 行ごとに training_type で復元方法を切り替える (階級プールで混在するため)。
+        for (const r of taken) {
+          const tt = r.training_type;
+          if (tt === 'preflop_beginner_open') {
+            const q = recordToOpenReview(r);
+            if (q) prepared.push({ kind: 'open', missed_problem_id: r.id, question: q });
+          } else if (tt === 'preflop_beginner_vs_open' || tt === 'preflop_beginner_vs_3bet_4bet') {
+            const q = recordToSelectReview(r);
+            if (q) prepared.push({ kind: 'select', missed_problem_id: r.id, question: q });
+          } else if (tt === 'preflop_beginner') {
+            const q = recordToBeginnerQuestion(r);
+            if (q) prepared.push({ kind: 'beginner', missed_problem_id: r.id, question: q });
+          } else if (isPositionalRow(r)) {
             const file = positionalNodeFile(r.scenario_type, {
               hero: r.hero_position as Position,
               opener: (r.opener_position ?? null) as Position | null,
@@ -121,16 +134,9 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
             const hands = file ? await loadPositionalNode(file) : null;
             const q = recordToPositionalQuestion(r, hands);
             if (q) prepared.push({ kind: 'positional', missed_problem_id: r.id, question: q });
-          }
-        } else {
-          for (const r of taken) {
-            if (level === 'beginner') {
-              const q = recordToBeginnerQuestion(r);
-              if (q) prepared.push({ kind: 'beginner', missed_problem_id: r.id, question: q });
-            } else {
-              const q = recordToIntermediateQuestion(r);
-              if (q) prepared.push({ kind: 'intermediate', missed_problem_id: r.id, question: q });
-            }
+          } else {
+            const q = recordToIntermediateQuestion(r);
+            if (q) prepared.push({ kind: 'intermediate', missed_problem_id: r.id, question: q });
           }
         }
         if (cancelled) return;
@@ -254,6 +260,42 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
     );
   };
 
+  // 初級オープン (slider): ±20% で正解 → 1pt。
+  const advanceOpen = (pct: number) => {
+    if (state.kind !== 'ready') return;
+    const item = state.questions[state.current];
+    if (item.kind !== 'open') return;
+    const correct = scoreGentleSlider(pct, item.question.raisePct) > 0;
+    submit(
+      {
+        missed_problem_id: item.missed_problem_id,
+        hand: item.question.hand,
+        scenario_label: `${item.question.position} オープン`,
+        final_score: correct ? 1 : -1,
+        is_perfect: correct,
+      },
+      { kind: 'open', pct },
+    );
+  };
+
+  // 初級 vs オープン / vs 3bet4bet (複数選択): 優しい採点で 1pt or 不正解。
+  const advanceSelect = (actions: ReadonlyArray<string>) => {
+    if (state.kind !== 'ready') return;
+    const item = state.questions[state.current];
+    if (item.kind !== 'select') return;
+    const correct = actions.length > 0 && scoreGentleSelect(actions, item.question.strategy) > 0;
+    submit(
+      {
+        missed_problem_id: item.missed_problem_id,
+        hand: item.question.hand,
+        scenario_label: item.question.scenarioLabel,
+        final_score: correct ? 1 : -1,
+        is_perfect: correct,
+      },
+      { kind: 'sel', actions },
+    );
+  };
+
   if (state.kind === 'loading') {
     return <div style={pageStyle}><div style={infoStyle}>問題を読み込み中…</div></div>;
   }
@@ -288,6 +330,13 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
         </div>
       );
     }
+  } else if (feedback && item.kind === 'open') {
+    const r = feedback.res as { kind: 'open'; pct: number };
+    sliderLine = (
+      <div style={sliderPctStyle}>
+        正解 {item.question.raisePct}% / あなた {r.pct}%
+      </div>
+    );
   }
   const feedbackNode: ReactNode = feedback ? (
     <InstantFeedback points={feedback.result.final_score} onNext={proceed}>
@@ -304,7 +353,7 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
     <div style={pageStyle}>
       <header style={headerBarStyle}>
         <div style={progressTopStyle}>
-          <span style={progressLabelStyle}>プリフロップ{LEVEL_LABEL[level]} 挑戦モード</span>
+          <span style={progressLabelStyle}>プリフロップ{missedReviewLabel(level)} 挑戦モード</span>
           <span style={progressCountStyle}>{state.current + 1} / {total}</span>
           <QuitButton />
         </div>
@@ -323,6 +372,12 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
         {item.kind === 'positional' && (
           <PositionalStage q={item.question} onAnswer={advancePositional} feedback={feedbackNode} key={state.current} />
         )}
+        {item.kind === 'open' && (
+          <OpenStage q={item.question} onAnswer={advanceOpen} feedback={feedbackNode} key={state.current} />
+        )}
+        {item.kind === 'select' && (
+          <SelectStage q={item.question} onAnswer={advanceSelect} feedback={feedbackNode} key={state.current} />
+        )}
       </main>
     </div>
   );
@@ -332,7 +387,45 @@ export function MissedChallengePlayPage({ level, count, filter }: Props) {
 function nodeFileForItem(item: Prepared): string | null {
   if (item.kind === 'beginner') return beginnerViewInfo(item.question).nodeFile;
   if (item.kind === 'intermediate') return intermediateViewInfo(item.question).nodeFile;
+  if (item.kind === 'open' || item.kind === 'select') return item.question.nodeFile;
   return positionalViewInfo(item.question).nodeFile;
+}
+
+const SELECT_ACTIONS: ReadonlyArray<'allin' | 'raise' | 'call' | 'fold'> = ['allin', 'raise', 'call', 'fold'];
+const SELECT_ACTION_LABELS: Record<'allin' | 'raise' | 'call' | 'fold', string> = {
+  allin: 'オールイン', raise: 'レイズ', call: 'コール', fold: 'フォールド',
+};
+
+function OpenStage({ q, onAnswer, feedback }: { q: OpenReviewQuestion; onAnswer: (pct: number) => void; feedback?: ReactNode }) {
+  return (
+    <>
+      <div style={orangePillStyle}>{q.position} オープン</div>
+      <ActionTable file={q.nodeFile} mePosition={q.position} animate />
+      <section style={handSectionStyle}>
+        <span style={handLabelStyle}>ハンド</span>
+        <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
+      </section>
+      {feedback ?? (
+        <SliderChoice actionLabel="レイズ" onSubmit={(pct) => onAnswer(pct)} onSkip={() => onAnswer(-1)} />
+      )}
+    </>
+  );
+}
+
+function SelectStage({ q, onAnswer, feedback }: { q: SelectReviewQuestion; onAnswer: (sel: ReadonlyArray<string>) => void; feedback?: ReactNode }) {
+  return (
+    <>
+      <div style={orangePillStyle}>{q.scenarioLabel}</div>
+      <ActionTable file={q.nodeFile} mePosition={q.hero} animate />
+      <section style={handSectionStyle}>
+        <span style={handLabelStyle}>ハンド</span>
+        <CardSet cards={q.cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))} size="lg" gap={6} />
+      </section>
+      {feedback ?? (
+        <ChoiceButtons availableActions={SELECT_ACTIONS} actionLabels={SELECT_ACTION_LABELS} onSubmit={onAnswer} />
+      )}
+    </>
+  );
 }
 
 function BeginnerStage({ q, onAnswer, feedback }: { q: PreflopQuestion; onAnswer: (a: CorrectAnswer) => void; feedback?: ReactNode }) {
