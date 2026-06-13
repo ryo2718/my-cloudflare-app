@@ -141,6 +141,35 @@ export function maxScoreFor(level: TrainingLevel): number {
   return level.questionCount;
 }
 
+/** 階級グループ (初級/中級/上級/超上級) の合計スコア。 */
+export interface LevelGroupScore {
+  /** 実装済みモードの現在獲得 pt 合計 (best_score × points)。 */
+  current: number;
+  /** 実装済みモードの満点 pt 合計 (未実装モードは含めない)。 */
+  max: number;
+}
+
+/**
+ * 階級グループの合計スコアを算出。
+ *  - 実装済み (isPlayable) モードのみを分母・分子に含める
+ *  - current = Σ best_score × points、max = Σ maxScoreFor
+ *  - max が 0 = 実装済みモードなし (= 全モード未実装の階級)
+ */
+export function computeLevelGroupScore(
+  levels: ReadonlyArray<TrainingLevel>,
+  records: ReadonlyArray<{ training_type: string; best_score: number }>,
+): LevelGroupScore {
+  let current = 0;
+  let max = 0;
+  for (const lv of levels) {
+    if (!isPlayable(lv)) continue;
+    max += maxScoreFor(lv);
+    const rec = records.find((r) => r.training_type === lv.key);
+    if (rec) current += rec.best_score * (lv.points ?? 0);
+  }
+  return { current, max };
+}
+
 /** N/MAX 点 → "75%" / "67.5%" 形式の達成率表記 (整数のとき小数なし)。 */
 export function formatScorePct(score: number, max: number): string {
   if (max <= 0) return '—';

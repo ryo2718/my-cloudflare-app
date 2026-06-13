@@ -6,6 +6,7 @@ import {
   formatLevelInfo,
   formatScorePct,
   maxScoreFor,
+  computeLevelGroupScore,
   trainingPath,
 } from './trainingCatalog';
 
@@ -193,6 +194,39 @@ describe('maxScoreFor', () => {
   it('未計画 (questionCount=null) → 0', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[5])).toBe(0); // 上級
     expect(maxScoreFor(TRAINING_CATALOG[1].levels[4])).toBe(0); // フロップ上級 (未計画)
+  });
+});
+
+describe('computeLevelGroupScore (階級の合計点)', () => {
+  const preflop = TRAINING_CATALOG[0].levels;
+  const beginnerGroup = preflop.filter((l) => l.key.startsWith('preflop_beginner'));
+
+  it('プリフロップ初級: 基礎+オープンの満点合計 30pt (vs系は未実装で分母外)', () => {
+    const { current, max } = computeLevelGroupScore(beginnerGroup, []);
+    expect(max).toBe(30); // 基礎20 + オープン10
+    expect(current).toBe(0); // 記録なし
+  });
+
+  it('current は best_score × points を実装済みモードで合算 (例: 基礎20 + オープン19→9.5 = 29.5)', () => {
+    const records = [
+      { training_type: 'preflop_beginner', best_score: 20 },        // 20 × 1 = 20
+      { training_type: 'preflop_beginner_open', best_score: 19 },   // 19 × 0.5 = 9.5
+    ];
+    const { current, max } = computeLevelGroupScore(beginnerGroup, records);
+    expect(current).toBe(29.5);
+    expect(max).toBe(30);
+  });
+
+  it('全モード未実装の階級は max=0 (上級)', () => {
+    const advanced = preflop.filter((l) => l.key === 'preflop_advanced' || l.key === 'preflop_expert');
+    expect(computeLevelGroupScore(advanced, []).max).toBe(0);
+  });
+
+  it('未実装モードは分子にも含めない (記録があっても無視)', () => {
+    const { current } = computeLevelGroupScore(beginnerGroup, [
+      { training_type: 'preflop_beginner_vs_open', best_score: 99 },
+    ]);
+    expect(current).toBe(0);
   });
 });
 
