@@ -28,6 +28,8 @@ import { QuitButton } from './QuitButton';
 import { DebugAnswerBar } from './DebugAnswerBar';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
+import { useAuth } from '../../hooks/useAuth';
+import { apiPostMissedProblems, type MissedProblemInput } from '../../api/missedProblems';
 import type { StrategySymbol } from '../../utils/strategySymbol';
 import type { Suit, Rank } from '../../types/card';
 
@@ -84,9 +86,37 @@ export interface TrainingPlayBeginnerVs3Bet4BetProps {
 }
 
 export function TrainingPlayBeginnerVs3Bet4Bet({ level }: TrainingPlayBeginnerVs3Bet4BetProps) {
+  const auth = useAuth();
   const [instant] = useState<boolean>(loadInstantFeedback);
 
   const finish = (records: VsRecord[]) => {
+    // 間違えた問題 (不正解) を DB に記録 (ベスト努力・失敗は silent)。フェーズ6。
+    if (auth.sessionId) {
+      const missed: MissedProblemInput[] = records
+        .filter((r) => !(r.points > 0))
+        .map((r) => ({
+          training_type: 'preflop_beginner_vs_3bet_4bet' as const,
+          scenario_type: r.question.kind === 'vs3bet' ? 'beginner_vs_3bet' : 'beginner_vs_4bet',
+          hero_position: r.question.hero,
+          opener_position: r.question.opener,
+          three_bettor_position: r.question.threebettor,
+          hand: r.question.hand,
+          user_selections: r.response.kind === 'select' ? [...r.response.actions] : [],
+          gto_strategy: {
+            allin: r.question.strategy.allin ?? 0,
+            raise: r.question.strategy.raise ?? 0,
+            call: r.question.strategy.call ?? 0,
+            fold: r.question.strategy.fold ?? 0,
+          },
+          score_obtained: -1,
+          is_timeout: r.response.kind === 'timeout',
+        }));
+      if (missed.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
+          /* silent fallback */
+        });
+      }
+    }
     // 統一答え合わせ構造へ保存 (これだけで結果画面の答え一覧＋振り返りが自動表示される)。
     const review: AnswerReviewRecord[] = records.map((r) => ({
       id: r.id,

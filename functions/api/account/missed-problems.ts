@@ -8,6 +8,10 @@ import type { Env, MissedProblemRow } from '../../lib/types';
 
 const ALLOWED_TRAINING_TYPES = new Set([
   'preflop_beginner',
+  // 初級シナリオ別 (オープン / vs オープン / vs 3bet・4bet)
+  'preflop_beginner_open',
+  'preflop_beginner_vs_open',
+  'preflop_beginner_vs_3bet_4bet',
   'preflop_intermediate',
   // 中級ポジション別 (EP/LP/Blind)
   'preflop_intermediate_ep',
@@ -27,6 +31,9 @@ const ALLOWED_SCENARIOS = new Set([
   'risky_open',
   'beginner_open',
   'beginner_vs_open',
+  // 初級 vs 3bet/4bet シナリオ
+  'beginner_vs_3bet',
+  'beginner_vs_4bet',
   // 中級ポジション別シナリオ
   'ep_open', 'ep_vs_3bet', 'ep_vs_4bet',
   'lp_open', 'lp_vs_open_btn', 'lp_vs_open_co', 'lp_vs_3bet', 'lp_vs_4bet',
@@ -45,6 +52,9 @@ function isFlopType(t: string): boolean {
 /** level クエリ → training_type。フロップは level=training_type をそのまま使う。 */
 const LEVEL_TO_TRAINING_TYPE: Record<string, string> = {
   beginner: 'preflop_beginner',
+  beginner_open: 'preflop_beginner_open',
+  beginner_vs_open: 'preflop_beginner_vs_open',
+  beginner_vs_3bet_4bet: 'preflop_beginner_vs_3bet_4bet',
   intermediate: 'preflop_intermediate',
   ep: 'preflop_intermediate_ep',
   lp: 'preflop_intermediate_lp',

@@ -28,6 +28,8 @@ import { QuitButton } from './QuitButton';
 import { DebugAnswerBar } from './DebugAnswerBar';
 import { useTrainingHarness } from './useTrainingHarness';
 import { loadInstantFeedback } from '../../data/userPreferences';
+import { useAuth } from '../../hooks/useAuth';
+import { apiPostMissedProblems, type MissedProblemInput } from '../../api/missedProblems';
 import type { StrategySymbol } from '../../utils/strategySymbol';
 import type { Suit, Rank } from '../../types/card';
 
@@ -59,9 +61,32 @@ export interface TrainingPlayBeginnerOpenProps {
 }
 
 export function TrainingPlayBeginnerOpen({ level }: TrainingPlayBeginnerOpenProps) {
+  const auth = useAuth();
   const [instant] = useState<boolean>(loadInstantFeedback);
 
   const finish = (records: OpenRecord[]) => {
+    // 間違えた問題 (不正解) を DB に記録 (ベスト努力・失敗は silent)。フェーズ6。
+    if (auth.sessionId) {
+      const missed: MissedProblemInput[] = records
+        .filter((r) => !(r.points > 0))
+        .map((r) => ({
+          training_type: 'preflop_beginner_open' as const,
+          scenario_type: 'beginner_open',
+          hero_position: r.question.position,
+          opener_position: null,
+          three_bettor_position: null,
+          hand: r.question.hand,
+          user_selections: ['__slider__', r.response.kind === 'slider' ? String(r.response.pct) : ''],
+          gto_strategy: { allin: 0, raise: r.question.raisePct, call: 0, fold: Math.max(0, 100 - r.question.raisePct) },
+          score_obtained: -1,
+          is_timeout: r.response.kind === 'timeout',
+        }));
+      if (missed.length > 0) {
+        void apiPostMissedProblems(auth.sessionId, missed).catch(() => {
+          /* silent fallback */
+        });
+      }
+    }
     // 結果画面「答え一覧」/ 振り返り用に汎用レコードを保存 (ローカルのみ、DB 非送信)。
     const review: AnswerReviewRecord[] = records.map((r) => ({
       id: r.id,

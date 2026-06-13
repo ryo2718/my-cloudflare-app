@@ -27,6 +27,9 @@ export interface MissedProblemRow {
 /** プリフロップの training_type。 */
 export type PreflopTrainingType =
   | 'preflop_beginner'
+  | 'preflop_beginner_open'
+  | 'preflop_beginner_vs_open'
+  | 'preflop_beginner_vs_3bet_4bet'
   | 'preflop_intermediate'
   | 'preflop_intermediate_ep'
   | 'preflop_intermediate_lp'
@@ -42,7 +45,15 @@ export type FlopTrainingType =
 export type MissedTrainingType = PreflopTrainingType | FlopTrainingType;
 
 /** 取得用 level クエリ (プリフロップ)。 */
-export type MissedLevel = 'beginner' | 'intermediate' | 'ep' | 'lp' | 'blind';
+export type MissedLevel =
+  | 'beginner'
+  | 'beginner_open'
+  | 'beginner_vs_open'
+  | 'beginner_vs_3bet_4bet'
+  | 'intermediate'
+  | 'ep'
+  | 'lp'
+  | 'blind';
 
 /** 取得用 level クエリ。フロップは training_type をそのまま level に使う。 */
 export type MissedLevelQuery = MissedLevel | FlopTrainingType;
