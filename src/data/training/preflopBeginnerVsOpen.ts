@@ -12,17 +12,23 @@
 // 採点は preflopBeginnerExt.scoreGentleSelect (0/1, 減点なし) を呼び出し側 (プレイ画面) で行う。
 
 import { handToCards, type HandStrategy, type PreflopQuestion, VS_OPEN_PAIRS } from './preflopBeginner';
-import { isEligibleByEvThreshold, isAllMixedStrategy } from './preflopBeginnerExt';
+import { isEligibleByEvThreshold, isAllMixedStrategy, isValueRaise, isBluffOrSemiBluffRaise } from './preflopBeginnerExt';
+import { EV_RANKING } from '../evRanking';
 import type { Hand, Position } from '../../types/strategy';
 
 const PREFLOP_DATA_ROOT = '/data/preflop/cash_100bb_6max_nl500_2.5x';
 
 /** 出題するアグレッサー (open = RFI) のポジション順。 */
 export const VS_OPEN_OPENERS: ReadonlyArray<Position> = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
-/** 1 アグレッサーあたりの出題数 (均等配分 = 20 問)。 */
-export const PER_OPENER = 4;
 /** 簡単すぎるため出題しないハンド。 */
 export const VS_OPEN_EXCLUDED_HANDS: ReadonlyArray<Hand> = ['AA', 'KK'] as Hand[];
+
+/** 全出題数。 */
+export const TOTAL_QUESTIONS = 20;
+/** バリューレイズ系の保証出題数。 */
+export const VALUE_QUOTA = 4;
+/** ブラフ/セミブラフレイズ系の保証出題数。 */
+export const BLUFF_QUOTA = 4;
 
 export interface BeginnerVsOpenQuestion {
   /** アグレッサー (オープンした側)。 */
@@ -65,48 +71,101 @@ export function candidatesFor(hands: Record<string, HandStrategy>): Hand[] {
   return out;
 }
 
-/** opener ごとのヒーロー一覧 (VS_OPEN_PAIRS をボード順でグループ化)。 */
-function heroesByOpener(): Map<Position, Position[]> {
-  const m = new Map<Position, Position[]>();
-  for (const [opener, hero] of VS_OPEN_PAIRS) {
-    (m.get(opener) ?? m.set(opener, []).get(opener)!).push(hero);
-  }
-  return m;
+/** 1 候補エントリ (opener×hero×hand)。 */
+interface Entry {
+  opener: Position;
+  hero: Position;
+  hand: Hand;
+  strategy: HandStrategy;
 }
 
-/** ロード済みノードから 20 問を生成 (純粋関数)。 */
-export function buildBeginnerVsOpenQuestions(nodes: VsOpenNodes): BeginnerVsOpenQuestion[] {
-  const out: BeginnerVsOpenQuestion[] = [];
-  const heroes = heroesByOpener();
-  // 同一ノードでハンド重複を避けるための消費済みセット。
-  const used = new Map<string, Set<Hand>>();
+function topPctOf(hand: Hand): number {
+  return EV_RANKING[hand]?.topPct ?? 999;
+}
 
-  for (const opener of VS_OPEN_OPENERS) {
-    const heroList = heroes.get(opener);
-    if (!heroList || heroList.length === 0) continue;
-    // ヒーローをシャッフルし、4 スロットに循環割り当て (分散優先)。
-    const shuffled = shuffle([...heroList]);
-    for (let i = 0; i < PER_OPENER; i++) {
-      const hero = shuffled[i % shuffled.length];
-      const hands = nodes[opener]?.[hero];
-      if (!hands) continue;
-      const key = `${opener}|${hero}`;
-      const consumed = used.get(key) ?? used.set(key, new Set()).get(key)!;
-      const pool = shuffle(candidatesFor(hands).filter((h) => !consumed.has(h)));
-      const hand = pool[0];
-      if (!hand) continue; // 候補枯渇 (実データでは起きない想定)
-      consumed.add(hand);
-      out.push({
-        opener,
-        hero,
-        hand,
-        cards: handToCards(hand),
-        strategy: hands[hand],
-        nodeFile: vsOpenNodeFile(opener, hero),
-      });
+/** 全 15 ペアの出題候補を平坦化。 */
+function allEntries(nodes: VsOpenNodes): Entry[] {
+  const out: Entry[] = [];
+  for (const [opener, hero] of VS_OPEN_PAIRS) {
+    const hands = nodes[opener]?.[hero];
+    if (!hands) continue;
+    for (const hand of candidatesFor(hands)) {
+      out.push({ opener, hero, hand, strategy: hands[hand] });
     }
   }
-  return shuffle(out);
+  return out;
+}
+
+const keyOfEntry = (e: Entry): string => `${vsOpenNodeFile(e.opener, e.hero)}:${e.hand}`;
+
+/**
+ * バケットから n 個を「アグレッサーを round-robin で巡回」して選ぶ (ポジション分散)。
+ * used に入っているもの・選んだものは除外。プールが尽きたら取れた分だけ返す。
+ */
+function pickSpread(bucket: Entry[], n: number, used: Set<string>): Entry[] {
+  const byOpener = new Map<Position, Entry[]>();
+  for (const e of shuffle([...bucket])) {
+    if (used.has(keyOfEntry(e))) continue;
+    (byOpener.get(e.opener) ?? byOpener.set(e.opener, []).get(e.opener)!).push(e);
+  }
+  const openers = shuffle([...byOpener.keys()]);
+  const picked: Entry[] = [];
+  let progress = true;
+  while (picked.length < n && progress) {
+    progress = false;
+    for (const o of openers) {
+      if (picked.length >= n) break;
+      const list = byOpener.get(o)!;
+      while (list.length) {
+        const e = list.shift()!;
+        if (used.has(keyOfEntry(e))) continue;
+        used.add(keyOfEntry(e));
+        picked.push(e);
+        progress = true;
+        break;
+      }
+    }
+  }
+  return picked;
+}
+
+/**
+ * ロード済みノードから 20 問を生成 (純粋関数)。
+ *   - バリューレイズ系 VALUE_QUOTA 問 + ブラフ/セミブラフ BLUFF_QUOTA 問を保証
+ *   - 残りはコール/フォールド主体 (rest) からランダム抽選
+ *   - 各バケット内はアグレッサーを round-robin で巡回してポジション分散
+ *   - レイズ枠の確保を優先するため、フェーズ4 の「アグレッサー均等 4 問ずつ」制約は緩める
+ */
+export function buildBeginnerVsOpenQuestions(nodes: VsOpenNodes): BeginnerVsOpenQuestion[] {
+  const entries = allEntries(nodes);
+  const value = entries.filter((e) => isValueRaise(e.strategy));
+  const bluff = entries.filter(
+    (e) => !isValueRaise(e.strategy) && isBluffOrSemiBluffRaise(e.strategy, topPctOf(e.hand)),
+  );
+  const rest = entries.filter(
+    (e) => !isValueRaise(e.strategy) && !isBluffOrSemiBluffRaise(e.strategy, topPctOf(e.hand)),
+  );
+
+  const used = new Set<string>();
+  const picked: Entry[] = [];
+  picked.push(...pickSpread(value, VALUE_QUOTA, used));
+  picked.push(...pickSpread(bluff, BLUFF_QUOTA, used));
+  picked.push(...pickSpread(rest, TOTAL_QUESTIONS - picked.length, used));
+  // 念のためのフォールバック (プール枯渇時): 残り全候補から補充。
+  if (picked.length < TOTAL_QUESTIONS) {
+    picked.push(...pickSpread(entries, TOTAL_QUESTIONS - picked.length, used));
+  }
+
+  return shuffle(
+    picked.map((e) => ({
+      opener: e.opener,
+      hero: e.hero,
+      hand: e.hand,
+      cards: handToCards(e.hand),
+      strategy: e.strategy,
+      nodeFile: vsOpenNodeFile(e.opener, e.hero),
+    })),
+  );
 }
 
 /** 全 15 ペアのノードを fetch して 20 問を生成。 */

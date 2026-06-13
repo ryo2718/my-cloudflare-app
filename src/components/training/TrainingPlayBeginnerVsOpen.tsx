@@ -11,6 +11,11 @@ import {
   type BeginnerVsOpenQuestion,
 } from '../../data/training/preflopBeginnerVsOpen';
 import { scoreGentleSelect } from '../../data/training/preflopBeginnerExt';
+import {
+  saveAnswerReview,
+  clearAnswerReview,
+  type AnswerReviewRecord,
+} from '../../data/training/answerReviewStore';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
@@ -59,6 +64,19 @@ function vsOpenJudgment(points: number): StrategySymbol {
   return points > 0 ? '○' : '✕';
 }
 
+/** 戦略の中で頻度>0 のアクションを「レイズ80・コール20」形式で表示 (答え合わせ用)。 */
+function correctTextOf(q: BeginnerVsOpenQuestion): string {
+  const parts = SELECT_ACTIONS.filter((a) => (q.strategy[a] ?? 0) > 0)
+    .map((a) => `${ACTION_LABELS[a]}${Math.round(q.strategy[a] ?? 0)}`);
+  return parts.length > 0 ? parts.join('・') : '—';
+}
+
+/** ユーザー選択を「レイズ・コール」形式で表示 (無回答/時間切れは —)。 */
+function userTextOf(res: VsOpenResponse): string {
+  if (res.kind !== 'select' || res.actions.length === 0) return '—';
+  return res.actions.map((a) => ACTION_LABELS[a]).join('・');
+}
+
 export interface TrainingPlayBeginnerVsOpenProps {
   level: TrainingLevel;
 }
@@ -67,6 +85,18 @@ export function TrainingPlayBeginnerVsOpen({ level }: TrainingPlayBeginnerVsOpen
   const [instant] = useState<boolean>(loadInstantFeedback);
 
   const finish = (records: VsOpenRecord[]) => {
+    // 結果画面「答え一覧」/ 振り返り用に汎用レコードを保存 (ローカルのみ、DB 非送信)。
+    const review: AnswerReviewRecord[] = records.map((r) => ({
+      id: r.id,
+      scenario: `${r.question.opener} オープン → ${r.question.hero}`,
+      hand: r.question.hand,
+      nodeFile: r.question.nodeFile,
+      mePosition: r.question.hero,
+      correct: r.points > 0,
+      userText: userTextOf(r.response),
+      correctText: correctTextOf(r.question),
+    }));
+    saveAnswerReview(level.key, review);
     // best_score = 正解数 (0-20)。points=1 なので pt と一致。
     const correctCount = records.filter((r) => r.points > 0).length;
     const params = new URLSearchParams({
@@ -82,6 +112,7 @@ export function TrainingPlayBeginnerVsOpen({ level }: TrainingPlayBeginnerVsOpen
     VsOpenRecord
   >({
     load: () => generateBeginnerVsOpenQuestions(),
+    onLoadStart: () => clearAnswerReview(level.key), // 前回の答え一覧をクリア
     reloadKey: level.key,
     instant,
     scorePoints: scoreVsOpen,

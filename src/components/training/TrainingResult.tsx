@@ -21,10 +21,10 @@ import {
 } from '../../data/training/recordsStore';
 import { savePendingResult, clearPendingResult } from '../../data/training/pendingResults';
 import {
-  loadBeginnerOpenRecords,
-  type BeginnerOpenRecord,
-} from '../../data/training/beginnerOpenRecordsStore';
-import { handToCards } from '../../data/training/preflopBeginner';
+  loadAnswerReview,
+  type AnswerReviewRecord,
+} from '../../data/training/answerReviewStore';
+import { AnswerReviewSection } from './AnswerReviewSection';
 import { CardSet } from '../CardSet';
 import type { Suit, Rank } from '../../types/card';
 import { scenarioLabel } from './scenarioLabel';
@@ -96,10 +96,10 @@ export function TrainingResult({ level }: TrainingResultProps) {
   // useState の初期化関数で同期取得を試み、ブラウザバック復元時にも即時表示できるようにする。
   const mode = scoreInfo?.mode ?? 'beginner';
   const isIntermediate = mode === 'intermediate';
-  // 初級オープンは「間違えた問題」ではなく全問の「答え一覧」(slider %) を表示する。
-  const isBeginnerOpen = level.key === 'preflop_beginner_open';
-  const [openRecords, setOpenRecords] = useState<BeginnerOpenRecord[]>(() =>
-    isBeginnerOpen ? (loadBeginnerOpenRecords(level.key) ?? []) : [],
+  // 汎用「答え一覧」: AnswerReviewRecord を保存したモード (初級オープン / vs オープン / 今後の新モード)。
+  // level.key に記録があれば自動表示する (新モードは finish() で保存するだけでよい)。
+  const [reviewRecords, setReviewRecords] = useState<AnswerReviewRecord[]>(
+    () => loadAnswerReview(level.key) ?? [],
   );
   const [missed, setMissed] = useState<ProblemRecord[]>(() => {
     if (isIntermediate) return [];
@@ -112,13 +112,10 @@ export function TrainingResult({ level }: TrainingResultProps) {
     return records ?? [];
   });
   useEffect(() => {
-    if (isBeginnerOpen) {
-      const records = loadBeginnerOpenRecords(level.key);
-      if (records) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setOpenRecords(records);
-      }
-    } else if (isIntermediate) {
+    const review = loadAnswerReview(level.key);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (review) setReviewRecords(review);
+    if (isIntermediate) {
       const records = loadIntermediateRecords(level.key);
       if (records) {
         setIntermediateAll(records);
@@ -129,7 +126,7 @@ export function TrainingResult({ level }: TrainingResultProps) {
         setMissed(missedRecords(records));
       }
     }
-  }, [level.key, isIntermediate, isBeginnerOpen]);
+  }, [level.key, isIntermediate]);
 
   // submission レスポンスをセッション単位でキャッシュ。
   // 振り返り画面に遷移 → 戻り時に再 submit すると 2 回目は is_best=false になり「更新通知が消える」
@@ -228,20 +225,11 @@ export function TrainingResult({ level }: TrainingResultProps) {
           <ScoreBreakdownSection records={intermediateAll} />
         )}
 
-        {isBeginnerOpen && openRecords.length > 0 && (
-          <section style={missedSectionStyle} aria-label="答え一覧">
-            <header style={missedHeaderStyle}>答え一覧 ({openRecords.length}問)</header>
-            <ul style={missedListStyle}>
-              {openRecords.map((rec) => (
-                <li key={rec.id} style={{ listStyle: 'none' }}>
-                  <OpenAnswerCard
-                    record={rec}
-                    onReview={() => navigate(trainingReviewPath(level.key, rec.id))}
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
+        {reviewRecords.length > 0 && (
+          <AnswerReviewSection
+            records={reviewRecords}
+            onReview={(id) => navigate(trainingReviewPath(level.key, id))}
+          />
         )}
 
         {!isIntermediate && missed.length > 0 && (
@@ -435,41 +423,6 @@ function MissedCard({
           あなた: <span style={userAnswerStyle}>{userText}</span>
           {' | '}
           正解: <span style={correctAnswerStyle}>{correctText}</span>
-        </div>
-      </div>
-      <button type="button" onClick={onReview} style={reviewBtnStyle}>
-        問題へ
-      </button>
-    </div>
-  );
-}
-
-/**
- * 初級オープンの答え一覧 1 行。初級基礎の振り返りカードと同じ作り
- * (○/✕ 判定 + シナリオ + ハンドのカード画像 + あなた/正解)。
- */
-function OpenAnswerCard({ record, onReview }: { record: BeginnerOpenRecord; onReview: () => void }) {
-  const correct = record.points > 0;
-  const icon = correct ? '○' : '✕';
-  const color = correct ? '#3B6D11' : '#A32D2D';
-  const answerText = record.answerPct === null ? '—' : `${record.answerPct}%`;
-  const cards = handToCards(record.hand);
-  return (
-    <div style={missedCardStyle}>
-      <span style={{ ...iconBadgeStyle, color }} aria-label={`判定: ${icon}`}>
-        {icon}
-      </span>
-      <div style={missedCardLeftStyle}>
-        <span style={missedScenarioStyle}>{record.position} オープン</span>
-        <CardSet
-          cards={cards.map((c) => ({ rank: c.rank as Rank, suit: c.suit as Suit }))}
-          size="md"
-          gap={4}
-        />
-        <div style={missedAnswerLineStyle}>
-          あなた: <span style={userAnswerStyle}>{answerText}</span>
-          {' | '}
-          正解: <span style={correctAnswerStyle}>{record.raisePct}%</span>
         </div>
       </div>
       <button type="button" onClick={onReview} style={reviewBtnStyle}>

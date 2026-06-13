@@ -1,37 +1,49 @@
 import { describe, it, expect } from 'vitest';
 import {
   VS_OPEN_OPENERS,
-  PER_OPENER,
+  TOTAL_QUESTIONS,
+  VALUE_QUOTA,
+  BLUFF_QUOTA,
   VS_OPEN_EXCLUDED_HANDS,
   candidatesFor,
   buildBeginnerVsOpenQuestions,
   vsOpenNodeFile,
   type VsOpenNodes,
 } from './preflopBeginnerVsOpen';
-import { isEligibleByEvThreshold, isAllMixedStrategy, scoreGentleSelect } from './preflopBeginnerExt';
+import {
+  isEligibleByEvThreshold,
+  isAllMixedStrategy,
+  isValueRaise,
+  isBluffOrSemiBluffRaise,
+  scoreGentleSelect,
+} from './preflopBeginnerExt';
 import { VS_OPEN_PAIRS, type HandStrategy } from './preflopBeginner';
 import { EV_RANKING } from '../evRanking';
 import type { Hand } from '../../types/strategy';
 
-// EV<=40 かつ AA・KK 以外のハンド一覧 (生成側フィルタと同じ判定の候補母集団)。
-const ELIGIBLE: Hand[] = (Object.keys(EV_RANKING) as Hand[]).filter(
-  (h) => isEligibleByEvThreshold(h) && h !== 'AA' && h !== 'KK',
-);
+const topPct = (h: Hand): number => EV_RANKING[h]?.topPct ?? 999;
 
-/** ハンド群を raise=100 (= 非混合) の戦略にした hands マップ。 */
-function pureRaise(hands: Hand[]): Record<string, HandStrategy> {
+// 分類が明確になるよう 3 種のハンドプール (EV<=40 / 非AA・KK / 非all-mixed) を用意。
+//   value : raise=100               (raiseTotal>=80)
+//   bluff : raise=15 / fold=85       (raiseTotal 15, fold が major なので非all-mixed, topPct>=10)
+//   rest  : fold=100                 (raiseTotal 0)
+const VALUE_POOL: Hand[] = ['QQ', 'JJ', 'AKs', 'AQs', 'TT', 'AJs', 'KQs', 'AQo'] as Hand[];
+const BLUFF_POOL: Hand[] = ['ATo', 'KQo', 'AJo'] as Hand[]; // すべて topPct 10〜40
+const REST_POOL: Hand[] = ['22', '33', '44', '55', '66', '77', '88', '99'] as Hand[];
+
+function node(): Record<string, HandStrategy> {
   const out: Record<string, HandStrategy> = {};
-  for (const h of hands) out[h] = { allin: 0, raise: 100, call: 0, fold: 0 };
+  for (const h of VALUE_POOL) out[h] = { allin: 0, raise: 100, call: 0, fold: 0 };
+  for (const h of BLUFF_POOL) out[h] = { allin: 0, raise: 15, call: 0, fold: 85 };
+  for (const h of REST_POOL) out[h] = { allin: 0, raise: 0, call: 0, fold: 100 };
   return out;
 }
 
-/** 全 15 ペアを「非混合の eligible ハンド」で埋めたノード。 */
 function fullNodes(): VsOpenNodes {
-  const pool = ELIGIBLE.slice(0, 20);
   const nodes: VsOpenNodes = {};
   for (const [opener, hero] of VS_OPEN_PAIRS) {
     if (!nodes[opener]) nodes[opener] = {};
-    nodes[opener]![hero] = pureRaise(pool);
+    nodes[opener]![hero] = node();
   }
   return nodes;
 }
@@ -39,49 +51,64 @@ function fullNodes(): VsOpenNodes {
 describe('candidatesFor (vs オープンの出題候補)', () => {
   it('EV<=40 のハンドのみ (EV>40 は除外)', () => {
     const ineligible = (Object.keys(EV_RANKING) as Hand[]).find((h) => !isEligibleByEvThreshold(h))!;
-    const out = candidatesFor(pureRaise([ELIGIBLE[0], ineligible]));
-    expect(out).toContain(ELIGIBLE[0]);
+    const out = candidatesFor({
+      [VALUE_POOL[0]]: { allin: 0, raise: 100, call: 0, fold: 0 },
+      [ineligible]: { allin: 0, raise: 100, call: 0, fold: 0 },
+    });
+    expect(out).toContain(VALUE_POOL[0]);
     expect(out).not.toContain(ineligible);
   });
 
   it('AA・KK は除外 (簡単すぎるため)', () => {
-    const hands: Record<string, HandStrategy> = {
+    const out = candidatesFor({
       AA: { allin: 0, raise: 100, call: 0, fold: 0 },
       KK: { allin: 0, raise: 100, call: 0, fold: 0 },
-      [ELIGIBLE[0]]: { allin: 0, raise: 100, call: 0, fold: 0 },
-    };
-    const out = candidatesFor(hands);
+      [VALUE_POOL[0]]: { allin: 0, raise: 100, call: 0, fold: 0 },
+    });
     expect(out).not.toContain('AA');
     expect(out).not.toContain('KK');
-    expect(out).toContain(ELIGIBLE[0]);
+    expect(out).toContain(VALUE_POOL[0]);
     expect(VS_OPEN_EXCLUDED_HANDS).toEqual(['AA', 'KK']);
   });
 
   it('全戦略混合 (TT raise33/call40/fold27 等) は除外', () => {
     const tt: HandStrategy = { allin: 0, raise: 33, call: 40, fold: 27 };
     expect(isAllMixedStrategy(tt)).toBe(true);
-    const hands: Record<string, HandStrategy> = {
-      TT: tt,
-      [ELIGIBLE[0]]: { allin: 0, raise: 100, call: 0, fold: 0 },
-    };
-    const out = candidatesFor(hands);
+    const out = candidatesFor({ TT: tt, [VALUE_POOL[0]]: { allin: 0, raise: 100, call: 0, fold: 0 } });
     expect(out).not.toContain('TT');
-    expect(out).toContain(ELIGIBLE[0]);
   });
 });
 
-describe('buildBeginnerVsOpenQuestions', () => {
-  it('20 問を生成する', () => {
-    expect(buildBeginnerVsOpenQuestions(fullNodes())).toHaveLength(20);
+describe('isValueRaise / isBluffOrSemiBluffRaise', () => {
+  it('isValueRaise: raise+allin>=80', () => {
+    expect(isValueRaise({ allin: 0, raise: 100, call: 0, fold: 0 })).toBe(true);
+    expect(isValueRaise({ allin: 40, raise: 45, call: 0, fold: 15 })).toBe(true); // 合計85
+    expect(isValueRaise({ allin: 0, raise: 15, call: 0, fold: 85 })).toBe(false);
   });
 
-  it('アグレッサー(opener)均等 4 問ずつ (5×4=20)', () => {
-    // ランダム性があるので複数回まわして毎回 4/4/4/4/4 を確認。
-    for (let trial = 0; trial < 30; trial++) {
+  it('isBluffOrSemiBluffRaise: raise+allin 10-79 かつ topPct>=10', () => {
+    const s: HandStrategy = { allin: 0, raise: 15, call: 0, fold: 85 };
+    expect(isBluffOrSemiBluffRaise(s, 14.48)).toBe(true); // ATo 相当
+    expect(isBluffOrSemiBluffRaise(s, 5)).toBe(false); // 強すぎ (premium級) は対象外
+    expect(isBluffOrSemiBluffRaise({ allin: 0, raise: 0, call: 0, fold: 100 }, 20)).toBe(false); // raise 0%
+    expect(isBluffOrSemiBluffRaise({ allin: 0, raise: 100, call: 0, fold: 0 }, 20)).toBe(false); // value
+  });
+});
+
+describe('buildBeginnerVsOpenQuestions (レイズ枠保証)', () => {
+  it('20 問を生成する', () => {
+    expect(buildBeginnerVsOpenQuestions(fullNodes())).toHaveLength(TOTAL_QUESTIONS);
+  });
+
+  it('バリュー4問 + ブラフ4問を毎回保証 (100 試行)', () => {
+    for (let t = 0; t < 100; t++) {
       const qs = buildBeginnerVsOpenQuestions(fullNodes());
-      const byOpener: Record<string, number> = {};
-      for (const q of qs) byOpener[q.opener] = (byOpener[q.opener] ?? 0) + 1;
-      for (const o of VS_OPEN_OPENERS) expect(byOpener[o]).toBe(PER_OPENER);
+      const value = qs.filter((q) => isValueRaise(q.strategy)).length;
+      const bluff = qs.filter(
+        (q) => !isValueRaise(q.strategy) && isBluffOrSemiBluffRaise(q.strategy, topPct(q.hand)),
+      ).length;
+      expect(value).toBe(VALUE_QUOTA);
+      expect(bluff).toBe(BLUFF_QUOTA);
     }
   });
 
@@ -94,54 +121,40 @@ describe('buildBeginnerVsOpenQuestions', () => {
     }
   });
 
-  it('nodeFile は {opener}r_{hero}.json、hero は opener より後ろの席', () => {
+  it('nodeFile は {opener}r_{hero}.json、有効ペアのみ、同一ノードのハンド重複なし', () => {
     const qs = buildBeginnerVsOpenQuestions(fullNodes());
     const validPair = new Set(VS_OPEN_PAIRS.map(([o, h]) => `${o}|${h}`));
+    const seen = new Set<string>();
     for (const q of qs) {
       expect(q.nodeFile).toBe(vsOpenNodeFile(q.opener, q.hero));
       expect(validPair.has(`${q.opener}|${q.hero}`)).toBe(true);
-    }
-  });
-
-  it('同一アグレッサー内でヒーローを分散 (UTG=4ヒーロー / SB=BBのみ)', () => {
-    const qs = buildBeginnerVsOpenQuestions(fullNodes());
-    const utgHeroes = new Set(qs.filter((q) => q.opener === 'UTG').map((q) => q.hero));
-    // UTG は 5 ヒーローから 4 問 → 4 種類の異なるヒーロー。
-    expect(utgHeroes.size).toBe(4);
-    // SB アグレッサーは BB のみ (1 ペア) → 4 問とも hero=BB。
-    const sbHeroes = qs.filter((q) => q.opener === 'SB');
-    expect(sbHeroes.every((q) => q.hero === 'BB')).toBe(true);
-  });
-
-  it('同一ノードのハンドは重複しない', () => {
-    const qs = buildBeginnerVsOpenQuestions(fullNodes());
-    const seen = new Set<string>();
-    for (const q of qs) {
       const k = `${q.nodeFile}:${q.hand}`;
       expect(seen.has(k)).toBe(false);
       seen.add(k);
+    }
+  });
+
+  it('ポジションは複数アグレッサーに分散する (round-robin)', () => {
+    for (let t = 0; t < 20; t++) {
+      const qs = buildBeginnerVsOpenQuestions(fullNodes());
+      const openers = new Set(qs.map((q) => q.opener));
+      expect(openers.size).toBeGreaterThanOrEqual(4); // 5 アグレッサー中ほぼ全て
+      expect(VS_OPEN_OPENERS).toContain(qs[0].opener);
     }
   });
 });
 
 describe('scoreGentleSelect (vs オープンの採点ルール)', () => {
   it('頻度0%のアクションを選んだら 0pt', () => {
-    const s: HandStrategy = { allin: 0, raise: 100, call: 0, fold: 0 };
-    expect(scoreGentleSelect(['call'], s)).toBe(0); // call 0%
+    expect(scoreGentleSelect(['call'], { allin: 0, raise: 100, call: 0, fold: 0 })).toBe(0);
   });
-
   it('頻度80%以上のアクションを選ばなかったら 0pt', () => {
-    const s: HandStrategy = { allin: 0, raise: 100, call: 0, fold: 0 };
-    expect(scoreGentleSelect(['fold'], s)).toBe(0); // fold 0% を選び、raise 100% を漏らした
+    expect(scoreGentleSelect(['fold'], { allin: 0, raise: 100, call: 0, fold: 0 })).toBe(0);
   });
-
   it('0%を選ばず 80%以上を漏らさなければ 1pt', () => {
-    const s: HandStrategy = { allin: 0, raise: 100, call: 0, fold: 0 };
-    expect(scoreGentleSelect(['raise'], s)).toBe(1);
+    expect(scoreGentleSelect(['raise'], { allin: 0, raise: 100, call: 0, fold: 0 })).toBe(1);
   });
-
-  it('混合 (raise60/fold40) は両方選んでも 1pt (0%なし・80%なし)', () => {
-    const s: HandStrategy = { allin: 0, raise: 60, call: 0, fold: 40 };
-    expect(scoreGentleSelect(['raise', 'fold'], s)).toBe(1);
+  it('混合 (raise60/fold40) は両方選んでも 1pt', () => {
+    expect(scoreGentleSelect(['raise', 'fold'], { allin: 0, raise: 60, call: 0, fold: 40 })).toBe(1);
   });
 });

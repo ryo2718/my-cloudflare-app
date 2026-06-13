@@ -118,3 +118,36 @@ export function isBoundary(s: HandStrategy): boolean {
   const raise = s.raise ?? 0;
   return raise >= BOUNDARY_RAISE_LO && raise <= BOUNDARY_RAISE_HI;
 }
+
+// ---------------------------------------------------------------------------
+// レイズ系判定 (vs オープンのレイズ問題保証に使う)
+//   raiseTotal = raise + allin で「レイズ系」を測る。
+// ---------------------------------------------------------------------------
+
+/** バリューレイズとみなす raiseTotal の下限 (これ以上 = 強いレイズ主体)。 */
+export const VALUE_RAISE_MIN_PCT = 80;
+/** ブラフ/セミブラフレイズの raiseTotal 帯 (混合レイズ)。 */
+export const BLUFF_RAISE_LO_PCT = 10;
+export const BLUFF_RAISE_HI_PCT = 79;
+/** ブラフ枠に含めるハンドの最小 topPct (これ未満 = プレミアム級で value 扱い、除外)。 */
+export const BLUFF_MIN_TOPPCT = 10;
+
+/** raise + allin の合計頻度 (%)。 */
+export function raiseTotal(s: HandStrategy): number {
+  return (s.raise ?? 0) + (s.allin ?? 0);
+}
+
+/** バリューレイズ系か (raise+allin >= 80%)。 */
+export function isValueRaise(s: HandStrategy): boolean {
+  return raiseTotal(s) >= VALUE_RAISE_MIN_PCT;
+}
+
+/**
+ * ブラフ/セミブラフレイズ系か。
+ *   - raise+allin が 10〜79% の混合レイズ
+ *   - かつ topPct >= 10 (プレミアム/エリート級でない弱めのハンドのレイズ)
+ */
+export function isBluffOrSemiBluffRaise(s: HandStrategy, topPct: number): boolean {
+  const rt = raiseTotal(s);
+  return rt >= BLUFF_RAISE_LO_PCT && rt <= BLUFF_RAISE_HI_PCT && topPct >= BLUFF_MIN_TOPPCT;
+}

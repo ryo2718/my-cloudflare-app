@@ -1,21 +1,20 @@
-// /training/preflop-beginner-open/review/{n}: 初級オープンの振り返り画面。
+// /training/{slug}/review/{n}: 汎用の振り返り画面 (AnswerReviewRecord を保存した全モード共通)。
 //
 // 初級基礎 (TrainingReview) と同じ体験:
 //   - 問題画面と同じ ActionTable + ハンド表示
-//   - 正解レイズ% / あなたの回答% を ○(正解) / ✕(不正解) 判定付きで表示
-//   - [前の問題] [次の問題] で全 20 問をナビゲート (ループしない)
+//   - 正解 / あなたの回答を ○(正解) / ✕(不正解) 判定付きで表示
+//   - [前の問題] [次の問題] で全問をナビゲート (ループしない)
 //   - [← 結果に戻る] で result に戻る
 //
-// データ取得: beginnerOpenRecordsStore (in-mem + sessionStorage)。記録なし / 範囲外は
-// result にリダイレクト。初級基礎は missed のみだが、オープンは答え一覧と同じく全問を辿る。
+// データ取得: answerReviewStore (in-mem + sessionStorage)。記録なし / 範囲外は result にリダイレクト。
 
 import type { CSSProperties } from 'react';
 import { Link } from '../../router/router';
 import { navigate } from '../../router/router-core';
 import {
-  loadBeginnerOpenRecords,
-  type BeginnerOpenRecord,
-} from '../../data/training/beginnerOpenRecordsStore';
+  loadAnswerReview,
+  type AnswerReviewRecord,
+} from '../../data/training/answerReviewStore';
 import { handToCards } from '../../data/training/preflopBeginner';
 import {
   trainingPath,
@@ -28,26 +27,23 @@ import { ActionTable } from './ActionTable';
 import { NodeRangeSection } from './NodeRangeSection';
 import type { Suit, Rank } from '../../types/card';
 
-export interface TrainingReviewBeginnerOpenProps {
+export interface TrainingReviewGenericProps {
   level: TrainingLevel;
   /** 全問内の 1-indexed 位置 (URL から)。 */
   index: number;
 }
 
 /** ?score=N&total=M を付けた result パス (records から再計算)。 */
-function buildResultPath(
-  levelKey: string,
-  records: ReadonlyArray<BeginnerOpenRecord> | null,
-): string {
+function buildResultPath(levelKey: string, records: ReadonlyArray<AnswerReviewRecord> | null): string {
   const base = trainingPath(levelKey, 'result');
   if (!records || records.length === 0) return base;
-  const score = records.filter((r) => r.points > 0).length;
+  const score = records.filter((r) => r.correct).length;
   const sp = new URLSearchParams({ score: String(score), total: String(records.length) });
   return `${base}?${sp.toString()}`;
 }
 
-export function TrainingReviewBeginnerOpen({ level, index }: TrainingReviewBeginnerOpenProps) {
-  const records = loadBeginnerOpenRecords(level.key);
+export function TrainingReviewGeneric({ level, index }: TrainingReviewGenericProps) {
+  const records = loadAnswerReview(level.key);
   const resultPath = buildResultPath(level.key, records);
 
   const i = index - 1;
@@ -76,10 +72,7 @@ export function TrainingReviewBeginnerOpen({ level, index }: TrainingReviewBegin
     if (hasNext) navigate(trainingReviewPath(level.key, index + 1));
   };
 
-  const nodeFile = `${current.position.toLowerCase()}.json`;
-  const correct = current.points > 0;
-  const color = correct ? '#1F4D11' : '#7A2A26';
-  const answerText = current.answerPct === null ? '—' : `${current.answerPct}%`;
+  const color = current.correct ? '#1F4D11' : '#7A2A26';
   const cards = handToCards(current.hand);
 
   return (
@@ -96,9 +89,9 @@ export function TrainingReviewBeginnerOpen({ level, index }: TrainingReviewBegin
           </span>
         </div>
 
-        <div style={scenarioPillStyle}>{current.position} オープン</div>
+        <div style={scenarioPillStyle}>{current.scenario}</div>
 
-        <ActionTable file={nodeFile} mePosition={current.position} />
+        <ActionTable file={current.nodeFile} mePosition={current.mePosition} />
 
         <section style={handSectionStyle}>
           <span style={handLabelStyle}>ハンド</span>
@@ -109,21 +102,21 @@ export function TrainingReviewBeginnerOpen({ level, index }: TrainingReviewBegin
           />
         </section>
 
-        <section style={{ ...answerPanelStyle, ...(correct ? correctPanelStyle : incorrectPanelStyle) }}>
-          <span style={{ ...markStyle, color }} aria-label={correct ? '正解' : '不正解'}>
-            {correct ? '○' : '✕'}
+        <section style={{ ...answerPanelStyle, ...(current.correct ? correctPanelStyle : incorrectPanelStyle) }}>
+          <span style={{ ...markStyle, color }} aria-label={current.correct ? '正解' : '不正解'}>
+            {current.correct ? '○' : '✕'}
           </span>
           <div style={answerLinesStyle}>
             <div style={answerLineStyle}>
-              正解(レイズ): <span style={{ ...answerValStyle, color }}>{current.raisePct}%</span>
+              正解: <span style={{ ...answerValStyle, color }}>{current.correctText}</span>
             </div>
             <div style={answerLineStyle}>
-              あなた: <span style={answerValStyle}>{answerText}</span>
+              あなた: <span style={answerValStyle}>{current.userText}</span>
             </div>
           </div>
         </section>
 
-        <NodeRangeSection file={nodeFile} highlightHand={current.hand} />
+        <NodeRangeSection file={current.nodeFile} highlightHand={current.hand} />
 
         <nav style={navRowStyle}>
           <button type="button" onClick={goPrev} disabled={!hasPrev} style={hasPrev ? navBtnStyle : navBtnDisabledStyle}>
@@ -160,8 +153,7 @@ const handLabelStyle: CSSProperties = {
   fontSize: '0.72rem', color: THEME.textSecondary, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
 };
 const answerPanelStyle: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '0.7rem',
-  padding: '0.85rem 1rem', borderRadius: '0.45rem',
+  display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.85rem 1rem', borderRadius: '0.45rem',
 };
 const correctPanelStyle: CSSProperties = { background: '#E5F5DC', border: '2px solid #6B9C3C' };
 const incorrectPanelStyle: CSSProperties = { background: '#F7E3E2', border: '2px solid #C25855' };

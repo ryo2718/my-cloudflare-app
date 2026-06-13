@@ -29,7 +29,8 @@ import { beginnerNodeFile } from '../../data/training/preflopBeginner';
 import { scenarioLabel } from './scenarioLabel';
 import { NodeRangeSection } from './NodeRangeSection';
 import { TrainingReviewIntermediate } from './TrainingReviewIntermediate';
-import { TrainingReviewBeginnerOpen } from './TrainingReviewBeginnerOpen';
+import { TrainingReviewGeneric } from './TrainingReviewGeneric';
+import { loadAnswerReview } from '../../data/training/answerReviewStore';
 import type { Suit, Rank } from '../../types/card';
 
 export interface TrainingReviewProps {
@@ -56,9 +57,9 @@ export function TrainingReview({ level, index }: TrainingReviewProps) {
   if (level.key === 'preflop_intermediate') {
     return <TrainingReviewIntermediate level={level} index={index} />;
   }
-  // 初級オープンは slider 形式 (正解%/あなた% を ○✕ 判定で表示)
-  if (level.key === 'preflop_beginner_open') {
-    return <TrainingReviewBeginnerOpen level={level} index={index} />;
+  // AnswerReviewRecord を保存したモード (初級オープン / vs オープン / 今後の新モード) は汎用振り返り。
+  if (loadAnswerReview(level.key)) {
+    return <TrainingReviewGeneric level={level} index={index} />;
   }
   const records = loadRecords(level.key);
   const missed = records ? missedRecords(records) : [];

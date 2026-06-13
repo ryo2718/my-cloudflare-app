@@ -12,10 +12,10 @@ import {
 } from '../../data/training/preflopBeginnerOpen';
 import { scoreGentleSlider } from '../../data/training/preflopBeginnerExt';
 import {
-  saveBeginnerOpenRecords,
-  clearBeginnerOpenRecords,
-  type BeginnerOpenRecord,
-} from '../../data/training/beginnerOpenRecordsStore';
+  saveAnswerReview,
+  clearAnswerReview,
+  type AnswerReviewRecord,
+} from '../../data/training/answerReviewStore';
 import { trainingPath, type TrainingLevel } from '../../data/trainingCatalog';
 import { THEME } from '../../styles/theme';
 import { ActionTable } from './ActionTable';
@@ -62,16 +62,18 @@ export function TrainingPlayBeginnerOpen({ level }: TrainingPlayBeginnerOpenProp
   const [instant] = useState<boolean>(loadInstantFeedback);
 
   const finish = (records: OpenRecord[]) => {
-    // 結果画面「答え一覧」用に各問の記録を保存 (ローカルのみ、DB 非送信)。
-    const openRecords: BeginnerOpenRecord[] = records.map((r) => ({
+    // 結果画面「答え一覧」/ 振り返り用に汎用レコードを保存 (ローカルのみ、DB 非送信)。
+    const review: AnswerReviewRecord[] = records.map((r) => ({
       id: r.id,
-      position: r.question.position,
+      scenario: `${r.question.position} オープン`,
       hand: r.question.hand,
-      raisePct: r.question.raisePct,
-      answerPct: r.response.kind === 'slider' ? r.response.pct : null,
-      points: r.points,
+      nodeFile: r.question.nodeFile,
+      mePosition: r.question.position,
+      correct: r.points > 0,
+      userText: r.response.kind === 'slider' ? `${r.response.pct}%` : '—',
+      correctText: `${r.question.raisePct}%`,
     }));
-    saveBeginnerOpenRecords(level.key, openRecords);
+    saveAnswerReview(level.key, review);
     // best_score = 正解数 (0-20)。pt は catalog points=0.5 で換算 (満点 10pt)。
     const correctCount = records.filter((r) => r.points > 0).length;
     const params = new URLSearchParams({
@@ -87,7 +89,7 @@ export function TrainingPlayBeginnerOpen({ level }: TrainingPlayBeginnerOpenProp
     OpenRecord
   >({
     load: () => generateBeginnerOpenQuestions(),
-    onLoadStart: () => clearBeginnerOpenRecords(level.key), // 前回の答え一覧をクリア
+    onLoadStart: () => clearAnswerReview(level.key), // 前回の答え一覧をクリア
     reloadKey: level.key,
     instant,
     scorePoints: scoreOpen,
