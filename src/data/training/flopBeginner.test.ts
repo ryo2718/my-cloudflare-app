@@ -8,48 +8,71 @@ import {
   flopScenarioLabel,
   flopOop,
   flopShowsVillainCheck,
+  apportionByRatio,
+  rollIntentionalCount,
+  BEGINNER_INTENTIONAL_MIN,
+  BEGINNER_INTENTIONAL_MAX,
+  BEGINNER_CATEGORY_RATIO,
   type FlopTrainingData,
   type FlopQuestion,
   FLOP_BEGINNER_COUNT,
 } from './flopBeginner';
+import { getClusterId } from './boardClusters';
 
 const DATA: FlopTrainingData = JSON.parse(
   readFileSync('public/data/flop/flop_training_v1.json', 'utf8'),
 );
 
-function counts(qs: FlopQuestion[]) {
-  return {
-    total: qs.length,
-    cb: qs.filter((q) => q.type === 'cb').length,
-    donk: qs.filter((q) => q.type === 'donk').length,
-    cbSRP: qs.filter((q) => q.type === 'cb' && q.pot === 'SRP').length,
-    cb3bet: qs.filter((q) => q.type === 'cb' && q.pot === '3bet').length,
-    cbBet: qs.filter((q) => q.type === 'cb' && q.correct === 'bet').length,
-    cbCheck: qs.filter((q) => q.type === 'cb' && q.correct === 'check').length,
-    donkBet: qs.filter((q) => q.type === 'donk' && q.correct === 'bet').length,
-    donkCheck: qs.filter((q) => q.type === 'donk' && q.correct === 'check').length,
-  };
-}
+const boardStr = (q: FlopQuestion) => q.board.map((c) => c.rank + c.suit).join('');
+const POOL = new Set<string>();
+for (const byBand of Object.values(DATA.cb)) for (const arr of Object.values(byBand)) for (const r of arr) POOL.add(r.board);
+for (const arr of Object.values(DATA.donk)) for (const r of arr) POOL.add(r.board);
 
-describe('フロップ初級 出題生成', () => {
-  it('全20問・CB15・ドンク5 (50セッション安定)', () => {
-    for (let s = 0; s < 50; s++) {
+describe('フロップ初級 出題生成 (ハイブリッド: 意図的 + ランダム)', () => {
+  it('全20問・同一ボード重複なし・全て母集団内 (100セッション)', () => {
+    for (let s = 0; s < 100; s++) {
       const qs = buildFlopQuestions(DATA);
-      const c = counts(qs);
-      expect(c.total).toBe(FLOP_BEGINNER_COUNT);
-      expect(c.cb).toBe(15);
-      expect(c.donk).toBe(5);
+      expect(qs.length).toBe(FLOP_BEGINNER_COUNT);
+      const boards = qs.map(boardStr);
+      expect(new Set(boards).size).toBe(qs.length); // 重複なし
+      for (const b of boards) expect(POOL.has(b)).toBe(true); // 母集団外フロップは混入しない
     }
   });
 
-  it('CB内訳: SRP9 (打つ6/打たない3) / 3bet6 (打つ3/打たない3)、ドンク 打つ3/打たない2', () => {
-    const c = counts(buildFlopQuestions(DATA));
-    expect(c.cbSRP).toBe(9);
-    expect(c.cb3bet).toBe(6);
-    expect(c.cbBet).toBe(9); // SRP打つ6 + 3bet打つ3
-    expect(c.cbCheck).toBe(6); // SRP打たない3 + 3bet打たない3
-    expect(c.donkBet).toBe(3); // 70%〜
-    expect(c.donkCheck).toBe(2); // 0〜5%
+  it('意図的総数 N=4〜8 が揃う / 内訳が 9:6:5 で按分される', () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < 300; i++) {
+      const n = rollIntentionalCount(BEGINNER_INTENTIONAL_MIN, BEGINNER_INTENTIONAL_MAX);
+      expect(n).toBeGreaterThanOrEqual(4);
+      expect(n).toBeLessThanOrEqual(8);
+      seen.add(n);
+    }
+    expect(seen.size).toBe(5); // 4,5,6,7,8 すべて出る
+    // 最大剰余法での按分 (CB打つ:CB打たない:ドンク)
+    expect(apportionByRatio(4, BEGINNER_CATEGORY_RATIO)).toEqual([2, 1, 1]);
+    expect(apportionByRatio(5, BEGINNER_CATEGORY_RATIO)).toEqual([2, 2, 1]);
+    expect(apportionByRatio(6, BEGINNER_CATEGORY_RATIO)).toEqual([3, 2, 1]);
+    expect(apportionByRatio(7, BEGINNER_CATEGORY_RATIO)).toEqual([3, 2, 2]);
+    expect(apportionByRatio(8, BEGINNER_CATEGORY_RATIO)).toEqual([4, 2, 2]);
+    for (let n = 4; n <= 8; n++) {
+      const a = apportionByRatio(n, BEGINNER_CATEGORY_RATIO);
+      expect(a.reduce((x, y) => x + y, 0)).toBe(n);
+      for (const v of a) expect(v).toBeGreaterThanOrEqual(1); // 各カテゴリ最低1
+    }
+  });
+
+  it('ランダム枠でクラスタが多様にカバーされる', () => {
+    const all = new Set<number>();
+    for (let s = 0; s < 100; s++) {
+      const qs = buildFlopQuestions(DATA);
+      const per = new Set<number>();
+      for (const q of qs) {
+        const id = getClusterId(boardStr(q));
+        if (id !== null) { per.add(id); all.add(id); }
+      }
+      expect(per.size).toBeGreaterThanOrEqual(12); // 1セッション20問で十分多様
+    }
+    expect(all.size).toBeGreaterThan(45); // 100セッションでほぼ全クラスタ出現
   });
 
   it('正誤と頻度/閾値の整合 (CB=0.7 / donk=0.6)', () => {
@@ -77,10 +100,12 @@ describe('フロップ初級 出題生成', () => {
     expect(interleaved).toBe(true); // donk と cb が混ざる
   });
 
-  it('同一 variant:board は重複しない', () => {
-    const qs = buildFlopQuestions(DATA);
-    const keys = qs.map((q) => `${q.variant}:${q.board.map((c) => c.rank + c.suit).join('')}`);
-    expect(new Set(keys).size).toBe(qs.length);
+  it('同一ボード(カード)は重複しない (意図的とランダムでもかぶらない)', () => {
+    for (let s = 0; s < 30; s++) {
+      const qs = buildFlopQuestions(DATA);
+      const boards = qs.map(boardStr);
+      expect(new Set(boards).size).toBe(qs.length);
+    }
   });
 
   it('各問に villain / preflopActions / actions(bp付き) が入る', () => {

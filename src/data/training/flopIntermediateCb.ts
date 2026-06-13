@@ -13,6 +13,8 @@
 import type { Rank, Suit, Card } from '../../types/card';
 import type { Position } from '../../types/strategy';
 import type { ActionItem } from './actionHistory';
+import { sampleByClusterRoundRobin } from './boardClusters';
+import { apportionByRatio } from './flopBeginner';
 
 /** ポット種別 (実際のポット)。 */
 export type FlopRbPot = 'SRP' | '3bet' | '4bet' | '5bet';
@@ -463,44 +465,89 @@ function poolForSegment(data: FlopRbData, seg: FlopRbSegment): CbBoard[] {
 }
 
 /** ロード済みデータから 1 モード分 (30問) を生成 (純粋関数)。 */
+/** 意図的総数の範囲 (中級)。 */
+export const INTERMEDIATE_INTENTIONAL_MIN = 6;
+export const INTERMEDIATE_INTENTIONAL_MAX = 12;
+
+/** 解決済み出題候補 (どのプールの似たボードを使うかも保持)。 */
+interface RbPick {
+  rec: CbBoard;
+  kind: FlopCbKind;
+  pool: ReadonlyArray<CbBoard>;
+}
+
+/**
+ * 1 モード分 (30問) を「意図的 N + ランダム枠」で生成 (純粋関数)。
+ *   意図的 (N=6..12): 既存のセグメント配分 (pot 比率) を N に按分し、各セグメントで
+ *     overbet/check 枠 + 帯×支配サイズ層化 (sampleVaried) を維持して選ぶ。
+ *   ランダム枠 (30-N): 当該モードのプールから 49(+被覆穴)クラスタ層化ラウンドロビンで網羅抽出。
+ *   同一ボードは意図的・ランダム間で重複させない (seen を共有)。
+ */
 export function buildFlopRbQuestions(data: FlopRbData, mode: FlopRbMode = 'srp'): FlopRbQuestion[] {
-  const out: FlopRbQuestion[] = [];
   const seen = new Set<string>();
   const choicesByPot = data.cb_choices_by_pot ?? {};
   const fallbackChoices = data.cb_choices ?? DEFAULT_CHOICES;
   const choicesFor = (pot: FlopRbPot) => choicesByPot[pot] ?? fallbackChoices;
   const preflopOf = (v: string) => data.preflop?.[v] ?? [];
-  let id = 0;
 
-  for (const seg of FLOP_RB_MODE_SEGMENTS[mode]) {
-    const pool = poolForSegment(data, seg);
-    // オーバーベット/オールイン → チェック主体 の順で確保し、残りを支配サイズ多様で埋める。
+  const segs = FLOP_RB_MODE_SEGMENTS[mode];
+  const segPools = segs.map((seg) => ({ seg, pool: poolForSegment(data, seg) }));
+
+  // --- 意図的問題 (N) ---
+  const N = INTERMEDIATE_INTENTIONAL_MIN + Math.floor(Math.random() * (INTERMEDIATE_INTENTIONAL_MAX - INTERMEDIATE_INTENTIONAL_MIN + 1));
+  const intPer = apportionByRatio(N, segPools.map(({ seg }) => seg.count));
+  const intentional: RbPick[] = [];
+  segPools.forEach(({ seg, pool }, i) => {
+    const want = intPer[i];
+    if (want <= 0) return;
+    // セグメント内も overbet/check 比率を N にスケール。
+    const ob = Math.round((seg.overbet * want) / seg.count);
+    const ck = Math.round((seg.check * want) / seg.count);
     const picks: CbBoard[] = [];
-    picks.push(
-      ...sampleVaried(pool.filter((b) => bigSizeFreq(b.strat) >= OVERBET_MIN), Math.min(seg.overbet, seg.count - picks.length), seen),
-    );
-    picks.push(
-      ...sampleVaried(pool.filter((b) => (b.strat.check ?? 0) >= CHECK_MIN), Math.min(seg.check, seg.count - picks.length), seen),
-    );
-    picks.push(...sampleVaried(pool, seg.count - picks.length, seen));
-    for (const rec of picks) {
-      id += 1;
-      const choices = choicesFor(rec.pot);
-      out.push({
-        id,
-        pot: rec.pot,
-        kind: seg.kind,
-        variant: rec.variant,
-        hero: rec.hero as Position,
-        villain: rec.villain as Position,
-        board: parseBoard(rec.board),
-        choices,
-        strat: rec.strat,
-        preflopActions: preflopOf(rec.variant),
-        similar: findSimilar(pool, rec, choices, FLOP_RB_SIMILAR_COUNT),
-      });
+    picks.push(...sampleVaried(pool.filter((b) => bigSizeFreq(b.strat) >= OVERBET_MIN), Math.min(ob, want - picks.length), seen));
+    picks.push(...sampleVaried(pool.filter((b) => (b.strat.check ?? 0) >= CHECK_MIN), Math.min(ck, want - picks.length), seen));
+    picks.push(...sampleVaried(pool, want - picks.length, seen));
+    for (const rec of picks) intentional.push({ rec, kind: seg.kind, pool });
+  });
+
+  // --- ランダム枠 (30 - 意図的数) をクラスタ層化で網羅抽出 ---
+  const byBoard = new Map<string, RbPick[]>();
+  for (const { seg, pool } of segPools) {
+    for (const rec of pool) {
+      const g = byBoard.get(rec.board) ?? [];
+      g.push({ rec, kind: seg.kind, pool });
+      byBoard.set(rec.board, g);
     }
   }
+  const need = FLOP_RB_COUNT - intentional.length;
+  const randBoards = sampleByClusterRoundRobin([...byBoard.keys()], need, { excludeBoards: seen });
+  const random: RbPick[] = [];
+  for (const b of randBoards) {
+    const recs = byBoard.get(b);
+    if (!recs || recs.length === 0) continue;
+    seen.add(b);
+    random.push(recs[Math.floor(Math.random() * recs.length)]);
+  }
+
+  // --- 出題構築 ---
+  let id = 0;
+  const out: FlopRbQuestion[] = [...intentional, ...random].map(({ rec, kind, pool }) => {
+    id += 1;
+    const choices = choicesFor(rec.pot);
+    return {
+      id,
+      pot: rec.pot,
+      kind,
+      variant: rec.variant,
+      hero: rec.hero as Position,
+      villain: rec.villain as Position,
+      board: parseBoard(rec.board),
+      choices,
+      strat: rec.strat,
+      preflopActions: preflopOf(rec.variant),
+      similar: findSimilar(pool, rec, choices, FLOP_RB_SIMILAR_COUNT),
+    };
+  });
 
   return shuffle(out);
 }
