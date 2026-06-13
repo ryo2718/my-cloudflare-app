@@ -230,8 +230,8 @@ describe('lockHintFor (ロック中ヒント文)', () => {
     expect(lockHintFor('preflop_beginner')).toBeNull();
   });
   it('ポストフロップ中級: "ポストフロップ初級をクリアするとアンロック"', () => {
-    expect(lockHintFor('flop_cb_srp')).toBe('ポストフロップ初級をクリアするとアンロック');
-    expect(lockHintFor('flop_cb_3bp')).toBe('ポストフロップ初級をクリアするとアンロック');
-    expect(lockHintFor('flop_donk_bmcb')).toBe('ポストフロップ初級をクリアするとアンロック');
+    expect(lockHintFor('srp_non_blind')).toBe('ポストフロップ初級をクリアするとアンロック');
+    expect(lockHintFor('3bp_4bp_5bp_blind')).toBe('ポストフロップ初級をクリアするとアンロック');
+    expect(lockHintFor('donk_bmcb')).toBe('ポストフロップ初級をクリアするとアンロック');
   });
 });

@@ -36,9 +36,11 @@ export type FlopMissedKey = FlopTrainingType | Extract<MissedTierKey, 'tier_flop
 
 const FLOP_LABEL: Record<FlopMissedKey, string> = {
   flop_beginner: '初級',
-  flop_cb_srp: 'レンジCB SRP',
-  flop_cb_3bp: 'レンジCB 3BP/4BP/5BP',
-  flop_donk_bmcb: 'レンジドンク/BMCB',
+  srp_non_blind: 'レンジCB SRP Blind以外',
+  srp_limp_blind: 'レンジCB SRP リンプ&Blind',
+  '3bp_4bp_5bp_non_blind': 'レンジCB 3BP/4BP Blind以外',
+  '3bp_4bp_5bp_blind': 'レンジCB 3BP/4BP/5BP Blind',
+  donk_bmcb: 'レンジドンク/BMCB',
   tier_flop_beginner: '初級',
   tier_flop_intermediate: '中級',
 };

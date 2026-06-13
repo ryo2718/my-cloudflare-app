@@ -44,9 +44,9 @@ describe('statistics GET 集計 SQL', () => {
     const { db, exec } = makeFakeDb();
     await onRequestGet(getCtx(db));
     const level = exec.find((e) => e.sql.includes('GROUP BY training_type'));
-    expect(level!.sql).toContain('flop_cb_srp');
-    expect(level!.sql).toContain('flop_cb_3bp');
-    expect(level!.sql).toContain('flop_donk_bmcb');
+    expect(level!.sql).toContain('srp_non_blind');
+    expect(level!.sql).toContain('3bp_4bp_5bp_blind');
+    expect(level!.sql).toContain('donk_bmcb');
     expect(level!.sql).toContain("'preflop_intermediate'");
   });
 });

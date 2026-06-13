@@ -43,9 +43,11 @@ const TRAINING_TYPES = new Set<string>([
   'flop_intermediate',
   'flop_intermediate_cb',
   // CB レンジベット (SRP / 3BP4BP5BP) / ドンク・BMCB
-  'flop_cb_srp',
-  'flop_cb_3bp',
-  'flop_donk_bmcb',
+  'srp_non_blind',
+  'srp_limp_blind',
+  '3bp_4bp_5bp_non_blind',
+  '3bp_4bp_5bp_blind',
+  'donk_bmcb',
   'flop_advanced',
   'flop_expert',
 ]);

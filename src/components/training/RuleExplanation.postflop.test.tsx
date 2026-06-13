@@ -8,7 +8,7 @@ import { render, screen } from '../../test/ui';
 import { RuleExplanation } from './RuleExplanation';
 
 describe('RuleExplanation ポストフロップ (ボード比較ビュー)', () => {
-  it.each(['flop_cb_srp', 'flop_cb_3bp', 'flop_donk_bmcb'])(
+  it.each(['srp_non_blind', '3bp_4bp_5bp_blind', 'donk_bmcb'])(
     '%s でタイトル・概念説明・2ボード・固定値の頻度バーを表示する',
     (levelKey) => {
       const { container } = render(<RuleExplanation levelKey={levelKey} />);

@@ -1,7 +1,7 @@
 // フロップ CB (レンジベット) の結果画面。プリフロ中級ポジション (TrainingResultPositional) と同じ構成:
 //   スコア + 達成率 / 内訳 (◎○△×) / 振り返り一覧 (各問タップで詳細)。
 //   全問 CB: 頻度詳細 + 自分の選択 + 似た頻度のボード紹介。
-// best_score は POST /api/account/training-result で保存 (training_type=level.key: flop_cb_srp / flop_cb_3bp)。
+// best_score は POST /api/account/training-result で保存 (training_type=level.key: 中級5モード)。
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { apiSubmitTrainingResult, type TrainingResultSubmission } from '../../api/account';

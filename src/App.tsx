@@ -5,7 +5,7 @@ import { useAuth } from './hooks/useAuth';
 import { useIdleLogout } from './hooks/useIdleLogout';
 import { usePendingResultsFlush } from './hooks/usePendingResultsFlush';
 import { navigate, useRoute } from './router/router-core';
-import { isPlayable } from './data/trainingCatalog';
+import { isPlayable, FLOP_INTERMEDIATE_KEYS } from './data/trainingCatalog';
 import { AccountPage } from './components/AccountPage';
 import { AchievementTierPage } from './components/AchievementTierPage';
 import type { TierId } from './data/achievements';
@@ -99,7 +99,7 @@ export default function App() {
 
   // /quiz/review/flop/{training_type|tier}(/play): ポストフロップの間違えた問題 一覧 / 再出題
   const flopReviewMatch = path.match(
-    /^\/quiz\/review\/flop\/(flop_beginner|flop_cb_srp|flop_cb_3bp|flop_donk_bmcb|tier_flop_beginner|tier_flop_intermediate)(\/play)?\/?$/,
+    /^\/quiz\/review\/flop\/(flop_beginner|srp_non_blind|srp_limp_blind|3bp_4bp_5bp_non_blind|3bp_4bp_5bp_blind|donk_bmcb|tier_flop_beginner|tier_flop_intermediate)(\/play)?\/?$/,
   );
   if (flopReviewMatch) {
     const tt = flopReviewMatch[1] as FlopMissedKey;
@@ -159,8 +159,8 @@ export default function App() {
       if (level.key === 'flop_beginner') {
         return <TrainingPlayFlop level={level} />;
       }
-      // フロップ CB / ドンクBMCB (CB SRP / CB 3BP4BP5BP / ドンク/BMCB, ともにサイズ複数選択)
-      if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
+      // フロップ中級 (Blind 分割5モード, サイズ複数選択)
+      if (FLOP_INTERMEDIATE_KEYS.includes(level.key)) {
         return <TrainingPlayFlopIntermediate level={level} />;
       }
       // フロップ中級CB (個別ハンド: ボード×ハンドで c-bet サイズを複数選択)
@@ -183,7 +183,7 @@ export default function App() {
       if (level.key === 'flop_beginner') {
         return <TrainingResultFlop level={level} />;
       }
-      if (level.key === 'flop_cb_srp' || level.key === 'flop_cb_3bp' || level.key === 'flop_donk_bmcb') {
+      if (FLOP_INTERMEDIATE_KEYS.includes(level.key)) {
         return <TrainingResultFlopIntermediate level={level} />;
       }
       if (level.key === 'flop_intermediate_cb') {

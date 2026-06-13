@@ -68,19 +68,21 @@ describe('evaluateAchievements (再設計後)', () => {
     expect(await evaluateAchievements(stubDb([row('preflop_intermediate', 31)]).db, 1)).not.toContain('fish_pf_intermediate');
   });
 
-  it('スタンダード 各モード境界 (ep16/lp16/blind24/flop_beginner18/cb48/donk48)', async () => {
+  it('スタンダード 各モード境界 (中級フロップ5モードは 32/40 で解除)', async () => {
     const got = await evaluateAchievements(stubDb([
       row('preflop_intermediate_ep', 16),
       row('preflop_intermediate_lp', 16),
       row('preflop_intermediate_blind', 24),
       row('flop_beginner', 18),
-      row('flop_cb_srp', 48),
-      row('flop_cb_3bp', 48),
-      row('flop_donk_bmcb', 48),
+      row('srp_non_blind', 32),
+      row('srp_limp_blind', 32),
+      row('3bp_4bp_5bp_non_blind', 32),
+      row('3bp_4bp_5bp_blind', 32),
+      row('donk_bmcb', 32),
       row('preflop_beginner_vs_open', 18),
       row('preflop_beginner_vs_3bet_4bet', 18),
     ]).db, 1);
-    for (const id of ['fish_pf_ep', 'fish_pf_lp', 'fish_pf_blind', 'fish_flop_beginner', 'fish_flop_cb_srp', 'fish_flop_cb_3bp', 'fish_flop_donk', 'fish_pf_vs_open', 'fish_pf_vs_3bet_4bet']) {
+    for (const id of ['fish_pf_ep', 'fish_pf_lp', 'fish_pf_blind', 'fish_flop_beginner', 'fish_flop_srp_non_blind', 'fish_flop_srp_limp_blind', 'fish_flop_3bp_4bp_5bp_non_blind', 'fish_flop_3bp_4bp_5bp_blind', 'fish_flop_donk_bmcb', 'fish_pf_vs_open', 'fish_pf_vs_3bet_4bet']) {
       expect(got).toContain(id);
     }
   });
@@ -94,9 +96,9 @@ describe('evaluateAchievements (再設計後)', () => {
     expect(got39).toContain('fish_pf_intermediate');
   });
 
-  it('プロ フロップ100%: cb_srp 60→shark / 59→未', async () => {
-    expect(await evaluateAchievements(stubDb([row('flop_cb_srp', 60)]).db, 1)).toContain('shark_flop_cb_srp');
-    expect(await evaluateAchievements(stubDb([row('flop_cb_srp', 59)]).db, 1)).not.toContain('shark_flop_cb_srp');
+  it('プロ フロップ100%: srp_non_blind 40→shark / 39→未', async () => {
+    expect(await evaluateAchievements(stubDb([row('srp_non_blind', 40)]).db, 1)).toContain('shark_flop_srp_non_blind');
+    expect(await evaluateAchievements(stubDb([row('srp_non_blind', 39)]).db, 1)).not.toContain('shark_flop_srp_non_blind');
   });
 
   it('既にアンロック済みの実績は再解除しない (差分のみ)', async () => {

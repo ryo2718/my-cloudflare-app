@@ -7,9 +7,11 @@ export interface ProblemAttemptInput {
     | 'preflop_beginner'
     | 'preflop_intermediate'
     | 'flop_beginner'
-    | 'flop_cb_srp'
-    | 'flop_cb_3bp'
-    | 'flop_donk_bmcb';
+    | 'srp_non_blind'
+    | 'srp_limp_blind'
+    | '3bp_4bp_5bp_non_blind'
+    | '3bp_4bp_5bp_blind'
+    | 'donk_bmcb';
   scenario_type: string;
   hero_position: string;
   opener_position?: string | null;
