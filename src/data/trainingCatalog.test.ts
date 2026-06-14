@@ -6,6 +6,7 @@ import {
   formatLevelInfo,
   formatScorePct,
   maxScoreFor,
+  maxBestScoreFor,
   computeLevelGroupScore,
   trainingPath,
 } from './trainingCatalog';
@@ -228,6 +229,16 @@ describe('maxScoreFor', () => {
     const byKey = (k: string) => TRAINING_CATALOG[1].levels.find((l) => l.key === k)!;
     for (const k of ['srp_non_blind', '3bp_4bp_5bp_non_blind', 'donk_bmcb']) expect(maxScoreFor(byKey(k))).toBe(40);
     for (const k of ['srp_limp_blind', '3bp_4bp_5bp_blind']) expect(maxScoreFor(byKey(k))).toBe(20);
+  });
+  it('maxBestScoreFor: オープンは best_score 満点 = 20 (pt満点 10 とは別。表示の分母用)', () => {
+    const byKey = (cat: number, k: string) => TRAINING_CATALOG[cat].levels.find((l) => l.key === k)!;
+    expect(maxBestScoreFor(byKey(0, 'preflop_beginner_open'))).toBe(20); // 正解数 0-20 (旧 200% バグ修正)
+    expect(maxBestScoreFor(byKey(0, 'preflop_beginner'))).toBe(20);
+    expect(maxBestScoreFor(byKey(0, 'preflop_intermediate'))).toBe(40);
+    expect(maxBestScoreFor(byKey(0, 'preflop_intermediate_ep'))).toBe(20);
+    expect(maxBestScoreFor(byKey(0, 'preflop_intermediate_blind'))).toBe(30);
+    expect(maxBestScoreFor(byKey(1, 'srp_non_blind'))).toBe(40);
+    expect(maxBestScoreFor(byKey(1, 'srp_limp_blind'))).toBe(20);
   });
   it('未計画 (questionCount=null) → 0', () => {
     expect(maxScoreFor(TRAINING_CATALOG[0].levels[5])).toBe(0); // 上級

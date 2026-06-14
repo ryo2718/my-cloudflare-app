@@ -26,10 +26,11 @@ import { useAuth } from '../hooks/useAuth';
 import { AchievementsSection } from './AchievementsSection';
 import {
   TRAINING_CATALOG,
+  FLOP_INTERMEDIATE_KEYS,
   formatScorePct,
   isPlanned,
   isPlayable,
-  maxScoreFor,
+  maxBestScoreFor,
   type TrainingLevel,
 } from '../data/trainingCatalog';
 import { loadStatsCategory, saveStatsCategory, type StatsCategory } from '../data/userPreferences';
@@ -42,6 +43,15 @@ type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ok'; detail: AccountDetail; trainings: TrainingResult[] };
+
+/** 成績一覧の表示順を階級順 (初級0 → 中級1 → 上級2 → 超上級3) にするための rank。
+ *  同一階級内は安定ソートでカタログ出現順を保つ (初級: 基礎 → オープン → vsオープン → vs3bet4bet)。 */
+function tierRank(key: string): number {
+  if (key.includes('advanced')) return 2;
+  if (key.includes('expert')) return 3;
+  if (key.includes('intermediate') || FLOP_INTERMEDIATE_KEYS.includes(key)) return 1;
+  return 0;
+}
 
 export function AccountPage() {
   const auth = useAuth();
@@ -139,7 +149,7 @@ export function AccountPage() {
             <section key={cat.key} style={categoryCardStyle}>
               <header style={categoryHeaderStyle}>{cat.label}</header>
               <ul style={levelListStyle}>
-                {cat.levels.map((lv) => (
+                {[...cat.levels].sort((a, b) => tierRank(a.key) - tierRank(b.key)).map((lv) => (
                   <li key={lv.key} style={levelRowStyle}>
                     <LevelStat
                       level={lv}
@@ -411,7 +421,7 @@ function LevelStat({
       </div>
     );
   }
-  const max = maxScoreFor(level);
+  const max = maxBestScoreFor(level);
   return (
     <div style={levelStatGroupStyle}>
       <span style={levelLabelStyle}>{level.label}</span>

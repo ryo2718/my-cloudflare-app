@@ -51,6 +51,16 @@ describe('<AccountPage />', () => {
     expect(html).toContain('未実装');
   });
 
+  it('プリフロップ成績は階級順 (初級 基礎→オープン→vs→ 中級 → 上級)', () => {
+    const html = render(makeAuth());
+    const i = (s: string) => html.indexOf(s);
+    // 初級拡張 (オープン/vs) は中級より前 (旧バグ: 超上級の後ろに並んでいた)。
+    expect(i('初級 基礎')).toBeLessThan(i('初級 オープン'));
+    expect(i('初級 オープン')).toBeLessThan(i('初級 vs オープン'));
+    expect(i('初級 vs オープン')).toBeLessThan(i('中級 総合'));
+    expect(i('中級 総合')).toBeLessThan(i('上級'));
+  });
+
   it('正答率トグル (プリフロップ/ポストフロップ) を表示し、既定はプリフロップ (ポジション別)', () => {
     const html = render(makeAuth());
     expect(html).toContain('プリフロップ');

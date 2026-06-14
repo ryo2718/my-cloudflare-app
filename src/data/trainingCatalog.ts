@@ -148,6 +148,19 @@ export function maxScoreFor(level: TrainingLevel): number {
   return level.questionCount;
 }
 
+/**
+ * best_score が取りうる最大値 (= モード別画面の「best/最大」表示の分母)。
+ * maxScoreFor は累計 pt の満点 (pt = best_score × points) なので、
+ * オープン (points=0.5) では pt満点=10 だが best_score 自体は正解数 0-20 = 20。
+ * 表示では best_score をそのまま分子にするため、分母も best_score 満点を使う。
+ */
+export function maxBestScoreFor(level: TrainingLevel): number {
+  if (level.questionCount === null) return 0;
+  if (level.key === 'preflop_intermediate' || FLOP_INTERMEDIATE_KEYS.includes(level.key))
+    return level.questionCount * 2;
+  return level.questionCount; // 正解数 / 素点÷2 系 (オープンも正解数 0-20)
+}
+
 /** 階級グループ (初級/中級/上級/超上級) の合計スコア。 */
 export interface LevelGroupScore {
   /** 実装済みモードの現在獲得 pt 合計 (best_score × points)。 */
