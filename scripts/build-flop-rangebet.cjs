@@ -21,28 +21,38 @@ const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN']; // earlier = OOP
 const OPEN_SIZE = 2.5;
 const PER_VARIANT_CAP = 120; // variant (matchup) ごとの最大ボード数 (既定)。全 matchup を均等収録し hero 偏りを防ぐ
 
-// 非Blind SRP の caller 別ボード数 = プリフロップの現実到達頻度に比例させる。
-//   均等(全120)だと SB フラットコール局面が過剰出題になる (現実比 ~9% に対し 43%)。
-//   オープンへの各 caller のフラットコール率 (preflop レンジ・全コンボ加重) を caller 間で
-//   正規化し、オープナー別合計 (UTG/HJ/CO 開=360、BTN 開=240) に配分・四捨五入。floor=20 で
-//   最薄局面のボード多様性を確保 (各ノードは全1755flopを保持するので件数は自由に取れる)。
-//     コール率:  UTG開 BTN6.2/SB3.6/BB20.2  HJ開 4.4/3.1/21.2  CO開 4.4/2.1/22.9  BTN開 SB1.6/BB30.0
-//     → 配分:   UTG 74/43/243  HJ 55/39/266  CO 54/26/280  BTN 20(floor)/220
-//   ※キー = `${aggressor}>${defender}` (= opener>caller)。両者Blind(BvB)・リンプは対象外で既定120。
-const SRP_NONBLIND_CALLER_CAP = {
-  'UTG>BTN': 74, 'UTG>SB': 43, 'UTG>BB': 243,
-  'HJ>BTN': 55, 'HJ>SB': 39, 'HJ>BB': 266,
-  'CO>BTN': 54, 'CO>SB': 26, 'CO>BB': 280,
-  'BTN>SB': 20, 'BTN>BB': 220,
+// variant 別ボード数 = プリフロップの現実到達確率 (reach) に比例させる。
+//   一律120だと「現実に稀な局面」が過剰出題になる (例: SB がオープンをフラットコール、深い 4bet/5bet)。
+//   reach = 各意思決定ノード (public/data/preflop/.../<line>.json) の combo 加重頻度を連鎖した積。
+//   方針 = 「オープナー均等維持」: 各 (元オープナー × pot × Blind有無) グループの合計件数は維持し、
+//   グループ内の 3bettor/caller 配分のみ reach 比で再配分・四捨五入。floor=20 で最薄局面の
+//   ボード多様性を確保 (各ノードは全1755flopを保持)。値は scripts の reach 計算で算出 (本コメント参照)。
+//   ※キー = variant 名。cb/donk/bmcb は同一プリフロップ局面なので同じ cap を適用 (kind 非依存)。
+const VARIANT_CAP = {
+  // SRP
+  'btnr_bbc': 220, 'btnr_sbc': 20, 'cor_bbc': 263, 'cor_btnc': 69, 'cor_sbc': 28,
+  'hjr_bbc': 250, 'hjr_btnc': 68, 'hjr_sbc': 42, 'sbc_bbr3_sbc': 37, 'sbc_bbr5_sbc': 37,
+  'sbr_bbc': 286, 'utgr_bbc': 226, 'utgr_btnc': 89, 'utgr_sbc': 45,
+  // 3bet
+  'btnr_bbr_btnc': 112, 'btnr_sbr_btnc': 128, 'cor_bbr_coc': 101, 'cor_btnr_coc': 159,
+  'cor_sbr_coc': 100, 'hjr_bbr_hjc': 77, 'hjr_btnr_hjc': 148, 'hjr_cor_hjc': 135,
+  'sbc_bbr3_sbr14_bbc': 53, 'sbc_bbr5_sbr18_bbc': 53, 'sbr_bbr_sbc': 254, 'utgr_bbr_utgc': 71,
+  'utgr_btnr_utgc': 141, 'utgr_cor_utgc': 141, 'utgr_hjr_utgc': 151, 'utgr_sbr_utgc': 96,
+  // 4bet
+  'btnr_bbr_btnr27_bbc': 84, 'btnr_sbr_btnr26_sbc': 156, 'cor_bbr_cor27_bbc': 48,
+  'cor_btnr_cor22_btnc': 227, 'cor_sbr_cor24_sbc': 85, 'hjr_bbr_hjr24_bbc': 20,
+  'hjr_btnr_hjr20_btnc': 149, 'hjr_cor_hjr20_coc': 191, 'sbc_bbr3_sbr14_bbr27_sbc': 20,
+  'sbr_bbr_sbr21_bbc': 220, 'utgr_bbr_utgr22_bbc': 33, 'utgr_btnr_utgr20_btnc': 131,
+  'utgr_cor_utgr20_coc': 191, 'utgr_hjr_utgr20_hjc': 182, 'utgr_sbr_utgr21_sbc': 63,
+  // 5bet
+  'cor_sbr_cor24_sbr40_coc': 120, 'hjr_sbr_hjr_sbr_hjc': 120,
+  'utgr_bbr_utgr_bbr34_utgc': 115, 'utgr_sbr_utgr_sbr40_utgc': 125,
 };
 
-/** meta (variant/hero/villain/pot/kind) からボード収録上限を返す。非Blind SRP CB のみ現実比キャップ。 */
+/** meta (variant/hero/villain/pot/kind) からボード収録上限を返す。variant 別 reach キャップ (無ければ既定)。 */
 function capForMeta(meta) {
-  if (meta.kind === 'cb' && meta.pot === 'SRP') {
-    const cap = SRP_NONBLIND_CALLER_CAP[`${meta.hero}>${meta.villain}`];
-    if (cap != null) return cap;
-  }
-  return PER_VARIANT_CAP;
+  const cap = VARIANT_CAP[meta.variant];
+  return cap != null ? cap : PER_VARIANT_CAP;
 }
 const MIXED_MIN = 0.1; // CB「混合戦略」判定: この頻度以上のバケットが2つ以上
 
