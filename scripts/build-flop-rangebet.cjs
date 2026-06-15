@@ -19,7 +19,31 @@ const OUT_FILE = path.join(OUT_DIR, 'flop_rangebet_v1.json');
 const POSITIONS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN']; // earlier = OOP
 const OPEN_SIZE = 2.5;
-const PER_VARIANT_CAP = 120; // variant (matchup) ごとの最大ボード数。全 matchup を均等収録し hero 偏りを防ぐ
+const PER_VARIANT_CAP = 120; // variant (matchup) ごとの最大ボード数 (既定)。全 matchup を均等収録し hero 偏りを防ぐ
+
+// 非Blind SRP の caller 別ボード数 = プリフロップの現実到達頻度に比例させる。
+//   均等(全120)だと SB フラットコール局面が過剰出題になる (現実比 ~9% に対し 43%)。
+//   オープンへの各 caller のフラットコール率 (preflop レンジ・全コンボ加重) を caller 間で
+//   正規化し、オープナー別合計 (UTG/HJ/CO 開=360、BTN 開=240) に配分・四捨五入。floor=20 で
+//   最薄局面のボード多様性を確保 (各ノードは全1755flopを保持するので件数は自由に取れる)。
+//     コール率:  UTG開 BTN6.2/SB3.6/BB20.2  HJ開 4.4/3.1/21.2  CO開 4.4/2.1/22.9  BTN開 SB1.6/BB30.0
+//     → 配分:   UTG 74/43/243  HJ 55/39/266  CO 54/26/280  BTN 20(floor)/220
+//   ※キー = `${aggressor}>${defender}` (= opener>caller)。両者Blind(BvB)・リンプは対象外で既定120。
+const SRP_NONBLIND_CALLER_CAP = {
+  'UTG>BTN': 74, 'UTG>SB': 43, 'UTG>BB': 243,
+  'HJ>BTN': 55, 'HJ>SB': 39, 'HJ>BB': 266,
+  'CO>BTN': 54, 'CO>SB': 26, 'CO>BB': 280,
+  'BTN>SB': 20, 'BTN>BB': 220,
+};
+
+/** meta (variant/hero/villain/pot/kind) からボード収録上限を返す。非Blind SRP CB のみ現実比キャップ。 */
+function capForMeta(meta) {
+  if (meta.kind === 'cb' && meta.pot === 'SRP') {
+    const cap = SRP_NONBLIND_CALLER_CAP[`${meta.hero}>${meta.villain}`];
+    if (cap != null) return cap;
+  }
+  return PER_VARIANT_CAP;
+}
 const MIXED_MIN = 0.1; // CB「混合戦略」判定: この頻度以上のバケットが2つ以上
 
 // CB問題の選択肢 (全ポット共通の上位集合)。125 = オーバーベット, ALLIN = オールイン。
@@ -303,7 +327,7 @@ function main() {
   const preflop = {};
 
   // ノードの混合戦略ボードを out に収集 (kind/hero/villain を付与)。
-  //   全混合戦略ボードを集めてから high-card 層化抽出で PER_VARIANT_CAP 件に絞る
+  //   全混合戦略ボードを集めてから high-card 層化抽出で capForMeta 件に絞る
   //   (従来は低→高ソート済み solutions の先頭 cap 件 = ローボード偏りの原因)。
   const collectBoards = (out, node, meta) => {
     if (!node) return;
@@ -315,7 +339,7 @@ function main() {
       mixed.push({ variant: meta.variant, hero: meta.hero, villain: meta.villain, pot: meta.pot, kind: meta.kind, board: s.name, strat });
     }
     const seed = strSeed(`${meta.variant}|${meta.kind}`);
-    for (const e of stratifiedByHighCard(mixed, PER_VARIANT_CAP, seed)) out.push(e);
+    for (const e of stratifiedByHighCard(mixed, capForMeta(meta), seed)) out.push(e);
   };
 
   for (const variant of variants) {
