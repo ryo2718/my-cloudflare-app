@@ -100,6 +100,73 @@ function listConfigs() {
     .sort();
 }
 
+const POSITION_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+
+// Canonical chain ("F-F-R2.5" / "" for root) -> R2 file stem ("F_F_R2_5" / "root").
+function chainToStem(chain) {
+  if (!chain) return 'root';
+  return chain.replace(/-/g, '_').replace(/\./g, '_');
+}
+
+// "cash_100bb_6max_nl500_gto" -> { stackBb, rake, openSize, label }
+function parseConfig(config) {
+  const stackM = config.match(/_(\d+)bb_/);
+  const rakeM = config.match(/_(nl\d+)_/i);
+  const openM = config.match(/_(gto|2\.5x)$/i) || config.match(/_(gto|2_5x)$/i);
+  const stackBb = stackM ? Number(stackM[1]) : null;
+  const rake = rakeM ? rakeM[1].toUpperCase() : null;
+  const openSize = openM ? openM[1].toLowerCase() : null;
+  const label = [stackBb ? `${stackBb}bb` : null, rake, openSize ? openSize.toUpperCase() : null]
+    .filter(Boolean)
+    .join(' ');
+  return { stackBb, rake, openSize, label };
+}
+
+// Build the per-config navigation index from the canonical chains + actors collected
+// while converting. nodes[stem] = sorted child stems; entries[POS] = the shortest
+// (all-fold-first) node where that position is the actor (its natural entry point).
+function buildIndex(config, collected) {
+  const childrenByParent = {};
+  for (const { chain } of collected) {
+    const toks = chain ? chain.split('-') : [];
+    if (toks.length >= 1) {
+      const parent = toks.slice(0, -1).join('-');
+      (childrenByParent[parent] ||= []).push(chain);
+    }
+  }
+  const nodes = {};
+  for (const { chain } of collected) {
+    const kids = (childrenByParent[chain] || []).map(chainToStem).sort();
+    nodes[chainToStem(chain)] = kids;
+  }
+  // entry per position: minimal (depth, lexicographic) chain whose actor is that position.
+  const best = {};
+  for (const { chain, actor } of collected) {
+    const pos = (actor || '').toUpperCase();
+    if (!POSITION_ORDER.includes(pos)) continue;
+    const depth = chain ? chain.split('-').length : 0;
+    const cur = best[pos];
+    if (!cur || depth < cur.depth || (depth === cur.depth && chain < cur.chain)) {
+      best[pos] = { depth, chain };
+    }
+  }
+  const entries = {};
+  for (const pos of POSITION_ORDER) {
+    if (best[pos]) entries[pos] = chainToStem(best[pos].chain);
+  }
+  const meta = parseConfig(config);
+  return {
+    config,
+    label: meta.label,
+    stackBb: meta.stackBb,
+    rake: meta.rake,
+    openSize: meta.openSize,
+    positionOrder: POSITION_ORDER,
+    entries,
+    nodes,
+  };
+}
+
 function processConfig(config) {
   const inDir = path.join(SRC_ROOT, config, 'by_chain');
   if (!fs.existsSync(inDir)) {
@@ -117,6 +184,7 @@ function processConfig(config) {
   let bytes = 0;
   let written = 0;
   let skipped = 0;
+  const collected = [];
   for (const f of files) {
     const raw = JSON.parse(fs.readFileSync(path.join(inDir, f), 'utf8'));
     // Some by_chain files are a different raw schema (action_solutions / players_info,
@@ -129,9 +197,22 @@ function processConfig(config) {
     fs.writeFileSync(path.join(outDir, f), out);
     bytes += Buffer.byteLength(out);
     written += 1;
+    collected.push({
+      chain: (raw._meta && raw._meta.preflop_actions) || '',
+      actor: (raw._meta && raw._meta.actor) || '',
+    });
   }
+  // Sort for deterministic index output.
+  collected.sort((a, b) => (a.chain < b.chain ? -1 : a.chain > b.chain ? 1 : 0));
+  const index = buildIndex(config, collected);
+  fs.writeFileSync(
+    path.join(OUT_ROOT, config, 'index.json'),
+    JSON.stringify(index),
+  );
   const note = skipped ? ` (skipped ${skipped} non-standard)` : '';
-  console.log(`  ${config}: ${written} files, ${(bytes / 1e6).toFixed(1)} MB${note}`);
+  console.log(
+    `  ${config}: ${written} files + index.json (${Object.keys(index.nodes).length} nodes), ${(bytes / 1e6).toFixed(1)} MB${note}`,
+  );
   return { files: written, bytes };
 }
 

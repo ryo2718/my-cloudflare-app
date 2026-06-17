@@ -38,7 +38,9 @@ node scripts/build-preflop-data.cjs <config> ... # 個別指定
 ```
 
 - 入力: `preflop_ranges/<config>/by_chain/*.json`
-- 出力: `dist-preflop-data/v1/<config>/by_chain/<chain>.json` (minify 済、git 非追跡)
+- 出力:
+  - `dist-preflop-data/v1/<config>/by_chain/<chain>.json` (minify 済、git 非追跡)
+  - `dist-preflop-data/v1/<config>/index.json` (Phase 2a 追加。ナビ用 index = `{config,label,stackBb,rake,openSize,entries,nodes}`。`nodes[stem]` は子ノード stem 配列、`entries[POS]` は各ポジションの開始ノード stem。0.3〜10 KB gzip)
 - 変換内容:
   - `hands[H].actions_aggregated` (0-1) → flat `{allin, raise, call, fold}` (0-100, `call_or_check`→`call`)。既存 `RawStrategyFile` の hand 形に合わせ Phase 2 で再利用可
   - `hands[H].evs_aggregated` → `hands[H].evs {allin, raise, call, fold}` (将来 Equity 用に保持、null はそのまま保持)
