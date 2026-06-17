@@ -60,3 +60,11 @@ public/data/preflop/*/repaired/
 # --- Flop training データ ステージング (webscraping から複製、後で加工して使う) ---
 # public 外・非デプロイ。20MB のため git には含めない (誤コミット防止)。
 /flop_data/
+
+# --- Preflop range data (R2 hosted, not committed) ---
+# 新 preflop range の生スクレイプ出力 (preflop_ranges/<config>/by_chain/) は 772 MB と巨大。
+# scripts/build-preflop-data.cjs で dist-preflop-data/ に変換し (~224 MB / ~24 MB gzip)、
+# flop と同様 Cloudflare R2 から配信する。どちらも git には含めない。
+# R2 アップロード手順は docs/PREFLOP_STRATEGY_TAB.md 参照。
+/preflop_ranges/
+/dist-preflop-data/

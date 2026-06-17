@@ -15,6 +15,15 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/r2-flop/, '/data/flop/v1/cash_100bb_6max_nl500_2.5x'),
       },
+      // Preflop range データの R2 配信元 (flop と同形式、同一 public bucket、
+      // path prefix /data/preflop/v1/)。app 側は `.env.development.local` で
+      // `VITE_PREFLOP_DATA_BASE_URL=/r2-preflop` を指す。flop と違い base は
+      // config を含めず、直下に <config>/by_chain/<chain>.json が並ぶ。
+      '/r2-preflop': {
+        target: 'https://pub-15ae08e085da4c138ef4f04dde1dbfeb.r2.dev',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/r2-preflop/, '/data/preflop/v1'),
+      },
     },
   },
   test: {
