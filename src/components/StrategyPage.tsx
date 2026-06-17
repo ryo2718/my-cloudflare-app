@@ -7,9 +7,12 @@ import { DualRangeView } from './DualRangeView';
 import { EvRankDisplay } from './EvRankDisplay';
 import { HandInput } from './HandInput';
 import { MobileApp } from './mobile/MobileApp';
+import { MobileFlopView } from './mobile/MobileFlopView';
 import { OpenStrategyTable } from './OpenStrategyTable';
 import { ScenarioSelector } from './ScenarioSelector';
 import { FlopStrategyView } from './FlopStrategyView';
+import { ConfigSelector } from './preflopV2/ConfigSelector';
+import { RangeView } from './preflopV2/RangeView';
 import { FourbetStrategyTable } from './FourbetStrategyTable';
 import { ThreebetStrategyTable } from './ThreebetStrategyTable';
 import { TopTabs, type TopTab } from './TopTabs';
@@ -35,8 +38,23 @@ import { loadAll3betNodes } from '../hooks/use3betEvaluation';
 import { loadAll4betNodes } from '../hooks/use4betEvaluation';
 import { useViewportMode } from '../hooks/useViewportMode';
 import { useStrategy } from '../hooks/useStrategy';
+import { useRoute } from '../router/router-core';
+import { DEFAULT_CONFIG_ID, findConfig } from '../data/preflopV2/configs';
 import { THEME } from '../styles/theme';
 import type { Hand, Position } from '../types/strategy';
+
+/** "/strategy/<config>/<stem>" を解析。bare /strategy はデフォルト config + root。 */
+function parsePreflopRoute(path: string): { configId: string; stem: string } {
+  const rest = path.replace(/^\/strategy\/?/, '');
+  const segs = rest.split('/').filter(Boolean).map((s) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  });
+  return { configId: segs[0] ?? DEFAULT_CONFIG_ID, stem: segs[1] ?? 'root' };
+}
 
 const INITIAL_OPENER: OpenerPosition = 'UTG';
 const INITIAL_RESPONDER: Position = 'BB';
@@ -72,8 +90,13 @@ export function StrategyPage() {
   // PC / Mobile レイアウトの切替 (Phase 1)
   const { mode: viewportMode, toggle: toggleViewport } = useViewportMode();
 
-  // PC のメインタブ切替 (Phase 5)。Mobile は別系統 (MobileApp 内 TabSwitcher)。
+  // メインタブ切替。Phase 2b' で PC/モバイル共通化 (preflop は統一UI)。
   const [activeTab, setActiveTab] = useState<TopTab>('preflop');
+
+  // Phase 2b': preflop の config/stem を URL から解決。
+  const route = useRoute();
+  const { configId, stem } = parsePreflopRoute(route);
+  const preflopConfig = findConfig(configId) ?? findConfig(DEFAULT_CONFIG_ID)!;
 
   // Flop タブの state (Phase R2 で UI 主導の model に変更)。
   // - positions + bucket がユーザー入力、variant は FlopStrategyView 内で derive
@@ -326,85 +349,82 @@ export function StrategyPage() {
           </button>
         </header>
 
-        {viewportMode === 'mobile' ? (
-          <MobileApp
-            flopPositions={flopPositions}
-            flopBucket={flopBucket}
-            flopChain={flopChain}
-            flopSelectedBoardName={flopSelectedBoard}
-            onFlopPositionsChange={handleFlopPositionsChange}
-            onFlopBucketChange={handleFlopBucketChange}
-            onFlopChainChange={setFlopChain}
-            onSelectFlopBoard={setFlopSelectedBoard}
-          />
-        ) : (
-        <>
         <TopTabs active={activeTab} onChange={setActiveTab} />
 
         {activeTab === 'preflop' && (
           <>
+            {/* Phase 2b': 3 セレクタ (Open/Rake/Stack)。gto は新ツリーUI、2.5x は既存ビューア。 */}
             <div style={{ marginBottom: '0.9rem' }}>
-              <ScenarioSelector
+              <ConfigSelector current={preflopConfig} />
+            </div>
+
+            {preflopConfig.source === 'gto' ? (
+              <RangeView config={preflopConfig.id} stem={stem} />
+            ) : viewportMode === 'mobile' ? (
+              <MobileApp
+                preflopOnly
+                flopPositions={flopPositions}
+                flopBucket={flopBucket}
+                flopChain={flopChain}
+                flopSelectedBoardName={flopSelectedBoard}
+                onFlopPositionsChange={handleFlopPositionsChange}
+                onFlopBucketChange={handleFlopBucketChange}
+                onFlopChainChange={setFlopChain}
+                onSelectFlopBoard={setFlopSelectedBoard}
+              />
+            ) : (
+              <LegacyPreflopView
                 opener={opener}
                 responder={responder}
                 onOpenerChange={handleOpenerChange}
                 onResponderChange={handleResponderChange}
+                breadcrumbItems={breadcrumbItems}
+                breadcrumbLen={breadcrumb.length}
+                onBreadcrumbNavigate={handleBreadcrumbNavigate}
+                left={left}
+                right={right}
+                leftNodePath={leftNodePath}
+                rfiSubtitle={rfiSubtitle}
+                leftRaiseEnabled={leftRaiseEnabled}
+                leftAllinEnabled={leftAllinEnabled}
+                rightRaiseEnabled={rightRaiseEnabled}
+                rightAllinEnabled={rightAllinEnabled}
+                rightFlopVariant={rightFlopVariant}
+                onRaiseLeft={() => handleRaise('left')}
+                onAllinLeft={() => handleAllin('left')}
+                onRaiseRight={() => handleRaise('right')}
+                onAllinRight={() => handleAllin('right')}
+                onAdvanceToFlop={handleAdvanceToFlop}
               />
-            </div>
-
-            {breadcrumb.length > 0 && (
-              <div style={{ marginBottom: '0.9rem' }}>
-                <Breadcrumb items={breadcrumbItems} onNavigate={handleBreadcrumbNavigate} />
-              </div>
             )}
-
-            <DualRangeView
-              left={{
-                data: left.data,
-                loading: left.loading,
-                error: left.error,
-                title: leftPaneTitle(left.data?.metadata.hero_position ?? opener, leftNodePath),
-                subtitle: rfiSubtitle,
-                raiseEnabled: leftRaiseEnabled,
-                onRaise: () => handleRaise('left'),
-                allinEnabled: leftAllinEnabled,
-                onAllin: () => handleAllin('left'),
-              }}
-              right={{
-                data: right.data,
-                loading: right.loading,
-                error: right.error,
-                title: rightPaneTitle(
-                  right.data?.metadata.hero_position ?? responder,
-                  left.data?.metadata.hero_position ?? opener,
-                ),
-                subtitle: right.data?.metadata.scenario_name,
-                raiseEnabled: rightRaiseEnabled,
-                onRaise: () => handleRaise('right'),
-                allinEnabled: rightAllinEnabled,
-                onAllin: () => handleAllin('right'),
-                flopVariant: rightFlopVariant,
-                onAdvanceToFlop: rightFlopVariant ? handleAdvanceToFlop : undefined,
-              }}
-            />
-
-            {/* TEMP: Hand Evaluator 試作エリア。用途確定後に専用ページ/モーダルへ移動して削除予定。 */}
             <OpenStrategyTestArea />
           </>
         )}
 
-        {activeTab === 'flop' && (
-          <FlopStrategyView
-            positions={flopPositions}
-            bucket={flopBucket}
-            chain={flopChain}
-            selectedBoardName={flopSelectedBoard}
-            onPositionsChange={handleFlopPositionsChange}
-            onBucketChange={handleFlopBucketChange}
-            onChainChange={setFlopChain}
-            onSelectBoard={setFlopSelectedBoard}
-          />
-        )}
+        {activeTab === 'flop' &&
+          (viewportMode === 'mobile' ? (
+            <MobileFlopView
+              positions={flopPositions}
+              bucket={flopBucket}
+              chain={flopChain}
+              selectedBoardName={flopSelectedBoard}
+              onPositionsChange={handleFlopPositionsChange}
+              onBucketChange={handleFlopBucketChange}
+              onChainChange={setFlopChain}
+              onSelectBoard={setFlopSelectedBoard}
+            />
+          ) : (
+            <FlopStrategyView
+              positions={flopPositions}
+              bucket={flopBucket}
+              chain={flopChain}
+              selectedBoardName={flopSelectedBoard}
+              onPositionsChange={handleFlopPositionsChange}
+              onBucketChange={handleFlopBucketChange}
+              onChainChange={setFlopChain}
+              onSelectBoard={setFlopSelectedBoard}
+            />
+          ))}
 
         <footer
           style={{
@@ -416,10 +436,107 @@ export function StrategyPage() {
         >
           Schema v{left.data?.schema_version ?? '—'} · GTO Wizard data
         </footer>
-        </>
-        )}
       </div>
     </div>
+  );
+}
+
+// Phase 2b': 旧 2.5x プリフロップビューア (PC, 2ペイン) を切り出し。既存 DualRangeView を流用。
+interface LegacyPreflopViewProps {
+  opener: OpenerPosition;
+  responder: Position;
+  onOpenerChange: (o: OpenerPosition) => void;
+  onResponderChange: (r: Position) => void;
+  breadcrumbItems: BreadcrumbItem[];
+  breadcrumbLen: number;
+  onBreadcrumbNavigate: (index: number) => void;
+  left: ReturnType<typeof useStrategy>;
+  right: ReturnType<typeof useStrategy>;
+  leftNodePath: string;
+  rfiSubtitle: string | undefined;
+  leftRaiseEnabled: boolean;
+  leftAllinEnabled: boolean;
+  rightRaiseEnabled: boolean;
+  rightAllinEnabled: boolean;
+  rightFlopVariant: string | null;
+  onRaiseLeft: () => void;
+  onAllinLeft: () => void;
+  onRaiseRight: () => void;
+  onAllinRight: () => void;
+  onAdvanceToFlop: () => void;
+}
+
+function LegacyPreflopView(props: LegacyPreflopViewProps) {
+  const {
+    opener,
+    responder,
+    onOpenerChange,
+    onResponderChange,
+    breadcrumbItems,
+    breadcrumbLen,
+    onBreadcrumbNavigate,
+    left,
+    right,
+    leftNodePath,
+    rfiSubtitle,
+    leftRaiseEnabled,
+    leftAllinEnabled,
+    rightRaiseEnabled,
+    rightAllinEnabled,
+    rightFlopVariant,
+    onRaiseLeft,
+    onAllinLeft,
+    onRaiseRight,
+    onAllinRight,
+    onAdvanceToFlop,
+  } = props;
+  return (
+    <>
+      <div style={{ marginBottom: '0.9rem' }}>
+        <ScenarioSelector
+          opener={opener}
+          responder={responder}
+          onOpenerChange={onOpenerChange}
+          onResponderChange={onResponderChange}
+        />
+      </div>
+
+      {breadcrumbLen > 0 && (
+        <div style={{ marginBottom: '0.9rem' }}>
+          <Breadcrumb items={breadcrumbItems} onNavigate={onBreadcrumbNavigate} />
+        </div>
+      )}
+
+      <DualRangeView
+        left={{
+          data: left.data,
+          loading: left.loading,
+          error: left.error,
+          title: leftPaneTitle(left.data?.metadata.hero_position ?? opener, leftNodePath),
+          subtitle: rfiSubtitle,
+          raiseEnabled: leftRaiseEnabled,
+          onRaise: onRaiseLeft,
+          allinEnabled: leftAllinEnabled,
+          onAllin: onAllinLeft,
+        }}
+        right={{
+          data: right.data,
+          loading: right.loading,
+          error: right.error,
+          title: rightPaneTitle(
+            right.data?.metadata.hero_position ?? responder,
+            left.data?.metadata.hero_position ?? opener,
+          ),
+          subtitle: right.data?.metadata.scenario_name,
+          raiseEnabled: rightRaiseEnabled,
+          onRaise: onRaiseRight,
+          allinEnabled: rightAllinEnabled,
+          onAllin: onAllinRight,
+          flopVariant: rightFlopVariant,
+          onAdvanceToFlop: rightFlopVariant ? onAdvanceToFlop : undefined,
+        }}
+      />
+    </>
   );
 }
 

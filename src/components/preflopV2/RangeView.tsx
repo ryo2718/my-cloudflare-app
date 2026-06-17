@@ -34,8 +34,8 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
   const parent = parentStem(node.data._meta.preflop_actions);
 
   const goBack = () => {
-    if (parent) navigate(`/strategy-v2/${config}/${parent}`);
-    else navigate(`/strategy-v2/${config}`);
+    if (parent) navigate(`/strategy/${config}/${parent}`);
+    else navigate(`/strategy/${config}/root`);
   };
 
   return (
@@ -67,7 +67,7 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
         <button
           type="button"
           style={navBtnStyle}
-          onClick={() => navigate('/strategy-v2')}
+          onClick={() => navigate(`/strategy/${config}/root`)}
         >
           最初に戻る
         </button>
@@ -83,11 +83,7 @@ function Info({ text }: { text: string }) {
         {text}
       </p>
       <div style={navRowStyle}>
-        <button
-          type="button"
-          style={navBtnStyle}
-          onClick={() => navigate('/strategy-v2')}
-        >
+        <button type="button" style={navBtnStyle} onClick={() => navigate('/strategy')}>
           最初に戻る
         </button>
       </div>

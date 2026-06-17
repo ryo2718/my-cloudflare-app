@@ -41,6 +41,12 @@ interface MobileAppProps {
   onFlopBucketChange: (bucket: import('../../data/flopVariants').PreflopBucket | null) => void;
   onFlopChainChange: (chain: string[]) => void;
   onSelectFlopBoard: (name: string | null) => void;
+  /**
+   * Phase 2b': /strategy 統合時に「プリフロップ (range タブ) のみ」を描画するモード。
+   * 上位 (StrategyPage) が TopTabs を持つため、内部 TabSwitcher と flop/eval タブを隠す。
+   * 既定 (undefined/false) は従来通り 3 タブ (range/eval/flop) を表示。
+   */
+  preflopOnly?: boolean;
 }
 
 /**
@@ -66,8 +72,10 @@ export function MobileApp({
   onFlopBucketChange,
   onFlopChainChange,
   onSelectFlopBoard,
+  preflopOnly = false,
 }: MobileAppProps) {
   const [tab, setTab] = useState<MobileTab>('range');
+  const effectiveTab: MobileTab = preflopOnly ? 'range' : tab;
   const [state, setState] = useState<MobileState>(createInitialState);
 
   /** OPENER パネルでタップ — 別 opener へ切替 (responder/history/openerAction を破棄) */
@@ -133,9 +141,9 @@ export function MobileApp({
 
   return (
     <div style={{ padding: '0.5rem 0' }}>
-      <TabSwitcher active={tab} onChange={setTab} />
+      {!preflopOnly && <TabSwitcher active={tab} onChange={setTab} />}
 
-      {tab === 'range' && (
+      {effectiveTab === 'range' && (
         <>
           <SolutionLabel label={SOLUTION_LABEL} />
 
@@ -169,9 +177,9 @@ export function MobileApp({
         </>
       )}
 
-      {tab === 'eval' && <MobileEvalTab />}
+      {!preflopOnly && effectiveTab === 'eval' && <MobileEvalTab />}
 
-      {tab === 'flop' && (
+      {!preflopOnly && effectiveTab === 'flop' && (
         <MobileFlopView
           positions={flopPositions}
           bucket={flopBucket}

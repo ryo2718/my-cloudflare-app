@@ -34,7 +34,7 @@ export function NextActionButtons({
             key={a.token}
             type="button"
             style={buttonStyle}
-            onClick={() => navigate(`/strategy-v2/${config}/${a.childStem}`)}
+            onClick={() => navigate(`/strategy/${config}/${a.childStem}`)}
           >
             <span style={actorBadgeStyle}>{actor}</span>
             <span>{a.actionLabel}</span>

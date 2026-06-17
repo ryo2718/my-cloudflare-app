@@ -14,7 +14,6 @@ import { EquityCalculatorPage } from './components/equity/EquityCalculatorPage';
 import { QuizPage } from './components/QuizPage';
 import { RankingPage } from './components/RankingPage';
 import { StrategyPage } from './components/StrategyPage';
-import { StrategyV2Page } from './components/preflopV2/StrategyV2Page';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AccountsList } from './components/admin/AccountsList';
 import { GroupKeyForm } from './components/admin/GroupKeyForm';
@@ -195,8 +194,7 @@ export default function App() {
     if (screen === 'review') return <TrainingReview level={level} index={trainingMatch.index} />;
   }
 
-  if (path === '/strategy') return <StrategyPage />;
-  if (path === '/strategy-v2' || path.startsWith('/strategy-v2/')) return <StrategyV2Page />;
+  if (path === '/strategy' || path.startsWith('/strategy/')) return <StrategyPage />;
   if (path === '/equity') return <EquityCalculatorPage />;
   if (path === '/quiz') return <QuizPage />;
   if (path === '/ranking') return <RankingPage />;

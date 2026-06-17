@@ -23,12 +23,6 @@ export function HomePage() {
             <span style={bigButtonSubStyle}>GTO 戦略ビューア</span>
           </Link>
 
-          <Link to="/strategy-v2" style={bigButtonStyle}>
-            <span style={bigButtonIconStyle}>🧭</span>
-            <span style={bigButtonTitleStyle}>戦略 v2</span>
-            <span style={bigButtonSubStyle}>プリフロップ レンジ (新)</span>
-          </Link>
-
           <Link to="/quiz" style={bigButtonStyle}>
             <span style={bigButtonIconStyle}>🎯</span>
             <span style={bigButtonTitleStyle}>トレーニング</span>
