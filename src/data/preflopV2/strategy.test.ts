@@ -1,17 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { nodeToStrategy, PREFLOP_V2_ACTIONS } from './strategy';
+import { FIXED_ACTIONS } from '../../utils/normalize';
 import type { PreflopV2Node } from './types';
 
 describe('PREFLOP_V2_ACTIONS', () => {
-  it('matches the HandMatrix contract: [fold, call, raise, allin]', () => {
+  it('reuses the existing strategy-tab action/color source (no duplicate palette)', () => {
+    // 色を複製せず、既存 FIXED_ACTIONS と同一参照を使う。
+    expect(PREFLOP_V2_ACTIONS).toBe(FIXED_ACTIONS);
     expect(PREFLOP_V2_ACTIONS.map((a) => a.id)).toEqual(['fold', 'call', 'raise', 'allin']);
-    // colors identical to utils/normalize.ts FIXED_ACTIONS
-    expect(PREFLOP_V2_ACTIONS.map((a) => a.color)).toEqual([
-      '#0284c7',
-      '#16a34a',
-      '#ef4444',
-      '#9333ea',
-    ]);
   });
 });
 

@@ -58,7 +58,9 @@ export interface RawStrategyFile {
   hands: Record<string, RawHandStrategy>;
 }
 
-const FIXED_ACTIONS: ReadonlyArray<Action> = [
+// 戦略タブ (13x13 グリッド) のアクション色・順序の単一ソース。
+// 新 preflop ビュー (preflopV2) もこれを再利用する (色を複製しない)。
+export const FIXED_ACTIONS: ReadonlyArray<Action> = [
   { id: 'fold',  label: 'Fold',   size_bb: 0,   color: '#0284c7' },
   { id: 'call',  label: 'Call',   size_bb: 1,   color: '#16a34a' },
   { id: 'raise', label: 'Raise',  size_bb: 0,   color: '#ef4444' },
