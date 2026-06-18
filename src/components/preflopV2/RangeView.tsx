@@ -6,7 +6,7 @@ import { navigate } from '../../router/router-core';
 import { THEME } from '../../styles/theme';
 import { HandMatrix } from '../HandMatrix';
 import { Breadcrumb } from './Breadcrumb';
-import { NextActionButtons } from './NextActionButtons';
+import { PositionActionGrid } from './PositionActionGrid';
 import { findConfig } from '../../data/preflopV2/configs';
 import { usePreflopIndex, usePreflopNode } from '../../hooks/usePreflopStrategy';
 import { nodeToStrategy, PREFLOP_V2_ACTIONS } from '../../data/preflopV2/strategy';
@@ -40,7 +40,7 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
 
   return (
     <div>
-      <Breadcrumb configLabel={cfg.label} chain={node.data._meta.preflop_actions} />
+      <Breadcrumb config={config} chain={node.data._meta.preflop_actions} />
 
       <div style={titleRowStyle}>
         <span style={actorTitleStyle}>{actor} の戦略</span>
@@ -57,7 +57,7 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
       </div>
 
       {index.data ? (
-        <NextActionButtons config={config} node={node.data} index={index.data} />
+        <PositionActionGrid config={config} node={node.data} index={index.data} />
       ) : null}
 
       <div style={navRowStyle}>

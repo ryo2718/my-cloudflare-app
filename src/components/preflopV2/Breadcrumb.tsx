@@ -1,84 +1,93 @@
-// Phase 2a: 折りたたみ可能なパンくず。config ラベル + アクション連鎖のステップを表示。
+// Phase 2c: ピル状パンくず。アクション履歴を「ポジション + アクション」のピルで横並び。
+// 各ピルはタップでそのノードへ遷移。最初の連続 fold (UTG/HJ 等) は省略。
+// 色は単一定義 src/styles/actionColors.ts を参照。横スクロール対応。
 
-import { type CSSProperties, useState } from 'react';
-import { THEME } from '../../styles/theme';
-import { chainSteps } from '../../data/preflopV2/chain';
+import { type CSSProperties } from 'react';
+import { navigate } from '../../router/router-core';
+import { ACTION_COLOR } from '../../styles/actionColors';
+import { chainToStem, simulateChain, type ActionKind } from '../../data/preflopV2/chain';
 
-export function Breadcrumb({ configLabel, chain }: { configLabel: string; chain: string }) {
-  const [open, setOpen] = useState(false);
-  const steps = chainSteps(chain);
-  const summary = steps.length === 0 ? 'Root (UTG first)' : steps.join(' → ');
+function kindColor(kind: ActionKind): string {
+  if (kind === 'allin') return ACTION_COLOR.allin;
+  if (kind === 'raise') return ACTION_COLOR.raise;
+  if (kind === 'call' || kind === 'limp') return ACTION_COLOR.call;
+  return ACTION_COLOR.fold;
+}
+function actionLabel(kind: ActionKind, raiseLabel?: string): string {
+  if (kind === 'raise' || kind === 'allin') return raiseLabel ?? kind;
+  return kind; // call / limp / fold
+}
+// 暗い同系色 (現在ノードの枠) — HEX を 0.65 倍に暗くする。
+function darken(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * 0.65);
+  const g = Math.round(((n >> 8) & 255) * 0.65);
+  const b = Math.round((n & 255) * 0.65);
+  return `rgb(${r},${g},${b})`;
+}
+
+export function Breadcrumb({ config, chain }: { config: string; chain: string }) {
+  const actions = simulateChain(chain).actions;
+  const tokens = chain ? chain.split('-') : [];
+  // 最初の連続 fold を省略 (最初の非 fold から表示)。
+  let start = 0;
+  while (start < actions.length && actions[start].kind === 'fold') start += 1;
+
+  if (start >= actions.length) {
+    return <div style={wrapStyle}><span style={rootStyle}>Root (UTG first)</span></div>;
+  }
 
   return (
     <div style={wrapStyle}>
-      <button
-        type="button"
-        style={headerStyle}
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        <span style={configStyle}>{configLabel}</span>
-        <span style={caretStyle}>{open ? '▲' : '▼'}</span>
-      </button>
-      {open ? (
-        <ol style={listStyle}>
-          {steps.length === 0 ? (
-            <li style={itemStyle}>Root (UTG first to act)</li>
-          ) : (
-            steps.map((s, i) => (
-              <li key={`${i}-${s}`} style={itemStyle}>
-                {s}
-              </li>
-            ))
-          )}
-        </ol>
-      ) : (
-        <div style={summaryStyle}>{summary}</div>
-      )}
+      {actions.slice(start).map((a, i) => {
+        const idx = start + i;
+        const isLast = idx === actions.length - 1;
+        const prefixStem = chainToStem(tokens.slice(0, idx + 1).join('-'));
+        const bg = kindColor(a.kind);
+        return (
+          <span key={idx} style={rowItem}>
+            {i > 0 && <span style={sepStyle}>→</span>}
+            <button
+              type="button"
+              onClick={() => navigate(`/strategy/${config}/${prefixStem}`)}
+              style={{
+                ...pillStyle,
+                background: bg,
+                border: isLast ? `2px solid ${darken(bg)}` : '2px solid transparent',
+              }}
+            >
+              <span style={posStyle}>{a.seat}</span>
+              <span>{actionLabel(a.kind, a.raiseLabel)}</span>
+            </button>
+          </span>
+        );
+      })}
     </div>
   );
 }
 
 const wrapStyle: CSSProperties = {
-  background: THEME.cardElevated,
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '0.5rem',
-  padding: '0.4rem 0.6rem',
+  display: 'flex',
+  flexWrap: 'nowrap',
+  alignItems: 'center',
+  gap: '2px',
+  overflowX: 'auto',
+  padding: '2px 0',
   marginBottom: '0.6rem',
 };
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  width: '100%',
-  background: 'transparent',
-  border: 'none',
-  padding: 0,
+const rowItem: CSSProperties = { display: 'flex', alignItems: 'center', flex: '0 0 auto' };
+const sepStyle: CSSProperties = { color: '#8c7d6a', fontSize: '12px', margin: '0 2px' };
+const pillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'baseline',
+  gap: '5px',
+  borderRadius: '999px',
+  padding: '6px 12px',
+  fontSize: '13px',
+  fontWeight: 700,
+  color: '#fff',
   cursor: 'pointer',
-  color: THEME.textPrimary,
-};
-const configStyle: CSSProperties = { fontSize: '0.9rem', fontWeight: 700 };
-const caretStyle: CSSProperties = { fontSize: '0.7rem', color: THEME.textMuted };
-const summaryStyle: CSSProperties = {
-  marginTop: '0.25rem',
-  fontSize: '0.78rem',
-  color: THEME.textSecondary,
   whiteSpace: 'nowrap',
-  overflowX: 'auto',
 };
-const listStyle: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: '0.35rem',
-  listStyle: 'none',
-  margin: '0.4rem 0 0',
-  padding: 0,
-};
-const itemStyle: CSSProperties = {
-  fontSize: '0.78rem',
-  color: THEME.textSecondary,
-  background: '#fff',
-  border: `1px solid ${THEME.border}`,
-  borderRadius: '0.3rem',
-  padding: '0.1rem 0.4rem',
-};
+const posStyle: CSSProperties = { fontSize: '11px', opacity: 0.85 };
+const rootStyle: CSSProperties = { fontSize: '13px', color: '#6b5a48' };
