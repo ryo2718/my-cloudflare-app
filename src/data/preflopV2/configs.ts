@@ -27,8 +27,8 @@ export const PREFLOP_V2_CONFIGS: ReadonlyArray<PreflopV2Config> = [
   { id: 'cash_100bb_6max_nl50_gto', label: '100bb NL50 GTO', stackBb: 100, rake: 'NL50', open: 'GTO', source: 'gto' },
   { id: 'cash_150bb_6max_nl500_gto', label: '150bb NL500 GTO', stackBb: 150, rake: 'NL500', open: 'GTO', source: 'gto' },
   { id: 'cash_200bb_6max_nl500_gto', label: '200bb NL500 GTO', stackBb: 200, rake: 'NL500', open: 'GTO', source: 'gto' },
-  // legacy: 旧 public/data/preflop/cash_100bb_6max_nl500_2.5x/ (既存ビューアで表示)
-  { id: 'cash_100bb_6max_nl500_2_5x', label: '100bb NL500 2.5x', stackBb: 100, rake: 'NL500', open: '2.5x', source: 'legacy' },
+  // 2.5x: node_path 再導出で新形式に変換し、gto と同じ新グリッドで表示 (Phase X2/X3)。
+  { id: 'cash_100bb_6max_nl500_2_5x', label: '100bb NL500 2.5x', stackBb: 100, rake: 'NL500', open: '2.5x', source: 'gto' },
 ];
 
 export const DEFAULT_CONFIG_ID = 'cash_100bb_6max_nl500_gto';

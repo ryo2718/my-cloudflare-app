@@ -12,18 +12,18 @@ import {
 } from './configs';
 
 describe('PREFLOP_V2_CONFIGS', () => {
-  it('has 7 gto + 1 legacy 2.5x = 8 configs', () => {
+  it('has 8 configs, all unified on the new grid loader (source=gto)', () => {
     expect(PREFLOP_V2_CONFIGS).toHaveLength(8);
-    expect(PREFLOP_V2_CONFIGS.filter((c) => c.source === 'gto')).toHaveLength(7);
-    expect(PREFLOP_V2_CONFIGS.filter((c) => c.source === 'legacy')).toHaveLength(1);
+    expect(PREFLOP_V2_CONFIGS.filter((c) => c.source === 'gto')).toHaveLength(8);
+    expect(PREFLOP_V2_CONFIGS.filter((c) => c.source === 'legacy')).toHaveLength(0);
   });
   it('default is 100bb NL500 GTO and is a gto config', () => {
     expect(DEFAULT_CONFIG_ID).toBe('cash_100bb_6max_nl500_gto');
     expect(isGtoConfig(DEFAULT_CONFIG_ID)).toBe(true);
   });
-  it('the 2.5x config is legacy (not gto)', () => {
-    expect(isGtoConfig('cash_100bb_6max_nl500_2_5x')).toBe(false);
-    expect(findConfig('cash_100bb_6max_nl500_2_5x')?.source).toBe('legacy');
+  it('the 2.5x config is unified on the new grid (gto loader)', () => {
+    expect(isGtoConfig('cash_100bb_6max_nl500_2_5x')).toBe(true);
+    expect(findConfig('cash_100bb_6max_nl500_2_5x')?.source).toBe('gto');
   });
 });
 

@@ -13,6 +13,7 @@ import {
   simulateChain,
   isLimpNode,
   foldAroundStem,
+  resolveChild,
 } from './chain';
 import type { PreflopV2Index, PreflopV2Node } from './types';
 
@@ -196,6 +197,30 @@ describe('isLimpNode', () => {
       actions_legend: { F: 'fold', C: 'call (2.5bb)', 'R7': 'raise' },
     });
     expect(isLimpNode(n)).toBe(false);
+  });
+});
+
+describe('resolveChild (skip-connect through missing fold intermediates)', () => {
+  const index: PreflopV2Index = {
+    config: 'c', label: 'L', stackBb: 100, rake: 'NL500', openSize: '2.5x',
+    positionOrder: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
+    entries: {},
+    nodes: {
+      F_F_R2: [],
+      // direct child exists
+      F_F_R2_C: [],
+      // skip target: intermediate F_F_R2_R6 is MISSING, but R6 then a fold exists
+      F_F_R2_R6_F: [],
+    },
+  };
+  it('returns the direct child when it exists', () => {
+    expect(resolveChild('F-F-R2', 'C', index)).toBe('F_F_R2_C');
+  });
+  it('skips a missing intermediate by folding to the nearest existing node', () => {
+    expect(resolveChild('F-F-R2', 'R6', index)).toBe('F_F_R2_R6_F');
+  });
+  it('returns null when no existing node is reachable', () => {
+    expect(resolveChild('F-F-R2', 'RAI', index)).toBeNull();
   });
 });
 

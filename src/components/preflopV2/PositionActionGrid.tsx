@@ -12,16 +12,15 @@ import { ACTION_COLOR } from '../../styles/actionColors';
 import { THEME } from '../../styles/theme';
 import {
   SEAT_ORDER,
-  ROOT_STEM,
   type Seat,
   type ActionKind,
   actorPosition,
   chainToStem,
-  tokenToStem,
   countRaisesInChain,
   foldAroundStem,
   isLimpNode,
   raiseName,
+  resolveChild,
   simulateChain,
 } from '../../data/preflopV2/chain';
 import { PREFLOP_UI } from '../../data/preflopV2/uiColors';
@@ -37,10 +36,10 @@ function kindColor(kind: ActionKind): string {
 interface Cell {
   label: string;
   kind: ActionKind;
-  /** タップで遷移する stem。null なら非タップ (確定済表示)。 */
+  /** タップで遷移する stem。null なら非タップ。 */
   toStem: string | null;
-  auto?: boolean; // auto-fold (グレー)
-  disabled?: boolean; // データ無しでグレーアウト (call 等)
+  /** グレーアウト (このノードでそのアクションが取れない / auto-fold)。 */
+  greyed?: boolean;
 }
 
 function classifyToken(token: string): ActionKind {
@@ -50,7 +49,10 @@ function classifyToken(token: string): ActionKind {
   return 'raise';
 }
 
-const KIND_RANK: Record<ActionKind, number> = { allin: 0, raise: 1, limp: 2, call: 2, fold: 3 };
+function sizeOf(token: string): number {
+  const m = token.match(/^R(\d+(?:\.\d+)?)$/);
+  return m ? Number(m[1]) : 0;
+}
 
 export function PositionActionGrid({
   config,
@@ -76,30 +78,33 @@ export function PositionActionGrid({
     committed.set(a.seat, { kind: a.kind, label });
   }
 
-  // フォーカス列 (現 actor) の選択肢。legend にあるアクションを全て表示する。
-  //   - raise(3bet/...) / allin / fold: 常にアクション色で表示。子ノードが実在すれば
-  //     タップで遷移、無ければタップ無効 (色は維持) ― GTO 上のアクションを色で明示。
-  //   - call: 子ノードが実在すれば緑タップ可、無ければグレーアウト (call のみ)。
-  const stem = chainToStem(chain);
-  const kids = new Set(index.nodes[stem] ?? []);
-  const focusCells: Cell[] = [];
-  for (const token of Object.keys(node.actions_legend)) {
-    const kind = classifyToken(token);
-    const childStem = stem === ROOT_STEM ? tokenToStem(token) : `${stem}_${tokenToStem(token)}`;
-    const has = kids.has(childStem);
+  // フォーカス列 (現 actor): allin / raise / call(or limp) / fold の 4 枠を「常に」表示。
+  //   - そのアクションが legend にあれば色付き、無ければグレーアウト (枠は常に同じ位置)。
+  //   - 遷移先は resolveChild が欠けた中間 fold をスキップして解決。無ければタップ無効。
+  // 「ワンタップで行きたい場所が常に同じ位置にある」体験 (ryoji)。
+  const legendTokenFor = (kind: ActionKind): string | null => {
+    const matches = Object.keys(node.actions_legend).filter((t) => classifyToken(t) === kind);
+    if (matches.length === 0) return null;
+    // raise は最小サイズを代表に。
+    if (kind === 'raise') {
+      return matches.sort((a, b) => sizeOf(a) - sizeOf(b))[0];
+    }
+    return matches[0];
+  };
+  const FRAME_KINDS: ActionKind[] = ['allin', 'raise', limp ? 'limp' : 'call', 'fold'];
+  const focusCells: Cell[] = FRAME_KINDS.map((frameKind) => {
+    const legendKind: ActionKind = frameKind === 'limp' ? 'call' : frameKind;
+    const token = legendTokenFor(legendKind);
+    const inLegend = token !== null;
+    const toStem = inLegend ? resolveChild(chain, token, index) : null;
     let label: string;
-    let cellKind: ActionKind = kind;
-    if (kind === 'raise') label = raiseName(priorRaises);
-    else if (kind === 'allin') label = 'All-in';
-    else if (kind === 'call') {
-      cellKind = limp ? 'limp' : 'call';
-      label = limp ? 'limp' : 'call';
-    } else label = 'fold';
-    // call のみ子無しでグレーアウト。raise/allin/fold は色を維持しタップ無効。
-    const disabled = kind === 'call' && !has;
-    focusCells.push({ label, kind: cellKind, toStem: has ? childStem : null, disabled });
-  }
-  focusCells.sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
+    if (frameKind === 'allin') label = 'All-in';
+    else if (frameKind === 'raise') label = raiseName(priorRaises);
+    else if (frameKind === 'limp') label = 'limp';
+    else if (frameKind === 'call') label = 'call';
+    else label = 'fold';
+    return { label, kind: frameKind, toStem, greyed: !inLegend };
+  });
 
   const actorIdx = SEAT_ORDER.indexOf(actor);
 
@@ -114,12 +119,11 @@ export function PositionActionGrid({
         if (isFocus) {
           cells = focusCells;
         } else if (done) {
-          const auto = done.kind === 'fold';
-          cells = [{ label: done.label, kind: done.kind, toStem: null, auto }];
+          cells = [{ label: done.label, kind: done.kind, toStem: null, greyed: done.kind === 'fold' }];
         } else if (seatIdx > actorIdx) {
           // 未行動の席: 自動補完で その席の決定ノードへ。
           const jumpStem = foldAroundStem(chain, seat, index);
-          if (jumpStem && jumpStem !== stem) {
+          if (jumpStem && jumpStem !== chainToStem(chain)) {
             cells = [{ label: raiseName(priorRaises), kind: 'raise', toStem: jumpStem }];
           }
         }
@@ -140,7 +144,7 @@ export function PositionActionGrid({
 }
 
 function CellButton({ cell, config }: { cell: Cell; config: string }) {
-  const grey = cell.auto || cell.disabled;
+  const grey = cell.greyed;
   const bg = grey ? PREFLOP_UI.disabledBg : kindColor(cell.kind);
   const fg = grey ? PREFLOP_UI.disabledText : '#ffffff';
   if (!cell.toStem) {

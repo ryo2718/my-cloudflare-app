@@ -75,6 +75,28 @@ describe('PositionActionGrid', () => {
     expect(html).not.toContain('/strategy/c/R2_F_R6_5');
   });
 
+  it('always shows all 4 frames (allin/raise/call/fold); absent actions are greyed', () => {
+    // Fold-only-ish node: legend has only F and C (no raise, no allin)
+    const node: PreflopV2Node = {
+      _meta: { preflop_actions: 'R2-F', actor: 'co' },
+      game_info: { players: players('CO', ['HJ']) },
+      actions_legend: { F: 'fold', C: 'call (2bb)' },
+      hands: {},
+    };
+    const html = renderToStaticMarkup(
+      <PositionActionGrid config="c" node={node} index={idx({ R2_F: ['R2_F_C', 'R2_F_F'] })} />,
+    );
+    // all four slots present
+    expect(html).toContain('All-in');
+    expect(html).toContain('3bet'); // raise slot label (1 prior raise)
+    expect(html).toContain('call');
+    expect(html).toContain('fold');
+    // allin + raise are absent from legend -> greyed
+    expect(html.toUpperCase()).toContain('B4B2A9');
+    // call is available -> green
+    expect(html.toUpperCase()).toContain('3B8A1E');
+  });
+
   it('shows allin cell in purple when RAI is available', () => {
     const node: PreflopV2Node = {
       _meta: { preflop_actions: 'F-F-F-R2.5-R12', actor: 'btn' },
