@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { nodeToStrategy, PREFLOP_V2_ACTIONS } from './strategy';
-import { FIXED_ACTIONS } from '../../utils/normalize';
+import { FIXED_ACTIONS } from '../actionDefinitions';
 import type { PreflopV2Node } from './types';
 
 describe('PREFLOP_V2_ACTIONS', () => {

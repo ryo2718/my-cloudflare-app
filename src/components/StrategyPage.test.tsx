@@ -23,7 +23,7 @@ describe('StrategyPage (UI)', () => {
   it('PC モードでヘッダ・タイトル・タブを表示する', () => {
     render(<StrategyPage />);
     expect(screen.getByText('Preflop Strategy Viewer')).toBeTruthy();
-    expect(screen.getByText('Open Range × Response')).toBeTruthy();
+    expect(screen.getByText('Preflop Range')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Preflop' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Flop' })).toBeTruthy();
   });

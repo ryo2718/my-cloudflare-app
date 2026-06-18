@@ -4,7 +4,7 @@
 //   - strategy[hand] = [fold, call, raise, allin] を 0-1 化
 
 import type { Strategy } from '../../types/strategy';
-import { FIXED_ACTIONS } from '../../utils/normalize';
+import { FIXED_ACTIONS } from '../actionDefinitions';
 import type { PreflopV2Node } from './types';
 
 // 色・順序は既存戦略タブと同一ソース (utils/normalize.ts FIXED_ACTIONS) を再利用。
