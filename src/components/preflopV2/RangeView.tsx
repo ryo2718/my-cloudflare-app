@@ -5,12 +5,14 @@ import { type CSSProperties, useMemo, useState } from 'react';
 import { navigate } from '../../router/router-core';
 import { THEME } from '../../styles/theme';
 import { HandMatrix } from '../HandMatrix';
+import { AggregateReport } from '../AggregateReport';
 import { Breadcrumb } from './Breadcrumb';
 import { PositionActionGrid } from './PositionActionGrid';
 import { findConfig } from '../../data/preflopV2/configs';
 import { usePreflopIndex, usePreflopNode } from '../../hooks/usePreflopStrategy';
 import { nodeToStrategy, PREFLOP_V2_ACTIONS } from '../../data/preflopV2/strategy';
 import { actorPosition, activePositions, parentStem } from '../../data/preflopV2/chain';
+import { PREFLOP_UI } from '../../data/preflopV2/uiColors';
 
 export function RangeView({ config, stem }: { config: string; stem: string }) {
   const cfg = findConfig(config);
@@ -48,12 +50,18 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
       </div>
 
       <div style={matrixWrapStyle}>
-        <HandMatrix
-          strategy={strategy}
-          actions={[...PREFLOP_V2_ACTIONS]}
-          hoveredHand={hoveredHand}
-          onHover={setHoveredHand}
-        />
+        <div style={matrixFrameStyle}>
+          <HandMatrix
+            strategy={strategy}
+            actions={[...PREFLOP_V2_ACTIONS]}
+            hoveredHand={hoveredHand}
+            onHover={setHoveredHand}
+          />
+        </div>
+      </div>
+
+      <div style={aggregateWrapStyle}>
+        <AggregateReport strategy={strategy} actions={[...PREFLOP_V2_ACTIONS]} />
       </div>
 
       {index.data ? (
@@ -111,6 +119,17 @@ const wayStyle: CSSProperties = {
   padding: '0.15rem 0.5rem',
 };
 const matrixWrapStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  marginBottom: '0.9rem',
+};
+const matrixFrameStyle: CSSProperties = {
+  border: `2px solid ${PREFLOP_UI.matrixFrame}`,
+  borderRadius: '4px',
+  padding: '2px',
+  background: PREFLOP_UI.matrixFrame,
+};
+const aggregateWrapStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
   marginBottom: '0.9rem',

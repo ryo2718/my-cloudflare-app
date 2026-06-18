@@ -5,6 +5,7 @@
 import { type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import { ACTION_COLOR } from '../../styles/actionColors';
+import { THEME } from '../../styles/theme';
 import { chainToStem, simulateChain, type ActionKind } from '../../data/preflopV2/chain';
 
 function kindColor(kind: ActionKind): string {
@@ -29,19 +30,19 @@ function darken(hex: string): string {
 export function Breadcrumb({ config, chain }: { config: string; chain: string }) {
   const actions = simulateChain(chain).actions;
   const tokens = chain ? chain.split('-') : [];
-  // 最初の連続 fold を省略 (最初の非 fold から表示)。
-  let start = 0;
-  while (start < actions.length && actions[start].kind === 'fold') start += 1;
+  // fold を全て省略 (raise系 / call / limp / allin のみピル化)。
+  const pills = actions
+    .map((a, idx) => ({ a, idx }))
+    .filter(({ a }) => a.kind !== 'fold');
 
-  if (start >= actions.length) {
+  if (pills.length === 0) {
     return <div style={wrapStyle}><span style={rootStyle}>Root (UTG first)</span></div>;
   }
 
   return (
     <div style={wrapStyle}>
-      {actions.slice(start).map((a, i) => {
-        const idx = start + i;
-        const isLast = idx === actions.length - 1;
+      {pills.map(({ a, idx }, i) => {
+        const isLast = i === pills.length - 1;
         const prefixStem = chainToStem(tokens.slice(0, idx + 1).join('-'));
         const bg = kindColor(a.kind);
         return (
@@ -76,7 +77,7 @@ const wrapStyle: CSSProperties = {
   marginBottom: '0.6rem',
 };
 const rowItem: CSSProperties = { display: 'flex', alignItems: 'center', flex: '0 0 auto' };
-const sepStyle: CSSProperties = { color: '#8c7d6a', fontSize: '12px', margin: '0 2px' };
+const sepStyle: CSSProperties = { color: THEME.textMuted, fontSize: '12px', margin: '0 2px' };
 const pillStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'baseline',
@@ -90,4 +91,4 @@ const pillStyle: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 const posStyle: CSSProperties = { fontSize: '11px', opacity: 0.85 };
-const rootStyle: CSSProperties = { fontSize: '13px', color: '#6b5a48' };
+const rootStyle: CSSProperties = { fontSize: '13px', color: THEME.textSecondary };

@@ -18,6 +18,17 @@ describe('Breadcrumb (pills)', () => {
     expect(html).toMatch(/border:2px solid rgb\(/); // BTN 3bet (current) darkened border
   });
 
+  it('excludes interior folds too (not just leading)', () => {
+    // R2-F-F-C: UTG open, HJ fold, CO fold, BTN call -> pills: UTG open, BTN call
+    const html = renderToStaticMarkup(<Breadcrumb config="c" chain="R2-F-F-C" />);
+    expect(html).toContain('UTG');
+    expect(html).toContain('open');
+    expect(html).toContain('BTN');
+    expect(html).toContain('call');
+    expect(html).not.toContain('HJ'); // interior fold omitted
+    expect(html).not.toContain('CO'); // interior fold omitted
+  });
+
   it('shows a root label when the chain is all folds / empty', () => {
     expect(renderToStaticMarkup(<Breadcrumb config="c" chain="" />)).toContain('Root');
   });

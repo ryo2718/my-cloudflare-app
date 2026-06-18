@@ -9,24 +9,23 @@
 import { type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
 import { ACTION_COLOR } from '../../styles/actionColors';
+import { THEME } from '../../styles/theme';
 import {
   SEAT_ORDER,
+  ROOT_STEM,
   type Seat,
   type ActionKind,
   actorPosition,
   chainToStem,
+  tokenToStem,
   countRaisesInChain,
   foldAroundStem,
   isLimpNode,
-  nextActions,
   raiseName,
   simulateChain,
 } from '../../data/preflopV2/chain';
+import { PREFLOP_UI } from '../../data/preflopV2/uiColors';
 import type { PreflopV2Index, PreflopV2Node } from '../../data/preflopV2/types';
-
-const AUTO_FOLD_BG = '#B4B2A9';
-const AUTO_FOLD_TEXT = '#5F5E5A';
-const FOCUS_BORDER = '#842821';
 
 function kindColor(kind: ActionKind): string {
   if (kind === 'allin') return ACTION_COLOR.allin;
@@ -41,6 +40,7 @@ interface Cell {
   /** タップで遷移する stem。null なら非タップ (確定済表示)。 */
   toStem: string | null;
   auto?: boolean; // auto-fold (グレー)
+  disabled?: boolean; // データ無しでグレーアウト (call 等)
 }
 
 function classifyToken(token: string): ActionKind {
@@ -76,18 +76,30 @@ export function PositionActionGrid({
     committed.set(a.seat, { kind: a.kind, label });
   }
 
-  // フォーカス列 (現 actor) の選択肢。
-  const focusCells: Cell[] = nextActions(node, index)
-    .map((na) => {
-      const kind = classifyToken(na.token);
-      let label: string;
-      if (kind === 'raise') label = raiseName(priorRaises);
-      else if (kind === 'allin') label = 'All-in';
-      else if (kind === 'call') label = limp ? 'limp' : 'call';
-      else label = 'fold';
-      return { label, kind: kind === 'call' && limp ? 'limp' : kind, toStem: na.childStem } as Cell;
-    })
-    .sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
+  // フォーカス列 (現 actor) の選択肢。legend 駆動 + データ無しはグレーアウト。
+  //   - raise(3bet/...): legend にあれば常に表示 (子ノードは常に実在)
+  //   - call: 常に表示。子が無ければグレーアウト (消さない)
+  //   - fold: 常に表示
+  //   - allin: legend に RAI かつ子が実在する場合のみ
+  const stem = chainToStem(chain);
+  const kids = new Set(index.nodes[stem] ?? []);
+  const focusCells: Cell[] = [];
+  for (const token of Object.keys(node.actions_legend)) {
+    const kind = classifyToken(token);
+    const childStem = stem === ROOT_STEM ? tokenToStem(token) : `${stem}_${tokenToStem(token)}`;
+    const has = kids.has(childStem);
+    if ((kind === 'raise' || kind === 'allin') && !has) continue; // 取れない raise/allin は出さない
+    let label: string;
+    let cellKind: ActionKind = kind;
+    if (kind === 'raise') label = raiseName(priorRaises);
+    else if (kind === 'allin') label = 'All-in';
+    else if (kind === 'call') {
+      label = limp ? 'limp' : 'call';
+      cellKind = limp ? 'limp' : 'call';
+    } else label = 'fold';
+    focusCells.push({ label, kind: cellKind, toStem: has ? childStem : null, disabled: !has });
+  }
+  focusCells.sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
 
   const actorIdx = SEAT_ORDER.indexOf(actor);
 
@@ -106,9 +118,9 @@ export function PositionActionGrid({
           cells = [{ label: done.label, kind: done.kind, toStem: null, auto }];
         } else if (seatIdx > actorIdx) {
           // 未行動の席: 自動補完で その席の決定ノードへ。
-          const stem = foldAroundStem(chain, seat, index);
-          if (stem && stem !== chainToStem(chain)) {
-            cells = [{ label: raiseName(priorRaises), kind: 'raise', toStem: stem }];
+          const jumpStem = foldAroundStem(chain, seat, index);
+          if (jumpStem && jumpStem !== stem) {
+            cells = [{ label: raiseName(priorRaises), kind: 'raise', toStem: jumpStem }];
           }
         }
 
@@ -128,8 +140,9 @@ export function PositionActionGrid({
 }
 
 function CellButton({ cell, config }: { cell: Cell; config: string }) {
-  const bg = cell.auto ? AUTO_FOLD_BG : kindColor(cell.kind);
-  const fg = cell.auto ? AUTO_FOLD_TEXT : '#ffffff';
+  const grey = cell.auto || cell.disabled;
+  const bg = grey ? PREFLOP_UI.disabledBg : kindColor(cell.kind);
+  const fg = grey ? PREFLOP_UI.disabledText : '#ffffff';
   if (!cell.toStem) {
     return (
       <div style={{ ...cellBase, background: bg, color: fg, cursor: 'default' }}>{cell.label}</div>
@@ -164,13 +177,13 @@ const headStyle: CSSProperties = {
   textAlign: 'center',
   fontSize: '11px',
   fontWeight: 600,
-  color: '#6b5a48',
+  color: THEME.textSecondary,
   padding: '2px 0',
 };
 const headFocusStyle: CSSProperties = {
   ...headStyle,
   fontWeight: 800,
-  color: FOCUS_BORDER,
+  color: PREFLOP_UI.focusBorder,
 };
 const cellsStyle: CSSProperties = {
   display: 'flex',
@@ -182,7 +195,7 @@ const cellsStyle: CSSProperties = {
 };
 const cellsFocusStyle: CSSProperties = {
   ...cellsStyle,
-  border: `2.5px solid ${FOCUS_BORDER}`,
+  border: `2.5px solid ${PREFLOP_UI.focusBorder}`,
 };
 const cellBase: CSSProperties = {
   width: '100%',

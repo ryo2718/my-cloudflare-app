@@ -39,6 +39,24 @@ describe('PositionActionGrid', () => {
     expect(html.toUpperCase()).toContain('D8443C'); // open = raise red
   });
 
+  it('greys out call (no data) while keeping 3bet + fold at a vs-open node', () => {
+    // R2-F-F: UTG open, HJ/CO fold, BTN to act. legend has C but no call child.
+    const node: PreflopV2Node = {
+      _meta: { preflop_actions: 'R2-F-F', actor: 'btn' },
+      game_info: { players: players('BTN', ['HJ', 'CO']) },
+      actions_legend: { F: 'fold', C: 'call (2bb)', 'R7.5': 'raise (7.5bb)' },
+      hands: {},
+    };
+    // index: call child (R2_F_F_C) intentionally absent
+    const html = renderToStaticMarkup(
+      <PositionActionGrid config="c" node={node} index={idx({ R2_F_F: ['R2_F_F_F', 'R2_F_F_R7_5'] })} />,
+    );
+    expect(html).toContain('3bet'); // raise (1 prior raise) always shown
+    expect(html).toContain('call'); // call still shown...
+    expect(html.toUpperCase()).toContain('B4B2A9'); // ...but greyed (disabled), not removed
+    expect(html.toUpperCase()).toContain('D8443C'); // 3bet red
+  });
+
   it('shows allin cell in purple when RAI is available', () => {
     const node: PreflopV2Node = {
       _meta: { preflop_actions: 'F-F-F-R2.5-R12', actor: 'btn' },
