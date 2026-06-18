@@ -10,6 +10,7 @@ import {
   oppositeHero,
   type Position,
 } from '../../types/mobile';
+import { ACTION_COLOR } from '../../styles/actionColors';
 
 interface Props {
   /** 現在表示中の node_path */
@@ -49,7 +50,7 @@ export function ActionButtons({ currentPath, opener, responder, onAdvance }: Pro
         <button
           type="button"
           onClick={() => onAdvance(raiseTarget)}
-          style={{ ...buttonBase, background: '#ef4444' }}
+          style={{ ...buttonBase, background: ACTION_COLOR.raise }}
         >
           {raiseLabel} ▸
         </button>
@@ -58,7 +59,7 @@ export function ActionButtons({ currentPath, opener, responder, onAdvance }: Pro
         <button
           type="button"
           onClick={() => onAdvance(allinTarget)}
-          style={{ ...buttonBase, background: '#a855f7' }}
+          style={{ ...buttonBase, background: ACTION_COLOR.allin }}
         >
           All-in ▸
         </button>

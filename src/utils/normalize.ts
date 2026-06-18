@@ -7,6 +7,7 @@ import type {
   StrategyData,
   TableSize,
 } from '../types/strategy';
+import { ACTION_COLOR } from '../styles/actionColors';
 
 // SCHEMA v1.1.0 — see docs/SCHEMA.md
 // 4-action固定 (fold/call/raise/allin)、確率は 0–100 (%)、ツリーノード形式。
@@ -58,13 +59,14 @@ export interface RawStrategyFile {
   hands: Record<string, RawHandStrategy>;
 }
 
-// 戦略タブ (13x13 グリッド) のアクション色・順序の単一ソース。
-// 新 preflop ビュー (preflopV2) もこれを再利用する (色を複製しない)。
+// 戦略タブ (13x13 グリッド) のアクション色・順序。色はアプリ共通の単一定義
+// src/styles/actionColors.ts (ACTION_COLOR) を参照 (色を複製しない / 全ビュー同一)。
+// 新 preflop ビュー (preflopV2) もこの FIXED_ACTIONS を再利用する。
 export const FIXED_ACTIONS: ReadonlyArray<Action> = [
-  { id: 'fold',  label: 'Fold',   size_bb: 0,   color: '#0284c7' },
-  { id: 'call',  label: 'Call',   size_bb: 1,   color: '#16a34a' },
-  { id: 'raise', label: 'Raise',  size_bb: 0,   color: '#ef4444' },
-  { id: 'allin', label: 'All-in', size_bb: 100, color: '#9333ea' },
+  { id: 'fold',  label: 'Fold',   size_bb: 0,   color: ACTION_COLOR.fold },
+  { id: 'call',  label: 'Call',   size_bb: 1,   color: ACTION_COLOR.call },
+  { id: 'raise', label: 'Raise',  size_bb: 0,   color: ACTION_COLOR.raise },
+  { id: 'allin', label: 'All-in', size_bb: 100, color: ACTION_COLOR.allin },
 ];
 
 const COMBOS_BY_HAND_TYPE = (hand: string): number => {

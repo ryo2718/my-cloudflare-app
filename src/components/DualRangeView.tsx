@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { StrategyData } from '../types/strategy';
 import { THEME } from '../styles/theme';
+import { ACTION_COLOR } from '../styles/actionColors';
 import { ActionButton } from './ActionButton';
 import { AggregateReport } from './AggregateReport';
 import { HandDetail } from './HandDetail';
@@ -29,9 +30,9 @@ export interface RangePane {
   onAdvanceToFlop?: () => void;
 }
 
-// Action 色: src/utils/normalize.ts の FIXED_ACTIONS と揃える。
-const RAISE_COLOR = '#ef4444';
-const ALLIN_COLOR = '#9333ea';
+// Action 色: アプリ共通の単一定義 (src/styles/actionColors.ts) を参照。
+const RAISE_COLOR = ACTION_COLOR.raise;
+const ALLIN_COLOR = ACTION_COLOR.allin;
 const FLOP_COLOR = '#0d9488'; // teal — preflop の raise(red)/allin(purple) と被らない色
 
 interface Props {
