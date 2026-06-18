@@ -76,11 +76,10 @@ export function PositionActionGrid({
     committed.set(a.seat, { kind: a.kind, label });
   }
 
-  // フォーカス列 (現 actor) の選択肢。legend 駆動 + データ無しはグレーアウト。
-  //   - raise(3bet/...): legend にあれば常に表示 (子ノードは常に実在)
-  //   - call: 常に表示。子が無ければグレーアウト (消さない)
-  //   - fold: 常に表示
-  //   - allin: legend に RAI かつ子が実在する場合のみ
+  // フォーカス列 (現 actor) の選択肢。legend にあるアクションを全て表示する。
+  //   - raise(3bet/...) / allin / fold: 常にアクション色で表示。子ノードが実在すれば
+  //     タップで遷移、無ければタップ無効 (色は維持) ― GTO 上のアクションを色で明示。
+  //   - call: 子ノードが実在すれば緑タップ可、無ければグレーアウト (call のみ)。
   const stem = chainToStem(chain);
   const kids = new Set(index.nodes[stem] ?? []);
   const focusCells: Cell[] = [];
@@ -88,16 +87,17 @@ export function PositionActionGrid({
     const kind = classifyToken(token);
     const childStem = stem === ROOT_STEM ? tokenToStem(token) : `${stem}_${tokenToStem(token)}`;
     const has = kids.has(childStem);
-    if ((kind === 'raise' || kind === 'allin') && !has) continue; // 取れない raise/allin は出さない
     let label: string;
     let cellKind: ActionKind = kind;
     if (kind === 'raise') label = raiseName(priorRaises);
     else if (kind === 'allin') label = 'All-in';
     else if (kind === 'call') {
-      label = limp ? 'limp' : 'call';
       cellKind = limp ? 'limp' : 'call';
+      label = limp ? 'limp' : 'call';
     } else label = 'fold';
-    focusCells.push({ label, kind: cellKind, toStem: has ? childStem : null, disabled: !has });
+    // call のみ子無しでグレーアウト。raise/allin/fold は色を維持しタップ無効。
+    const disabled = kind === 'call' && !has;
+    focusCells.push({ label, kind: cellKind, toStem: has ? childStem : null, disabled });
   }
   focusCells.sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
 

@@ -57,6 +57,24 @@ describe('PositionActionGrid', () => {
     expect(html.toUpperCase()).toContain('D8443C'); // 3bet red
   });
 
+  it('shows 3bet in red even when its child node is missing (regression: CO facing UTG open)', () => {
+    // R2-F: UTG open, HJ fold, CO to act. legend has R6.5 (3bet) but NO R2_F_R6_5 child.
+    const node: PreflopV2Node = {
+      _meta: { preflop_actions: 'R2-F', actor: 'co' },
+      game_info: { players: players('CO', ['HJ']) },
+      actions_legend: { F: 'fold', C: 'call (2bb)', 'R6.5': 'raise (6.5bb)', RAI: 'all-in' },
+      hands: {},
+    };
+    // index: only fold + call children exist (3bet / allin lines not scraped)
+    const html = renderToStaticMarkup(
+      <PositionActionGrid config="c" node={node} index={idx({ R2_F: ['R2_F_C', 'R2_F_F'] })} />,
+    );
+    expect(html).toContain('3bet'); // 3bet no longer hidden
+    expect(html.toUpperCase()).toContain('D8443C'); // shown in raise red, not grey
+    // its child does not exist -> rendered non-tappable (no navigation target)
+    expect(html).not.toContain('/strategy/c/R2_F_R6_5');
+  });
+
   it('shows allin cell in purple when RAI is available', () => {
     const node: PreflopV2Node = {
       _meta: { preflop_actions: 'F-F-F-R2.5-R12', actor: 'btn' },
