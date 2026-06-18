@@ -157,15 +157,6 @@ function main() {
   // 衝突チェック
   const collisions = [...seen.entries()].filter(([, v]) => v.length > 1);
 
-  // children map (canonical parent -> child chains)
-  const childrenByParent = {};
-  for (const { chain } of derived) {
-    const toks = chain ? chain.split('-') : [];
-    if (toks.length >= 1) {
-      const parent = toks.slice(0, -1).join('-');
-      (childrenByParent[parent] ||= []).push(chain);
-    }
-  }
   const chainSet = new Set(derived.map((d) => d.chain));
 
   // write nodes + build index
@@ -184,13 +175,19 @@ function main() {
     }
     return best ? best.token : 'R'; // 子が無い raise はサイズ無し placeholder
   }
+  // token のアクション後、最寄りの実在ノードへ (欠けた中間 fold を skip-connect)。
+  function resolveTarget(chain, token) {
+    let cur = chain ? `${chain}-${token}` : token;
+    for (let i = 0; i <= SEAT.length; i++) {
+      if (chainSet.has(cur)) return cur;
+      cur = `${cur}-F`;
+    }
+    return null;
+  }
 
   const nodes = {};
   for (const node of derived) {
-    const kidsCanonical = (childrenByParent[node.chain] || []).slice().sort();
-    nodes[node.stem] = kidsCanonical.map(chainToStem).sort();
     // actions_legend = この手番の実際の available_actions (gto と同じ「手番の選択肢」)。
-    // ナビは grid 側 resolveChild が欠けた中間 fold をスキップして解決する。
     const legend = {};
     for (const a of node.available) {
       const verb = a.split(/\s+/)[0];
@@ -203,6 +200,13 @@ function main() {
       }
     }
     if (!('F' in legend)) legend.F = tokenLabel('F');
+    // index nodes[stem] = { token: 最寄り実在ノード stem } (skip-connect)。
+    const map = {};
+    for (const token of Object.keys(legend)) {
+      const target = resolveTarget(node.chain, token);
+      if (target !== null) map[token] = chainToStem(target);
+    }
+    nodes[node.stem] = map;
     const out = {
       _meta: { preflop_actions: node.chain, actor: node.hero.toLowerCase(), active_positions: node.active },
       game_info: {
@@ -232,14 +236,14 @@ function main() {
   };
   fs.writeFileSync(path.join(OUT_DIR, 'index.json'), JSON.stringify(index));
 
-  // connectivity: BFS from root over nodes graph
+  // connectivity: BFS from entries over the token->target graph (skip-connect 込み)。
   const reachable = new Set();
-  const stack = ['root'];
+  const stack = Object.values(entries);
   while (stack.length) {
     const n = stack.pop();
     if (reachable.has(n) || !(n in nodes)) continue;
     reachable.add(n);
-    for (const c of nodes[n]) stack.push(c);
+    for (const c of Object.values(nodes[n])) stack.push(c);
   }
   const unreachable = Object.keys(nodes).filter((n) => !reachable.has(n));
 

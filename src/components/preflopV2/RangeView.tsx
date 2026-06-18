@@ -8,17 +8,18 @@ import { HandMatrix } from '../HandMatrix';
 import { AggregateReport } from '../AggregateReport';
 import { Breadcrumb } from './Breadcrumb';
 import { PositionActionGrid } from './PositionActionGrid';
+import { HandDetailPopup } from './HandDetailPopup';
 import { findConfig } from '../../data/preflopV2/configs';
 import { usePreflopIndex, usePreflopNode } from '../../hooks/usePreflopStrategy';
 import { nodeToStrategy, PREFLOP_V2_ACTIONS, PREFLOP_V2_MATRIX_ACTIONS } from '../../data/preflopV2/strategy';
 import { actorPosition, activePositions, parentStem } from '../../data/preflopV2/chain';
-import { PREFLOP_UI } from '../../data/preflopV2/uiColors';
 
 export function RangeView({ config, stem }: { config: string; stem: string }) {
   const cfg = findConfig(config);
   const node = usePreflopNode(cfg ? config : null, cfg ? stem : null);
   const index = usePreflopIndex(cfg ? config : null);
   const [hoveredHand, setHoveredHand] = useState<string | null>(null);
+  const [selectedHand, setSelectedHand] = useState<string | null>(null);
 
   const strategy = useMemo(
     () => (node.data ? nodeToStrategy(node.data) : null),
@@ -50,15 +51,23 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
       </div>
 
       <div style={matrixWrapStyle}>
-        <div style={matrixFrameStyle}>
-          <HandMatrix
-            strategy={strategy}
-            actions={[...PREFLOP_V2_MATRIX_ACTIONS]}
-            hoveredHand={hoveredHand}
-            onHover={setHoveredHand}
-          />
-        </div>
+        <HandMatrix
+          strategy={strategy}
+          actions={[...PREFLOP_V2_MATRIX_ACTIONS]}
+          hoveredHand={hoveredHand}
+          onHover={setHoveredHand}
+          onSelect={setSelectedHand}
+        />
       </div>
+
+      {selectedHand && (strategy as Record<string, number[]>)[selectedHand] ? (
+        <HandDetailPopup
+          hand={selectedHand}
+          frequencies={(strategy as Record<string, number[]>)[selectedHand]}
+          actions={PREFLOP_V2_MATRIX_ACTIONS}
+          onClose={() => setSelectedHand(null)}
+        />
+      ) : null}
 
       <div style={aggregateWrapStyle}>
         <AggregateReport strategy={strategy} actions={[...PREFLOP_V2_ACTIONS]} />
@@ -122,12 +131,6 @@ const matrixWrapStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
   marginBottom: '0.9rem',
-};
-const matrixFrameStyle: CSSProperties = {
-  border: `2px solid ${PREFLOP_UI.matrixFrame}`,
-  borderRadius: '4px',
-  padding: '2px',
-  background: PREFLOP_UI.matrixFrame,
 };
 const aggregateWrapStyle: CSSProperties = {
   display: 'flex',

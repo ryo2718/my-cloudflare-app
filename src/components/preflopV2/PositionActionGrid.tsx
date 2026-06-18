@@ -88,30 +88,27 @@ export function PositionActionGrid({
       return { seat, cells };
     }
 
-    // 未行動 (現 actor 含む): foldAround で この席の決定ノードへ。
+    // 未行動 (現 actor 含む): foldAround で この席の決定ノードへ。その決定ノードの
+    // { token: 遷移先 } マップ (skip-connect 済) からアクションごとのセルを作る。
     const pStem = foldAroundStem(chain, seat, index);
-    const children = pStem ? index.nodes[pStem] ?? [] : [];
+    const map: Record<string, string> = pStem ? index.nodes[pStem] ?? {} : {};
     const limp = priorRaises === 0;
     const cells = ROW_KINDS.map<Cell>((rowKind) => {
-      // この行に該当する子ノード (raise は最小サイズ)。
-      const matches = children
-        .map((cs) => ({ cs, token: pStem === 'root' ? cs : cs.slice((pStem as string).length + 1) }))
-        .filter(({ token }) => {
-          const k = classifyToken(token);
-          return rowKind === 'call' ? k === 'call' : k === rowKind;
-        })
-        .sort((a, b) => sizeOf(a.token) - sizeOf(b.token));
+      // この行に該当するアクショントークン (raise は最小サイズを代表)。
+      const tokens = Object.keys(map)
+        .filter((t) => classifyToken(t) === rowKind)
+        .sort((a, b) => sizeOf(a) - sizeOf(b));
       let label: string;
       if (rowKind === 'allin') label = 'All-in';
       else if (rowKind === 'raise') label = raiseName(priorRaises);
       else if (rowKind === 'call') label = limp ? 'limp' : 'call';
       else label = 'fold';
-      if (matches.length === 0) return { kind: 'grey', label };
+      if (tokens.length === 0) return { kind: 'grey', label };
       return {
         kind: 'action',
         actionKind: rowKind === 'call' && limp ? 'limp' : rowKind,
         label,
-        toStem: matches[0].cs,
+        toStem: map[tokens[0]],
       };
     });
     return { seat, cells };
@@ -174,7 +171,7 @@ const colStyle: CSSProperties = {
 const cellsColStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '4px' };
 const headStyle: CSSProperties = {
   textAlign: 'center',
-  fontSize: '11px',
+  fontSize: '13px',
   fontWeight: 600,
   color: THEME.textSecondary,
   padding: '2px 0',
@@ -183,13 +180,14 @@ const headActiveStyle: CSSProperties = { ...headStyle, fontWeight: 800, color: T
 const cellBase: CSSProperties = {
   width: '100%',
   minWidth: 0,
-  fontSize: '11px',
+  minHeight: '46px',
+  fontSize: '14px',
   fontWeight: 700,
   lineHeight: 1.1,
-  padding: '8px 2px',
-  borderRadius: '6px',
+  padding: '12px 2px',
+  borderRadius: '10px',
   textAlign: 'center',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
 };
-const emptyCellStyle: CSSProperties = { width: '100%', minHeight: '31px' };
+const emptyCellStyle: CSSProperties = { width: '100%', minHeight: '46px' };

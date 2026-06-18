@@ -7,9 +7,10 @@ interface Props {
   actions: Action[];
   hovered: boolean;
   onHover: (hand: string | null) => void;
+  onSelect?: (hand: string) => void;
 }
 
-export function HandCell({ hand, frequencies, actions, hovered, onHover }: Props) {
+export function HandCell({ hand, frequencies, actions, hovered, onHover, onSelect }: Props) {
   let cumulative = 0;
   const stops: string[] = [];
   frequencies.forEach((freq, i) => {
@@ -27,6 +28,7 @@ export function HandCell({ hand, frequencies, actions, hovered, onHover }: Props
     <div
       onMouseEnter={() => onHover(hand)}
       onMouseLeave={() => onHover(null)}
+      onClick={onSelect ? () => onSelect(hand) : undefined}
       style={{
         background,
         position: 'relative',

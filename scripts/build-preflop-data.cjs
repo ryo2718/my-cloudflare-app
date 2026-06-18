@@ -122,22 +122,30 @@ function parseConfig(config) {
   return { stackBb, rake, openSize, label };
 }
 
-// Build the per-config navigation index from the canonical chains + actors collected
-// while converting. nodes[stem] = sorted child stems; entries[POS] = the shortest
-// (all-fold-first) node where that position is the actor (its natural entry point).
+// Build the per-config navigation index. nodes[stem] = { token: targetStem } where
+// targetStem は そのアクション後の最寄り実在ノード (single-villain で欠けた中間 fold は
+// skip-connect で飛ばす)。これにより grid が「各ポジション×各アクション」を正しく色付け
+// できる (直接の子だけ見ると 2.5x の 3bet 等がグレーになるバグを防ぐ)。
+// entries[POS] = そのポジションが actor になる最短 (all-fold-first) ノード。
 function buildIndex(config, collected) {
-  const childrenByParent = {};
-  for (const { chain } of collected) {
-    const toks = chain ? chain.split('-') : [];
-    if (toks.length >= 1) {
-      const parent = toks.slice(0, -1).join('-');
-      (childrenByParent[parent] ||= []).push(chain);
+  const chainSet = new Set(collected.map((c) => c.chain));
+  // chain + token の後、最寄りの実在ノードへ (欠けた中間は fold でスキップ)。
+  const resolveTarget = (chain, token) => {
+    let cur = chain ? `${chain}-${token}` : token;
+    for (let i = 0; i <= POSITION_ORDER.length; i++) {
+      if (chainSet.has(cur)) return cur;
+      cur = `${cur}-F`;
     }
-  }
+    return null;
+  };
   const nodes = {};
-  for (const { chain } of collected) {
-    const kids = (childrenByParent[chain] || []).map(chainToStem).sort();
-    nodes[chainToStem(chain)] = kids;
+  for (const { chain, legend } of collected) {
+    const map = {};
+    for (const token of legend) {
+      const target = resolveTarget(chain, token);
+      if (target !== null) map[token] = chainToStem(target);
+    }
+    nodes[chainToStem(chain)] = map;
   }
   // entry per position: minimal (depth, lexicographic) chain whose actor is that position.
   const best = {};
@@ -200,6 +208,7 @@ function processConfig(config) {
     collected.push({
       chain: (raw._meta && raw._meta.preflop_actions) || '',
       actor: (raw._meta && raw._meta.actor) || '',
+      legend: Object.keys(raw.actions_legend || {}),
     });
   }
   // Sort for deterministic index output.

@@ -170,51 +170,6 @@ export function foldAroundStem(
   return null;
 }
 
-export interface NextAction {
-  /** legend のトークン ("F" / "R13.1" / "RAI")。 */
-  token: string;
-  /** 遷移先ノードの stem。 */
-  childStem: string;
-  /** legend ラベル ("raise (13.1bb)" 等)。 */
-  actionLabel: string;
-}
-
-/**
- * 現ノードから遷移可能な次アクション一覧。actions_legend の各トークンのうち、
- * index に実在する子ノードを持つものだけを legend 順で返す (終端アクションは除外)。
- */
-export function nextActions(node: PreflopV2Node, index: PreflopV2Index): NextAction[] {
-  const stem = chainToStem(node._meta.preflop_actions);
-  const children = new Set(index.nodes[stem] ?? []);
-  const out: NextAction[] = [];
-  for (const [token, actionLabel] of Object.entries(node.actions_legend)) {
-    const frag = tokenToStem(token);
-    const childStem = stem === ROOT_STEM ? frag : `${stem}_${frag}`;
-    if (children.has(childStem)) out.push({ token, childStem, actionLabel });
-  }
-  return out;
-}
-
-/**
- * 現ノード(canonical chain)で actor が token のアクションを取った後の遷移先 stem を返す。
- * 直後のノードが存在しない (single-villain データで中間 fold ノードが欠ける) 場合は、
- * 次の手番が fold した連鎖を辿り、最寄りの実在ノードへスキップ接続する。
- * 実在ノードに到達できなければ null (= タップ無効)。
- */
-export function resolveChild(
-  chain: string,
-  token: string,
-  index: PreflopV2Index,
-): string | null {
-  let c = chain ? `${chain}-${token}` : token;
-  for (let guard = 0; guard <= SEAT_ORDER.length; guard++) {
-    const stem = chainToStem(c);
-    if (stem in index.nodes) return stem;
-    c = `${c}-F`; // 次の手番が fold した先へ
-  }
-  return null;
-}
-
 /** breadcrumb 用: 1 トークンを読みやすいラベルに。 */
 export function formatToken(token: string): string {
   if (token === 'F') return 'Fold';

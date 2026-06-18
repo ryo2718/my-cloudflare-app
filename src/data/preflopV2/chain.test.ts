@@ -5,7 +5,6 @@ import {
   parentStem,
   activePositions,
   actorPosition,
-  nextActions,
   formatToken,
   chainSteps,
   countRaisesInChain,
@@ -13,7 +12,6 @@ import {
   simulateChain,
   isLimpNode,
   foldAroundStem,
-  resolveChild,
 } from './chain';
 import type { PreflopV2Index, PreflopV2Node } from './types';
 
@@ -91,54 +89,6 @@ describe('actorPosition', () => {
   });
 });
 
-describe('nextActions', () => {
-  const index: PreflopV2Index = {
-    config: 'c',
-    label: 'L',
-    stackBb: 100,
-    rake: 'NL500',
-    openSize: 'gto',
-    positionOrder: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
-    entries: {},
-    nodes: {
-      F_R2_R6_5: ['F_R2_R6_5_C', 'F_R2_R6_5_F', 'F_R2_R6_5_R13_1'],
-      root: ['F', 'R2'],
-    },
-  };
-
-  it('returns only legend actions that have a real child node, in legend order', () => {
-    const n = node({
-      _meta: { preflop_actions: 'F-R2-R6.5', actor: 'utg' },
-      actions_legend: { F: 'fold (0bb)', C: 'call (6.5bb)', 'R13.1': 'raise (13.1bb)', RAI: 'all-in raise (100bb)' },
-    });
-    const got = nextActions(n, index);
-    // RAI has no child -> excluded (terminal). Order follows legend insertion.
-    expect(got.map((a) => a.token)).toEqual(['F', 'C', 'R13.1']);
-    expect(got.map((a) => a.childStem)).toEqual([
-      'F_R2_R6_5_F',
-      'F_R2_R6_5_C',
-      'F_R2_R6_5_R13_1',
-    ]);
-    expect(got[2].actionLabel).toBe('raise (13.1bb)');
-  });
-
-  it('builds child stems from root correctly', () => {
-    const n = node({
-      _meta: { preflop_actions: '', actor: 'utg' },
-      actions_legend: { F: 'fold (0bb)', R2: 'raise (2bb)' },
-    });
-    expect(nextActions(n, index).map((a) => a.childStem)).toEqual(['F', 'R2']);
-  });
-
-  it('returns empty when no children in index (leaf)', () => {
-    const n = node({
-      _meta: { preflop_actions: 'X-Y', actor: 'bb' },
-      actions_legend: { F: 'fold' },
-    });
-    expect(nextActions(n, index)).toEqual([]);
-  });
-});
-
 describe('countRaisesInChain / raiseName', () => {
   it('counts R tokens (excluding RAI)', () => {
     expect(countRaisesInChain('')).toBe(0);
@@ -200,36 +150,12 @@ describe('isLimpNode', () => {
   });
 });
 
-describe('resolveChild (skip-connect through missing fold intermediates)', () => {
-  const index: PreflopV2Index = {
-    config: 'c', label: 'L', stackBb: 100, rake: 'NL500', openSize: '2.5x',
-    positionOrder: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
-    entries: {},
-    nodes: {
-      F_F_R2: [],
-      // direct child exists
-      F_F_R2_C: [],
-      // skip target: intermediate F_F_R2_R6 is MISSING, but R6 then a fold exists
-      F_F_R2_R6_F: [],
-    },
-  };
-  it('returns the direct child when it exists', () => {
-    expect(resolveChild('F-F-R2', 'C', index)).toBe('F_F_R2_C');
-  });
-  it('skips a missing intermediate by folding to the nearest existing node', () => {
-    expect(resolveChild('F-F-R2', 'R6', index)).toBe('F_F_R2_R6_F');
-  });
-  it('returns null when no existing node is reachable', () => {
-    expect(resolveChild('F-F-R2', 'RAI', index)).toBeNull();
-  });
-});
-
 describe('foldAroundStem', () => {
   const index: PreflopV2Index = {
     config: 'c', label: 'L', stackBb: 100, rake: 'NL500', openSize: 'gto',
     positionOrder: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
     entries: {},
-    nodes: { root: ['F'], F: ['F_F'], F_F: ['F_F_F'], F_F_F: [] },
+    nodes: { root: {}, F: {}, F_F: {}, F_F_F: {} },
   };
   it('from root, fold-around to CO yields F_F (exists in index)', () => {
     expect(foldAroundStem('', 'CO', index)).toBe('F_F');

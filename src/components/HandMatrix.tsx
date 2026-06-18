@@ -8,9 +8,11 @@ interface Props {
   actions: Action[];
   hoveredHand: string | null;
   onHover: (hand: string | null) => void;
+  /** セルのタップ/クリック。未指定なら従来通り (equity / flop は渡さない)。 */
+  onSelect?: (hand: string) => void;
 }
 
-export function HandMatrix({ strategy, actions, hoveredHand, onHover }: Props) {
+export function HandMatrix({ strategy, actions, hoveredHand, onHover, onSelect }: Props) {
   return (
     <div
       style={{
@@ -40,6 +42,7 @@ export function HandMatrix({ strategy, actions, hoveredHand, onHover }: Props) {
               actions={actions}
               hovered={hoveredHand === hand}
               onHover={onHover}
+              onSelect={onSelect}
             />
           );
         }}

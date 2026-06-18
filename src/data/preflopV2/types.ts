@@ -49,6 +49,9 @@ export interface PreflopV2Index {
   positionOrder: string[];
   /** ポジション -> 開始ノード stem (例 "UTG":"root", "BTN":"F_F_F")。 */
   entries: Record<string, string>;
-  /** ノード stem -> 子ノード stem の配列。 */
-  nodes: Record<string, string[]>;
+  /**
+   * ノード stem -> { アクショントークン(canonical 例 "R6.5"/"C"/"F"/"RAI") : 遷移先ノード stem }。
+   * 遷移先は single-villain で欠けた中間 fold を skip-connect 済み。
+   */
+  nodes: Record<string, Record<string, string>>;
 }
