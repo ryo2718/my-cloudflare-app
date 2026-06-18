@@ -3,13 +3,20 @@
 //   - actions: [fold, call, raise, allin] 固定 (色も同一)
 //   - strategy[hand] = [fold, call, raise, allin] を 0-1 化
 
-import type { Strategy } from '../../types/strategy';
+import type { Action, Strategy } from '../../types/strategy';
 import { FIXED_ACTIONS } from '../actionDefinitions';
+import { MATRIX_CELL_COLOR } from './uiColors';
 import type { PreflopV2Node } from './types';
 
-// 色・順序は既存戦略タブと同一ソース (utils/normalize.ts FIXED_ACTIONS) を再利用。
-// 色定義を複製しない。
+// 色・順序は既存戦略タブと同一ソース (actionDefinitions FIXED_ACTIONS) を再利用。
+// 色定義を複製しない。AGGREGATE バー等で使用。
 export const PREFLOP_V2_ACTIONS = FIXED_ACTIONS;
+
+// ハンドマトリクス専用: 画像1 (旧 2.5x) の薄色パレット。id/順序は FIXED_ACTIONS と同一、色のみ上書き。
+export const PREFLOP_V2_MATRIX_ACTIONS: ReadonlyArray<Action> = FIXED_ACTIONS.map((a) => ({
+  ...a,
+  color: MATRIX_CELL_COLOR[a.id as keyof typeof MATRIX_CELL_COLOR] ?? a.color,
+}));
 
 /** ノードの hands を HandMatrix 用の sparse Strategy ([fold,call,raise,allin] / 0-1) に変換。 */
 export function nodeToStrategy(node: PreflopV2Node): Strategy {

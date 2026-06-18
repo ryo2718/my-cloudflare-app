@@ -1,10 +1,10 @@
-// Phase 2c: 6 列 (UTG/HJ/CO/BTN/SB/BB) のポジション別アクショングリッド。
-// 縦並びボタン (旧 NextActionButtons) の代替。
-//   - 確定済の席: 1 セルに圧縮 (履歴)。auto-fold はグレー。
-//   - 現在の actor 列: フォーカス (赤い丸枠)。available actions を縦に表示しタップで前進。
-//     順序 = allin(紫) / raise(赤, open/3bet/...) / call|limp(緑) / fold(青)。
-//   - 未行動の席: 自動補完ショートカット (間を全員 fold して その席の決定ノードへ)。
-// 色は単一定義 src/styles/actionColors.ts を参照。
+// Phase X4: 全6ポジション (UTG/HJ/CO/BTN/SB/BB) × 4選択肢 (allin/raise/call|limp/fold) の
+// グリッド。1画面に全ポジションの全選択肢が並び、各セル 1 タップでそのシナリオへ遷移する。
+//   - 未行動の列: 4 セル。そのアクションがデータにあれば色付きタップ可、無ければグレーアウト。
+//   - 行動済み (= 現 actor 以外で既に確定) / 降りた列: 確定アクションを該当行に 1 セルのみ表示。
+//   - 現 actor の列は常に 4 セル (今の決定)。フォーカス強調枠は廃止。
+// 行き先は foldAround で「間の席を全員 fold」して各ポジションの決定ノードへ skip-connect。
+// 色: アクションボタンは actionColors (濃色)。グレーは uiColors。色は全て import。
 
 import { type CSSProperties } from 'react';
 import { navigate } from '../../router/router-core';
@@ -15,16 +15,16 @@ import {
   type Seat,
   type ActionKind,
   actorPosition,
-  chainToStem,
   countRaisesInChain,
   foldAroundStem,
-  isLimpNode,
   raiseName,
-  resolveChild,
   simulateChain,
 } from '../../data/preflopV2/chain';
 import { PREFLOP_UI } from '../../data/preflopV2/uiColors';
 import type { PreflopV2Index, PreflopV2Node } from '../../data/preflopV2/types';
+
+// 行の固定順 (上→下)。call 行は limp ノードで "limp" 表示。
+const ROW_KINDS: ActionKind[] = ['allin', 'raise', 'call', 'fold'];
 
 function kindColor(kind: ActionKind): string {
   if (kind === 'allin') return ACTION_COLOR.allin;
@@ -33,25 +33,22 @@ function kindColor(kind: ActionKind): string {
   return ACTION_COLOR.fold;
 }
 
-interface Cell {
-  label: string;
-  kind: ActionKind;
-  /** タップで遷移する stem。null なら非タップ。 */
-  toStem: string | null;
-  /** グレーアウト (このノードでそのアクションが取れない / auto-fold)。 */
-  greyed?: boolean;
-}
-
 function classifyToken(token: string): ActionKind {
   if (token === 'F') return 'fold';
   if (token === 'RAI') return 'allin';
   if (token === 'C' || token === 'X') return 'call';
   return 'raise';
 }
-
 function sizeOf(token: string): number {
-  const m = token.match(/^R(\d+(?:\.\d+)?)$/);
-  return m ? Number(m[1]) : 0;
+  const m = token.match(/^R(\d+(?:[._]\d+)?)$/);
+  return m ? Number(m[1].replace('_', '.')) : 0;
+}
+
+interface Cell {
+  kind: 'empty' | 'committed' | 'action' | 'grey';
+  label?: string;
+  actionKind?: ActionKind; // 色決定用
+  toStem?: string | null;
 }
 
 export function PositionActionGrid({
@@ -67,95 +64,92 @@ export function PositionActionGrid({
   const sim = simulateChain(chain);
   const actor = actorPosition(node) as Seat;
   const priorRaises = countRaisesInChain(chain);
-  const limp = isLimpNode(node);
 
-  // 各席の確定済アクション (最新)。
+  // 確定アクション (最新)。現 actor は除外 (4 択を出すため)。
   const committed = new Map<Seat, { kind: ActionKind; label: string }>();
   for (const a of sim.actions) {
-    let label: string;
-    if (a.kind === 'raise' || a.kind === 'allin') label = a.raiseLabel ?? a.kind;
-    else label = a.kind; // call / limp / fold
+    const label = a.kind === 'raise' || a.kind === 'allin' ? a.raiseLabel ?? a.kind : a.kind;
     committed.set(a.seat, { kind: a.kind, label });
   }
 
-  // フォーカス列 (現 actor): allin / raise / call(or limp) / fold の 4 枠を「常に」表示。
-  //   - そのアクションが legend にあれば色付き、無ければグレーアウト (枠は常に同じ位置)。
-  //   - 遷移先は resolveChild が欠けた中間 fold をスキップして解決。無ければタップ無効。
-  // 「ワンタップで行きたい場所が常に同じ位置にある」体験 (ryoji)。
-  const legendTokenFor = (kind: ActionKind): string | null => {
-    const matches = Object.keys(node.actions_legend).filter((t) => classifyToken(t) === kind);
-    if (matches.length === 0) return null;
-    // raise は最小サイズを代表に。
-    if (kind === 'raise') {
-      return matches.sort((a, b) => sizeOf(a) - sizeOf(b))[0];
+  // 列 (ポジション) ごとに 4 行分の Cell を作る。
+  const columns: { seat: Seat; cells: Cell[] }[] = SEAT_ORDER.map((seat) => {
+    const done = seat !== actor ? committed.get(seat) : undefined;
+    if (done) {
+      // 確定 / 降りた列: 該当行のみ 1 セル。
+      const cells = ROW_KINDS.map<Cell>((rowKind) => {
+        const matches = rowKind === 'call' ? done.kind === 'call' || done.kind === 'limp' : rowKind === done.kind;
+        if (!matches) return { kind: 'empty' };
+        const label = done.kind === 'limp' ? 'limp' : done.label;
+        // fold (= 降りた/auto) はグレー、それ以外は確定色。
+        if (done.kind === 'fold') return { kind: 'grey', label: 'fold' };
+        return { kind: 'committed', actionKind: done.kind, label };
+      });
+      return { seat, cells };
     }
-    return matches[0];
-  };
-  const FRAME_KINDS: ActionKind[] = ['allin', 'raise', limp ? 'limp' : 'call', 'fold'];
-  const focusCells: Cell[] = FRAME_KINDS.map((frameKind) => {
-    const legendKind: ActionKind = frameKind === 'limp' ? 'call' : frameKind;
-    const token = legendTokenFor(legendKind);
-    const inLegend = token !== null;
-    const toStem = inLegend ? resolveChild(chain, token, index) : null;
-    let label: string;
-    if (frameKind === 'allin') label = 'All-in';
-    else if (frameKind === 'raise') label = raiseName(priorRaises);
-    else if (frameKind === 'limp') label = 'limp';
-    else if (frameKind === 'call') label = 'call';
-    else label = 'fold';
-    return { label, kind: frameKind, toStem, greyed: !inLegend };
-  });
 
-  const actorIdx = SEAT_ORDER.indexOf(actor);
+    // 未行動 (現 actor 含む): foldAround で この席の決定ノードへ。
+    const pStem = foldAroundStem(chain, seat, index);
+    const children = pStem ? index.nodes[pStem] ?? [] : [];
+    const limp = priorRaises === 0;
+    const cells = ROW_KINDS.map<Cell>((rowKind) => {
+      // この行に該当する子ノード (raise は最小サイズ)。
+      const matches = children
+        .map((cs) => ({ cs, token: pStem === 'root' ? cs : cs.slice((pStem as string).length + 1) }))
+        .filter(({ token }) => {
+          const k = classifyToken(token);
+          return rowKind === 'call' ? k === 'call' : k === rowKind;
+        })
+        .sort((a, b) => sizeOf(a.token) - sizeOf(b.token));
+      let label: string;
+      if (rowKind === 'allin') label = 'All-in';
+      else if (rowKind === 'raise') label = raiseName(priorRaises);
+      else if (rowKind === 'call') label = limp ? 'limp' : 'call';
+      else label = 'fold';
+      if (matches.length === 0) return { kind: 'grey', label };
+      return {
+        kind: 'action',
+        actionKind: rowKind === 'call' && limp ? 'limp' : rowKind,
+        label,
+        toStem: matches[0].cs,
+      };
+    });
+    return { seat, cells };
+  });
 
   return (
     <div style={rowStyle}>
-      {SEAT_ORDER.map((seat) => {
-        const isFocus = seat === actor;
-        const done = committed.get(seat);
-        const seatIdx = SEAT_ORDER.indexOf(seat);
-
-        let cells: Cell[] = [];
-        if (isFocus) {
-          cells = focusCells;
-        } else if (done) {
-          cells = [{ label: done.label, kind: done.kind, toStem: null, greyed: done.kind === 'fold' }];
-        } else if (seatIdx > actorIdx) {
-          // 未行動の席: 自動補完で その席の決定ノードへ。
-          const jumpStem = foldAroundStem(chain, seat, index);
-          if (jumpStem && jumpStem !== chainToStem(chain)) {
-            cells = [{ label: raiseName(priorRaises), kind: 'raise', toStem: jumpStem }];
-          }
-        }
-
-        return (
-          <div key={seat} style={colStyle}>
-            <div style={isFocus ? headFocusStyle : headStyle}>{seat}</div>
-            <div style={isFocus ? cellsFocusStyle : cellsStyle}>
-              {cells.map((c, i) => (
-                <CellButton key={`${seat}-${i}`} cell={c} config={config} />
-              ))}
-            </div>
+      {columns.map(({ seat, cells }) => (
+        <div key={seat} style={colStyle}>
+          <div style={seat === actor ? headActiveStyle : headStyle}>{seat}</div>
+          <div style={cellsColStyle}>
+            {cells.map((c, i) => (
+              <GridCell key={`${seat}-${ROW_KINDS[i]}`} cell={c} config={config} />
+            ))}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
 
-function CellButton({ cell, config }: { cell: Cell; config: string }) {
-  const grey = cell.greyed;
-  const bg = grey ? PREFLOP_UI.disabledBg : kindColor(cell.kind);
-  const fg = grey ? PREFLOP_UI.disabledText : '#ffffff';
-  if (!cell.toStem) {
+function GridCell({ cell, config }: { cell: Cell; config: string }) {
+  if (cell.kind === 'empty') return <div style={emptyCellStyle} />;
+  if (cell.kind === 'grey') {
     return (
-      <div style={{ ...cellBase, background: bg, color: fg, cursor: 'default' }}>{cell.label}</div>
+      <div style={{ ...cellBase, background: PREFLOP_UI.disabledBg, color: PREFLOP_UI.disabledText }}>
+        {cell.label}
+      </div>
     );
+  }
+  const bg = kindColor(cell.actionKind ?? 'fold');
+  if (cell.kind === 'committed' || !cell.toStem) {
+    return <div style={{ ...cellBase, background: bg, color: '#ffffff' }}>{cell.label}</div>;
   }
   return (
     <button
       type="button"
-      style={{ ...cellBase, background: bg, color: fg, border: 'none', cursor: 'pointer' }}
+      style={{ ...cellBase, background: bg, color: '#ffffff', border: 'none', cursor: 'pointer' }}
       onClick={() => navigate(`/strategy/${config}/${cell.toStem}`)}
     >
       {cell.label}
@@ -177,6 +171,7 @@ const colStyle: CSSProperties = {
   flexDirection: 'column',
   gap: '4px',
 };
+const cellsColStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '4px' };
 const headStyle: CSSProperties = {
   textAlign: 'center',
   fontSize: '11px',
@@ -184,23 +179,7 @@ const headStyle: CSSProperties = {
   color: THEME.textSecondary,
   padding: '2px 0',
 };
-const headFocusStyle: CSSProperties = {
-  ...headStyle,
-  fontWeight: 800,
-  color: PREFLOP_UI.focusBorder,
-};
-const cellsStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  padding: '2px',
-  border: '2.5px solid transparent',
-  borderRadius: '13px',
-};
-const cellsFocusStyle: CSSProperties = {
-  ...cellsStyle,
-  border: `2.5px solid ${PREFLOP_UI.focusBorder}`,
-};
+const headActiveStyle: CSSProperties = { ...headStyle, fontWeight: 800, color: THEME.textPrimary };
 const cellBase: CSSProperties = {
   width: '100%',
   minWidth: 0,
@@ -208,8 +187,9 @@ const cellBase: CSSProperties = {
   fontWeight: 700,
   lineHeight: 1.1,
   padding: '8px 2px',
-  borderRadius: '7px',
+  borderRadius: '6px',
   textAlign: 'center',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
 };
+const emptyCellStyle: CSSProperties = { width: '100%', minHeight: '31px' };

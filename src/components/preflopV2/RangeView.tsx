@@ -10,7 +10,7 @@ import { Breadcrumb } from './Breadcrumb';
 import { PositionActionGrid } from './PositionActionGrid';
 import { findConfig } from '../../data/preflopV2/configs';
 import { usePreflopIndex, usePreflopNode } from '../../hooks/usePreflopStrategy';
-import { nodeToStrategy, PREFLOP_V2_ACTIONS } from '../../data/preflopV2/strategy';
+import { nodeToStrategy, PREFLOP_V2_ACTIONS, PREFLOP_V2_MATRIX_ACTIONS } from '../../data/preflopV2/strategy';
 import { actorPosition, activePositions, parentStem } from '../../data/preflopV2/chain';
 import { PREFLOP_UI } from '../../data/preflopV2/uiColors';
 
@@ -45,7 +45,7 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
       <Breadcrumb config={config} chain={node.data._meta.preflop_actions} />
 
       <div style={titleRowStyle}>
-        <span style={actorTitleStyle}>{actor} の戦略</span>
+        <span style={actorTitleStyle}>現在: {actor} の戦略</span>
         <span style={wayStyle}>{active.length}way</span>
       </div>
 
@@ -53,7 +53,7 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
         <div style={matrixFrameStyle}>
           <HandMatrix
             strategy={strategy}
-            actions={[...PREFLOP_V2_ACTIONS]}
+            actions={[...PREFLOP_V2_MATRIX_ACTIONS]}
             hoveredHand={hoveredHand}
             onHover={setHoveredHand}
           />
