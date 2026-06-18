@@ -63,6 +63,14 @@ export function stackOptions(open: OpenSize, rake: Rake): number[] {
   ).sort((a, b) => a - b);
 }
 
+/**
+ * Rake の表示ラベル。レーキ率は高ステーク (NL500) ほど低く「安」、低ステーク
+ * (NL50) ほど高く「高」。内部キー (NL50 / NL500) は不変、表示のみ。
+ */
+export function rakeLabel(rake: Rake): string {
+  return rake === 'NL500' ? '安 (NL500)' : '高 (NL50)';
+}
+
 /** 3 軸からコンフィグを解決。無効な組み合わせは null。 */
 export function resolveConfig(open: OpenSize, rake: Rake, stackBb: number): PreflopV2Config | null {
   return (

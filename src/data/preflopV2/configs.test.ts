@@ -6,6 +6,7 @@ import {
   isGtoConfig,
   openOptions,
   rakeOptions,
+  rakeLabel,
   stackOptions,
   resolveConfig,
 } from './configs';
@@ -38,6 +39,10 @@ describe('cascading (Open -> Rake -> Stack)', () => {
     expect(stackOptions('GTO', 'NL500')).toEqual([20, 50, 75, 100, 150, 200]);
     expect(stackOptions('GTO', 'NL50')).toEqual([100]);
     expect(stackOptions('2.5x', 'NL500')).toEqual([100]);
+  });
+  it('rake label: NL500 is 安 (low rake), NL50 is 高 (high rake)', () => {
+    expect(rakeLabel('NL500')).toBe('安 (NL500)');
+    expect(rakeLabel('NL50')).toBe('高 (NL50)');
   });
   it('resolveConfig maps valid triples and rejects invalid', () => {
     expect(resolveConfig('GTO', 'NL500', 200)?.id).toBe('cash_200bb_6max_nl500_gto');

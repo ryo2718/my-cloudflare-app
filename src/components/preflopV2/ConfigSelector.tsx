@@ -11,6 +11,7 @@ import {
   type PreflopV2Config,
   openOptions,
   rakeOptions,
+  rakeLabel,
   stackOptions,
   resolveConfig,
 } from '../../data/preflopV2/configs';
@@ -69,7 +70,7 @@ export function ConfigSelector({ current }: { current: PreflopV2Config }) {
             style={r === current.rake ? activeBtn : btn}
             onClick={() => onRake(r)}
           >
-            {r === 'NL50' ? '安 (NL50)' : '高 (NL500)'}
+            {rakeLabel(r)}
           </button>
         ))}
       </div>

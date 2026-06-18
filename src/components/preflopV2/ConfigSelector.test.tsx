@@ -10,9 +10,9 @@ describe('ConfigSelector', () => {
     expect(html).toContain('Open');
     expect(html).toContain('GTO');
     expect(html).toContain('2.5x');
-    // GTO -> both rakes
-    expect(html).toContain('安 (NL50)');
-    expect(html).toContain('高 (NL500)');
+    // GTO -> both rakes. レーキ率: NL500=安 / NL50=高
+    expect(html).toContain('高 (NL50)');
+    expect(html).toContain('安 (NL500)');
     // GTO+NL500 -> all 6 stacks as <option>
     for (const s of [20, 50, 75, 100, 150, 200]) {
       expect(html).toContain(`>${s}bb<`);
