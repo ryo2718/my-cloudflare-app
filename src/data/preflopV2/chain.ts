@@ -147,27 +147,46 @@ export function isLimpNode(node: PreflopV2Node): boolean {
   return 'C' in node.actions_legend && countRaisesInChain(node._meta.preflop_actions) === 0;
 }
 
+export interface FoldAroundTarget {
+  /** 間の席を fold で埋めた後の canonical chain (例 "R2-R6.5-F-F-F-F")。 */
+  chain: string;
+  /** その stem。index.nodes に実在することを確認済み。 */
+  stem: string;
+}
+
 /**
  * 自動補完: 現チェーンから targetSeat が actor になるまで「間の席を全員 fold」した
- * ノードの stem を返す (index に実在する場合のみ)。targetSeat が現 actor より手前 /
- * 到達不能なら null。
+ * ノードを返す (index に実在する場合のみ)。到達不能なら null。
+ *
+ * targetSeat が既に行動済みでも、再び手番が回るなら (例: "UTG open → HJ 3bet" の後に
+ * 他が全員 fold して UTG が 4bet/call/fold を選ぶ局面) そのノードを返す。fold 済みの席は
+ * simulateChain が手番から除外するため、常に null になる。
  */
-export function foldAroundStem(
+export function foldAroundTarget(
   chain: string,
   targetSeat: Seat,
   index: PreflopV2Index,
-): string | null {
+): FoldAroundTarget | null {
   let cur = chain;
   for (let i = 0; i <= SEAT_ORDER.length; i++) {
     const sim = simulateChain(cur);
     if (sim.nextToAct === targetSeat) {
       const stem = chainToStem(cur);
-      return stem in index.nodes ? stem : null;
+      return stem in index.nodes ? { chain: cur, stem } : null;
     }
     if (sim.nextToAct === null) return null;
     cur = cur ? `${cur}-F` : 'F';
   }
   return null;
+}
+
+/** foldAroundTarget の stem のみ版。 */
+export function foldAroundStem(
+  chain: string,
+  targetSeat: Seat,
+  index: PreflopV2Index,
+): string | null {
+  return foldAroundTarget(chain, targetSeat, index)?.stem ?? null;
 }
 
 /** breadcrumb 用: 1 トークンを読みやすいラベルに。 */

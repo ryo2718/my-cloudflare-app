@@ -12,6 +12,7 @@ import {
   simulateChain,
   isLimpNode,
   foldAroundStem,
+  foldAroundTarget,
 } from './chain';
 import type { PreflopV2Index, PreflopV2Node } from './types';
 
@@ -162,6 +163,46 @@ describe('foldAroundStem', () => {
   });
   it('returns null when the fold-around node is not in the index', () => {
     expect(foldAroundStem('', 'BB', index)).toBeNull();
+  });
+});
+
+describe('foldAroundTarget: 複数ステップの自動 fold 補完', () => {
+  // UTG open (R2) 済み。以降の席は「間を全員 fold」で決定ノードに到達する。
+  const index: PreflopV2Index = {
+    config: 'c', label: 'L', stackBb: 100, rake: 'NL500', openSize: 'gto',
+    positionOrder: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
+    entries: {},
+    nodes: {
+      R2: {}, R2_F: {}, R2_F_F: {}, R2_F_F_F: {}, R2_F_F_F_F: {},
+      R2_R6_5: {}, R2_R6_5_F: {}, R2_R6_5_F_F: {}, R2_R6_5_F_F_F: {}, R2_R6_5_F_F_F_F: {},
+    },
+  };
+
+  it('fold を 0〜4 個補完して各席の決定ノードに到達する', () => {
+    expect(foldAroundTarget('R2', 'HJ', index)).toEqual({ chain: 'R2', stem: 'R2' });
+    expect(foldAroundTarget('R2', 'CO', index)).toEqual({ chain: 'R2-F', stem: 'R2_F' });
+    expect(foldAroundTarget('R2', 'BTN', index)).toEqual({ chain: 'R2-F-F', stem: 'R2_F_F' });
+    expect(foldAroundTarget('R2', 'SB', index)).toEqual({ chain: 'R2-F-F-F', stem: 'R2_F_F_F' });
+    expect(foldAroundTarget('R2', 'BB', index)).toEqual({ chain: 'R2-F-F-F-F', stem: 'R2_F_F_F_F' });
+  });
+
+  it('既に行動した席でも再び手番が回るならそのノードを返す (UTG の 2 回目の手番)', () => {
+    // UTG open → HJ 3bet の後、CO/BTN/SB/BB が全員 fold すると UTG に手番が戻る。
+    expect(foldAroundTarget('R2-R6.5', 'UTG', index)).toEqual({
+      chain: 'R2-R6.5-F-F-F-F',
+      stem: 'R2_R6_5_F_F_F_F',
+    });
+    // その stem の raise 回数は 2 → raiseName(2) = '4bet'。
+    expect(raiseName(countRaisesInChain('R2-R6.5-F-F-F-F'))).toBe('4bet');
+  });
+
+  it('fold 済みの席には手番が戻らないので null', () => {
+    // R2-F で HJ は降りている。以降どれだけ fold を足しても HJ は actor にならない。
+    expect(foldAroundTarget('R2-F', 'HJ', index)).toBeNull();
+  });
+
+  it('全員 fold して hand が終わる場合は null (UTG open 後の UTG 自身)', () => {
+    expect(foldAroundTarget('R2', 'UTG', index)).toBeNull();
   });
 });
 
