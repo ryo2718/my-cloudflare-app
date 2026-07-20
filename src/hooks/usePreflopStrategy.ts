@@ -18,10 +18,17 @@ function baseUrl(): string {
 const NODE_CACHE = new Map<string, Promise<PreflopV2Node>>();
 const INDEX_CACHE = new Map<string, Promise<PreflopV2Index>>();
 
+// 解決済みの値。render 中に同期的に読めるので、取得済みノードへの遷移で
+// loading 状態を一切挟まない (= 画面が「読み込み中」に潰れて再展開しない)。
+const NODE_RESOLVED = new Map<string, PreflopV2Node>();
+const INDEX_RESOLVED = new Map<string, PreflopV2Index>();
+
 /** テスト用: モジュールキャッシュをクリア。production では呼ばない。 */
 export function clearPreflopCache(): void {
   NODE_CACHE.clear();
   INDEX_CACHE.clear();
+  NODE_RESOLVED.clear();
+  INDEX_RESOLVED.clear();
 }
 
 async function fetchJson<T>(url: string, cache: Map<string, Promise<T>>): Promise<T> {
@@ -55,40 +62,51 @@ export interface UsePreflopNodeResult {
 }
 
 export function usePreflopNode(config: string | null, stem: string | null): UsePreflopNodeResult {
-  const [data, setData] = useState<PreflopV2Node | null>(null);
-  const [loading, setLoading] = useState(false);
+  const key = config && stem ? `${config}/${stem}` : null;
+  // 取得済みなら render 中に同期で確定 → loading を挟まないので画面が潰れない。
+  const cached = key ? NODE_RESOLVED.get(key) ?? null : null;
+  // 未取得ノードへの初回遷移でも画面を空にしない: 直前のノードを表示したまま差し替える
+  // (stale-while-revalidate)。これが無いと毎タップでページが 1 行に潰れて視線が飛ぶ。
+  const [previous, setPrevious] = useState<PreflopV2Node | null>(null);
+  const [, bump] = useState(0);
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!config || !stem) {
-      // useFlopNode と統一: prop null 時の state reset。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (cached) setPrevious(cached);
+  }, [cached]);
+
+  useEffect(() => {
+    if (!config || !stem || !key || NODE_RESOLVED.has(key)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(null);
-      setLoading(false);
+      setPending(null);
       setError(null);
       return;
     }
     let cancelled = false;
-    setLoading(true);
+    setPending(key);
     setError(null);
     fetchPreflopNode(config, stem).then(
       (d) => {
+        NODE_RESOLVED.set(key, d);
         if (cancelled) return;
-        setData(d);
-        setLoading(false);
+        setPending(null);
+        bump((n) => n + 1);
       },
       (err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err : new Error(String(err)));
-        setLoading(false);
+        setPending(null);
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [config, stem]);
+  }, [config, stem, key]);
 
-  return { data, loading, error };
+  // 取得に失敗した場合は前ノードを出し続けない (「タップしても何も起きない」に見えるため)。
+  return { data: cached ?? (error ? null : previous), loading: pending !== null, error };
 }
 
 export interface UsePreflopIndexResult {
@@ -98,31 +116,32 @@ export interface UsePreflopIndexResult {
 }
 
 export function usePreflopIndex(config: string | null): UsePreflopIndexResult {
-  const [data, setData] = useState<PreflopV2Index | null>(null);
-  const [loading, setLoading] = useState(false);
+  const cached = config ? INDEX_RESOLVED.get(config) ?? null : null;
+  const [, bump] = useState(0);
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!config) {
+    if (!config || INDEX_RESOLVED.has(config)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(null);
-      setLoading(false);
+      setPending(null);
       setError(null);
       return;
     }
     let cancelled = false;
-    setLoading(true);
+    setPending(config);
     setError(null);
     fetchPreflopIndex(config).then(
       (d) => {
+        INDEX_RESOLVED.set(config, d);
         if (cancelled) return;
-        setData(d);
-        setLoading(false);
+        setPending(null);
+        bump((n) => n + 1);
       },
       (err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err : new Error(String(err)));
-        setLoading(false);
+        setPending(null);
       },
     );
     return () => {
@@ -130,5 +149,5 @@ export function usePreflopIndex(config: string | null): UsePreflopIndexResult {
     };
   }, [config]);
 
-  return { data, loading, error };
+  return { data: cached, loading: pending !== null, error };
 }

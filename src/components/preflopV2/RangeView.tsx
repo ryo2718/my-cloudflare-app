@@ -1,5 +1,5 @@
 // Phase 2a: メインのレンジ表示画面。パンくず + HandMatrix (既存流用) + 次手ボタン +
-// 戻る / 最初に戻る。multiway / 2way いずれも actor 視点の 4 アクション頻度で描画。
+// 戻る / リセット。multiway / 2way いずれも actor 視点の 4 アクション頻度で描画。
 
 import { type CSSProperties, useMemo, useState } from 'react';
 import { navigate } from '../../router/router-core';
@@ -27,10 +27,12 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
   );
 
   if (!cfg) return <Info text={`未知の config: ${config}`} />;
-  if (node.loading || index.loading) return <Info text="読み込み中…" />;
-  if (node.error || !node.data || !strategy) {
+  if (node.error && !node.data) {
     return <Info text="ノードを取得できませんでした (R2 未アップロードの可能性)" />;
   }
+  // 「読み込み中」を出すのは初回ロードだけ。以降は直前のノードを表示したまま差し替わるので、
+  // タップのたびに画面が 1 行に潰れて再展開する (= 視線が飛ぶ) ことがない。
+  if (!node.data || !strategy) return <Info text="読み込み中…" />;
 
   const actor = actorPosition(node.data);
   const active = activePositions(node.data);
@@ -86,7 +88,7 @@ export function RangeView({ config, stem }: { config: string; stem: string }) {
           style={navBtnStyle}
           onClick={() => navigate(`/strategy/${config}/root`)}
         >
-          最初に戻る
+          リセット
         </button>
       </div>
     </div>
@@ -101,7 +103,7 @@ function Info({ text }: { text: string }) {
       </p>
       <div style={navRowStyle}>
         <button type="button" style={navBtnStyle} onClick={() => navigate('/strategy')}>
-          最初に戻る
+          リセット
         </button>
       </div>
     </div>
